@@ -1,7 +1,8 @@
+import os
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Header
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -32,7 +33,17 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
 
 
 @app.post("/api/{project_id}/store/", response_model=dict)
-def store_event(project_id: int, event: dict, db: Session = Depends(get_db)):
+def store_event(
+    project_id: int,
+    event: dict,
+    db: Session = Depends(get_db),
+    x_xrayradar_token: str | None = Header(
+        default=None, alias="X-Xrayradar-Token"),
+):
+    expected = os.getenv("XRAYRADAR_INGEST_TOKEN")
+    if expected and x_xrayradar_token != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Unknown project")
