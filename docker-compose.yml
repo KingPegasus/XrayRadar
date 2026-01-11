@@ -1,0 +1,14 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: xrayradar
+      POSTGRES_USER: xrayradar
+      POSTGRES_PASSWORD: xrayradar
+    ports:
+      - "5432:5432"
+    volumes:
+      - xrayradar_pgdata:/var/lib/postgresql/data
+
+volumes:
+  xrayradar_pgdata:
