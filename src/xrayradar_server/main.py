@@ -15,7 +15,10 @@ app = FastAPI(title="xrayradar-server")
 
 @app.get("/health", response_model=dict)
 def health() -> dict:
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "auth_required": bool(os.getenv("XRAYRADAR_INGEST_TOKEN")),
+    }
 
 
 @app.on_event("startup")
