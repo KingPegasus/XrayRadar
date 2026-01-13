@@ -31,6 +31,8 @@ dependencies = [
 flask = ["flask>=2.0.0"]
 django = ["django>=3.0.0"]
 fastapi = ["fastapi>=0.68.0"]
+graphene = ["graphene>=3.0.0"]
+drf = ["djangorestframework>=3.14.0"]
 dev = [
     "pytest>=6.0",
     "pytest-cov>=2.0",

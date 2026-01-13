@@ -143,6 +143,33 @@ XRAYRADAR_ENVIRONMENT = "production"
 XRAYRADAR_RELEASE = "1.0.0"
 ```
 
+### Graphene (GraphQL)
+
+GraphQL frameworks often catch resolver exceptions and return them as part of the GraphQL response, so Django's normal exception hooks may not see them.
+
+Use the Graphene middleware to capture resolver exceptions (Queries and Mutations):
+
+```python
+from xrayradar.integrations.graphene import GrapheneIntegration
+
+graphql_middleware = [GrapheneIntegration()]
+
+# Example usage with GraphQLView / FileUploadGraphQLView:
+# FileUploadGraphQLView.as_view(schema=schema, middleware=graphql_middleware)
+```
+
+### Django REST Framework (DRF)
+
+DRF exceptions are typically handled and converted into responses by the DRF exception handler. Use the handler wrapper to report server-side errors.
+
+```python
+from xrayradar.integrations.drf import make_drf_exception_handler
+
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": make_drf_exception_handler(),
+}
+```
+
 ### FastAPI
 
 ```python

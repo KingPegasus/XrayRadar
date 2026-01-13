@@ -21,3 +21,15 @@ try:
     __all__.append("FastAPIIntegration")
 except ImportError:
     FastAPIIntegration = None
+
+try:
+    from .graphene import GrapheneIntegration
+    __all__.append("GrapheneIntegration")
+except ImportError:
+    GrapheneIntegration = None
+
+try:
+    from .drf import make_drf_exception_handler
+    __all__.append("make_drf_exception_handler")
+except ImportError:
+    make_drf_exception_handler = None
