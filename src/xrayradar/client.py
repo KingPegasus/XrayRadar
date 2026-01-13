@@ -434,8 +434,8 @@ class ErrorTracker:
 
     def _should_sample(self) -> bool:
         """Check if the event should be sampled"""
-        import random
-        return random.random() < self.sample_rate
+        import secrets
+        return secrets.SystemRandom().random() < self.sample_rate
 
     def _generate_fingerprint(self, event: Event) -> List[str]:
         """Generate fingerprint for event"""
