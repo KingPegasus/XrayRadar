@@ -7,14 +7,12 @@ from xrayradar.integrations.flask import FlaskIntegration
 def test_flask_integration_captures_exception(monkeypatch):
     captured = {}
 
-    def fake_capture_exception(self, exc, request=None, tags=None, **kwargs):
-        captured["exc"] = exc
-        captured["request"] = request
-        captured["tags"] = tags
-        return "event-id"
-
-    monkeypatch.setattr(ErrorTracker, "capture_exception",
-                        fake_capture_exception)
+    class FakeClient:
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            captured["exc"] = exc
+            captured["request"] = request
+            captured["tags"] = tags
+            return "event-id"
 
     class DummyFlaskRequest:
         method = "GET"
@@ -30,9 +28,8 @@ def test_flask_integration_captures_exception(monkeypatch):
 
     monkeypatch.setattr(flask_mod, "request", DummyFlaskRequest)
 
-    integration = FlaskIntegration(
-        flask_app=None, client=ErrorTracker(debug=True))
-    integration.client = ErrorTracker(debug=True)
+    integration = FlaskIntegration(flask_app=None, client=None)
+    integration.client = FakeClient()  # type: ignore[assignment]
 
     exc = ZeroDivisionError("boom")
     integration._handle_exception(None, exc)

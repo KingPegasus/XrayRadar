@@ -490,8 +490,8 @@ def capture_exception(*args, **kwargs) -> Optional[str]:
     if client:
         try:
             result = client.capture_exception(*args, **kwargs)
-        except ValueError:
-            result = None
+        except Exception:
+            return None
         return result
     return None
 

@@ -35,18 +35,34 @@ class Config:
             'XRAYRADAR_RELEASE')
         self.server_name = kwargs.get('server_name') or os.getenv(
             'XRAYRADAR_SERVER_NAME', self._get_default_server_name())
-        self.sample_rate = float(kwargs.get('sample_rate', 1.0) or os.getenv(
-            'XRAYRADAR_SAMPLE_RATE', 1.0))
-        self.max_breadcrumbs = int(kwargs.get('max_breadcrumbs', 100) or os.getenv(
-            'XRAYRADAR_MAX_BREADCRUMBS', 100))
+        if 'sample_rate' in kwargs:
+            self.sample_rate = float(kwargs.get('sample_rate'))
+        else:
+            self.sample_rate = float(os.getenv('XRAYRADAR_SAMPLE_RATE', 1.0))
+
+        if 'max_breadcrumbs' in kwargs:
+            self.max_breadcrumbs = int(kwargs.get('max_breadcrumbs'))
+        else:
+            self.max_breadcrumbs = int(
+                os.getenv('XRAYRADAR_MAX_BREADCRUMBS', 100))
 
         # Transport settings
-        self.timeout = float(kwargs.get('timeout', 10.0)
-                             or os.getenv('XRAYRADAR_TIMEOUT', 10.0))
-        self.verify_ssl = kwargs.get('verify_ssl', True) and os.getenv(
-            'XRAYRADAR_VERIFY_SSL', '').lower() not in ('false', '0', 'no')
-        self.max_payload_size = int(kwargs.get(
-            'max_payload_size', 100 * 1024) or os.getenv('XRAYRADAR_MAX_PAYLOAD_SIZE', 100 * 1024))
+        if 'timeout' in kwargs:
+            self.timeout = float(kwargs.get('timeout'))
+        else:
+            self.timeout = float(os.getenv('XRAYRADAR_TIMEOUT', 10.0))
+
+        if 'verify_ssl' in kwargs:
+            self.verify_ssl = bool(kwargs.get('verify_ssl'))
+        else:
+            self.verify_ssl = os.getenv(
+                'XRAYRADAR_VERIFY_SSL', '').lower() not in ('false', '0', 'no')
+
+        if 'max_payload_size' in kwargs:
+            self.max_payload_size = int(kwargs.get('max_payload_size'))
+        else:
+            self.max_payload_size = int(
+                os.getenv('XRAYRADAR_MAX_PAYLOAD_SIZE', 100 * 1024))
 
         # Validate configuration
         self._validate()

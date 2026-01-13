@@ -19,16 +19,14 @@ class DummyRequest:
 def test_graphene_middleware_captures_exception(monkeypatch):
     captured = {}
 
-    def fake_capture_exception(self, exc, request=None, tags=None, **kwargs):
-        captured["exc"] = exc
-        captured["request"] = request
-        captured["tags"] = tags
-        return "event-id"
+    class FakeClient:
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            captured["exc"] = exc
+            captured["request"] = request
+            captured["tags"] = tags
+            return "event-id"
 
-    monkeypatch.setattr(ErrorTracker, "capture_exception",
-                        fake_capture_exception)
-
-    middleware = GrapheneIntegration(client=ErrorTracker(debug=True))
+    middleware = GrapheneIntegration(client=FakeClient())
 
     info = SimpleNamespace(
         context=DummyRequest(),

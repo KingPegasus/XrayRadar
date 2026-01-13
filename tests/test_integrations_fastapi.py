@@ -9,14 +9,12 @@ from xrayradar.integrations.fastapi import FastAPIIntegration
 def test_fastapi_integration_captures_exception(monkeypatch):
     captured = {}
 
-    def fake_capture_exception(self, exc, request=None, tags=None, **kwargs):
-        captured["exc"] = exc
-        captured["request"] = request
-        captured["tags"] = tags
-        return "event-id"
-
-    monkeypatch.setattr(ErrorTracker, "capture_exception",
-                        fake_capture_exception)
+    class FakeClient:
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            captured["exc"] = exc
+            captured["request"] = request
+            captured["tags"] = tags
+            return "event-id"
 
     class DummyURL:
         def __init__(self):
@@ -38,7 +36,7 @@ def test_fastapi_integration_captures_exception(monkeypatch):
         headers = {"User-Agent": "pytest", "Authorization": "Bearer secret"}
 
     integration = FastAPIIntegration(fastapi_app=None)
-    integration.client = ErrorTracker(debug=True)
+    integration.client = FakeClient()  # type: ignore[assignment]
 
     async def run():
         with pytest.raises(RuntimeError):

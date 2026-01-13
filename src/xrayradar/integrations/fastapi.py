@@ -12,13 +12,13 @@ try:
     from fastapi.exceptions import RequestValidationError
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.exceptions import HTTPException as StarletteHTTPException
-except ImportError:
-    FastAPI = None
-    Request = None
-    Response = None
-    RequestValidationError = None
-    BaseHTTPMiddleware = None
-    StarletteHTTPException = None
+except ImportError:  # pragma: no cover
+    FastAPI = None  # pragma: no cover
+    Request = None  # pragma: no cover
+    Response = None  # pragma: no cover
+    RequestValidationError = None  # pragma: no cover
+    BaseHTTPMiddleware = None  # pragma: no cover
+    StarletteHTTPException = None  # pragma: no cover
 
 
 class FastAPIIntegration:

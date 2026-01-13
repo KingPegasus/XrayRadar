@@ -10,11 +10,11 @@ from ..models import Request as RequestModel
 try:
     from flask import Flask, request
     from flask.signals import got_request_exception, request_started
-except ImportError:
-    Flask = None
-    request = None
-    got_request_exception = None
-    request_started = None
+except ImportError:  # pragma: no cover
+    Flask = None  # pragma: no cover
+    request = None  # pragma: no cover
+    got_request_exception = None  # pragma: no cover
+    request_started = None  # pragma: no cover
 
 
 class FlaskIntegration:

@@ -19,20 +19,18 @@ class DummyRequest:
 def test_drf_exception_handler_reports_5xx(monkeypatch):
     captured = {}
 
-    def fake_capture_exception(self, exc, request=None, tags=None, **kwargs):
-        captured["exc"] = exc
-        captured["request"] = request
-        captured["tags"] = tags
-        return "event-id"
-
-    monkeypatch.setattr(ErrorTracker, "capture_exception",
-                        fake_capture_exception)
+    class FakeClient:
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            captured["exc"] = exc
+            captured["request"] = request
+            captured["tags"] = tags
+            return "event-id"
 
     def wrapped_handler(exc, context):
         return SimpleNamespace(status_code=500)
 
     handler = make_drf_exception_handler(
-        handler=wrapped_handler, client=ErrorTracker(debug=True))
+        handler=wrapped_handler, client=FakeClient())
 
     exc = ValueError("boom")
     resp = handler(exc, {"request": DummyRequest()})
@@ -47,18 +45,16 @@ def test_drf_exception_handler_reports_5xx(monkeypatch):
 def test_drf_exception_handler_does_not_report_4xx(monkeypatch):
     called = {"count": 0}
 
-    def fake_capture_exception(self, exc, request=None, tags=None, **kwargs):
-        called["count"] += 1
-        return "event-id"
-
-    monkeypatch.setattr(ErrorTracker, "capture_exception",
-                        fake_capture_exception)
+    class FakeClient:
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            called["count"] += 1
+            return "event-id"
 
     def wrapped_handler(exc, context):
         return SimpleNamespace(status_code=400)
 
     handler = make_drf_exception_handler(
-        handler=wrapped_handler, client=ErrorTracker(debug=True))
+        handler=wrapped_handler, client=FakeClient())
 
     resp = handler(ValueError("boom"), {"request": DummyRequest()})
     assert resp.status_code == 400
@@ -68,18 +64,16 @@ def test_drf_exception_handler_does_not_report_4xx(monkeypatch):
 def test_drf_exception_handler_reports_unhandled(monkeypatch):
     captured = {}
 
-    def fake_capture_exception(self, exc, request=None, tags=None, **kwargs):
-        captured["exc"] = exc
-        return "event-id"
-
-    monkeypatch.setattr(ErrorTracker, "capture_exception",
-                        fake_capture_exception)
+    class FakeClient:
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            captured["exc"] = exc
+            return "event-id"
 
     def wrapped_handler(exc, context):
         return None
 
     handler = make_drf_exception_handler(
-        handler=wrapped_handler, client=ErrorTracker(debug=True))
+        handler=wrapped_handler, client=FakeClient())
 
     resp = handler(RuntimeError("boom"), {"request": DummyRequest()})
     assert resp is None

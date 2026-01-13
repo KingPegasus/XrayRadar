@@ -20,12 +20,12 @@ class Transport(ABC):
     @abstractmethod
     def send_event(self, event_data: Dict[str, Any]) -> None:
         """Send an event to the server"""
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     def flush(self, timeout: Optional[float] = None) -> None:
         """Flush any pending events"""
-        pass
+        pass  # pragma: no cover
 
 
 class HttpTransport(Transport):
@@ -115,6 +115,9 @@ class HttpTransport(Transport):
                     f"Missing project ID in DSN: {self._redact_dsn(dsn)}")
 
             project_id = path_parts[-1]
+            if not project_id:
+                raise InvalidDsnError(
+                    f"Missing project ID in DSN: {self._redact_dsn(dsn)}")
 
             # Build server URL
             server_url = f"{parsed.scheme}://{parsed.hostname}"
@@ -171,7 +174,7 @@ class HttpTransport(Transport):
         except requests.exceptions.RequestException as e:
             raise TransportError(
                 f"Network error while sending event: {e}") from e
-        except (json.JSONEncodeError, TypeError) as e:
+        except (ValueError, TypeError) as e:
             raise TransportError(f"Failed to encode event data: {e}") from e
 
     def _truncate_payload(self, event_data: Dict[str, Any]) -> Dict[str, Any]:

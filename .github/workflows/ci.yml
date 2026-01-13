@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest
+          pytest --cov=xrayradar --cov-report=term-missing
 
   security:
     runs-on: ubuntu-latest

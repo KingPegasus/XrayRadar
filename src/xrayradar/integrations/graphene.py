@@ -45,7 +45,7 @@ class GrapheneIntegration:
                 operation = getattr(info, "operation", None)
                 if operation is not None and getattr(operation, "operation", None) is not None:
                     operation_type = str(operation.operation)
-            except Exception:
+            except Exception:  # pragma: no cover
                 operation_type = None
 
             tags: dict[str, str] = {"framework": "graphene"}

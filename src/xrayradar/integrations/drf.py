@@ -42,7 +42,8 @@ def make_drf_exception_handler(
         effective_handler = handler
         if effective_handler is None:
             if drf_exception_handler is None:
-                raise ImportError("djangorestframework is not installed")
+                raise ImportError(
+                    "djangorestframework is not installed")  # pragma: no cover
             effective_handler = drf_exception_handler
 
         response = effective_handler(exc, context)

@@ -9,9 +9,9 @@ from ..models import Request as RequestModel
 
 try:
     from django.core.signals import got_request_exception, request_started
-except ImportError:
-    got_request_exception = None
-    request_started = None
+except ImportError:  # pragma: no cover
+    got_request_exception = None  # pragma: no cover
+    request_started = None  # pragma: no cover
 
 
 class DjangoIntegration:
