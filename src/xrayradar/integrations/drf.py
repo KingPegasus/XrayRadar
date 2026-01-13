@@ -9,7 +9,7 @@ This module provides a wrapper for DRF's exception handler.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from ..client import ErrorTracker, get_client
 
@@ -20,7 +20,7 @@ except Exception:  # pragma: no cover
     drf_exception_handler = None
 
 
-DRFExceptionHandler = Callable[[Exception, dict[str, Any]], Any]
+DRFExceptionHandler = Callable[[Exception, Dict[str, Any]], Any]
 
 
 def make_drf_exception_handler(
@@ -38,7 +38,7 @@ def make_drf_exception_handler(
     Prefer importing this function and setting the handler directly.
     """
 
-    def _handler(exc: Exception, context: dict[str, Any]):
+    def _handler(exc: Exception, context: Dict[str, Any]):
         effective_handler = handler
         if effective_handler is None:
             if drf_exception_handler is None:
@@ -50,7 +50,7 @@ def make_drf_exception_handler(
         effective_client = client or get_client() or ErrorTracker()
 
         request = context.get("request") if isinstance(context, dict) else None
-        request_data: dict[str, Any] = {}
+        request_data: Dict[str, Any] = {}
         if request is not None and hasattr(request, "build_absolute_uri"):
             headers = dict(getattr(request, "headers", {}) or {})
             request_data = {
@@ -62,7 +62,7 @@ def make_drf_exception_handler(
             }
 
         status_code = getattr(response, "status_code", None)
-        tags: dict[str, str] = {"framework": "drf"}
+        tags: Dict[str, str] = {"framework": "drf"}
         if status_code is not None:
             tags["http_status"] = str(status_code)
 
