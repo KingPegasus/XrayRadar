@@ -67,3 +67,24 @@ def test_config_validation_errors(kwargs):
     base.update(kwargs)
     with pytest.raises(ValueError):
         Config(**base)
+
+
+def test_config_verify_ssl_kwarg_and_to_dict():
+    cfg = Config(dsn="http://x/1", verify_ssl=False)
+    assert cfg.verify_ssl is False
+    d = cfg.to_dict()
+    assert d["verify_ssl"] is False
+    assert d["dsn"] == "http://x/1"
+
+
+def test_load_config_none_uses_from_env(monkeypatch):
+    cfg = load_config(None)
+    assert isinstance(cfg, Config)
+
+
+def test_load_config_from_file_yaml(tmp_path):
+    p = tmp_path / "cfg.yaml"
+    p.write_text("dsn: http://x/1\ntimeout: 4.5\n")
+    cfg = load_config(str(p))
+    assert cfg.dsn == "http://x/1"
+    assert cfg.timeout == 4.5

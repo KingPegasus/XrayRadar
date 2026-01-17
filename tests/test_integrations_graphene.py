@@ -43,3 +43,32 @@ def test_graphene_middleware_captures_exception(monkeypatch):
     assert captured["tags"]["framework"] == "graphene"
     assert captured["tags"]["operation"] == "mutation"
     assert captured["request"]["url"] == "http://testserver/graphql"
+
+
+def test_graphene_middleware_creates_client_when_missing(monkeypatch):
+    import xrayradar.integrations.graphene as graphene_mod
+
+    # Force get_client() to return None.
+    monkeypatch.setattr(graphene_mod, "get_client", lambda: None)
+
+    created = {"n": 0}
+
+    class FakeClient:
+        def __init__(self, *a, **k):
+            created["n"] += 1
+
+        def capture_exception(self, exc, request=None, tags=None, **kwargs):
+            raise exc
+
+    monkeypatch.setattr(graphene_mod, "ErrorTracker", FakeClient)
+
+    middleware = graphene_mod.GrapheneIntegration(client=None)
+    info = SimpleNamespace(context=None, operation=None)
+
+    def next_(_root, _info, **_kwargs):
+        raise ValueError("boom")
+
+    with pytest.raises(ValueError):
+        middleware.resolve(next_, None, info)
+
+    assert created["n"] == 1

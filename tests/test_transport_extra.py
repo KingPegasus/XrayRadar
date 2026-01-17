@@ -1,9 +1,10 @@
 import json
 
 import pytest
+import requests
 
 from xrayradar.exceptions import InvalidDsnError, TransportError
-from xrayradar.transport import HttpTransport
+from xrayradar.transport import HttpTransport, NullTransport
 
 
 def test_redact_dsn_handles_urlparse_failure(monkeypatch):
@@ -92,6 +93,73 @@ def test_http_transport_oversize_payload_truncates(monkeypatch):
 def test_http_transport_flush_noop(monkeypatch):
     t = HttpTransport("http://localhost/1")
     t.flush(timeout=0.1)
+
+
+def test_http_transport_parse_dsn_with_port():
+    t = HttpTransport("https://example.com:8443/1")
+    assert t.server_url == "https://example.com:8443"
+    assert t.project_id == "1"
+
+
+def test_send_event_http_error_without_body(monkeypatch):
+    t = HttpTransport("https://example.com/1")
+
+    class DummyResponse:
+        status_code = 500
+        text = ""
+        headers = {}
+
+    monkeypatch.setattr(t.session, "post", lambda *a, **k: DummyResponse())
+
+    with pytest.raises(TransportError) as e:
+        t.send_event({"message": "hi"})
+
+    assert "HTTP 500" in str(e.value)
+
+
+def test_send_event_request_exception(monkeypatch):
+    t = HttpTransport("https://example.com/1")
+
+    def boom(*a, **k):
+        raise requests.exceptions.RequestException("net")
+
+    monkeypatch.setattr(t.session, "post", boom)
+
+    with pytest.raises(TransportError) as e:
+        t.send_event({"message": "hi"})
+
+    assert "Network error" in str(e.value)
+
+
+def test_null_transport_is_noop():
+    t = NullTransport()
+    assert t.send_event({"message": "x"}) is None
+    assert t.flush(timeout=1.0) is None
+
+
+def test_parse_dsn_missing_project_id_when_split_empty(monkeypatch):
+    # Force the `if not path_parts:` branch (coverage line 103) by returning
+    # a path object whose `.strip().split()` returns an empty list.
+    import xrayradar.transport as tmod
+
+    class FakePath:
+        def strip(self, _chars):
+            return self
+
+        def split(self, _sep):
+            return []
+
+    class FakeParsed:
+        scheme = "https"
+        netloc = "example.com"
+        hostname = "example.com"
+        port = None
+        path = FakePath()
+
+    monkeypatch.setattr(tmod, "urlparse", lambda _dsn: FakeParsed())
+
+    with pytest.raises(InvalidDsnError):
+        HttpTransport("https://example.com/")
 
 
 def test_http_transport_encode_error_raises(monkeypatch):

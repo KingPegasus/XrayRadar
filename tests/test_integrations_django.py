@@ -188,3 +188,29 @@ def test_django_middleware_process_exception_captures_and_flushes(monkeypatch):
 def test_init_django_integration_returns_instance(monkeypatch):
     integration = init_django_integration(client=object())
     assert isinstance(integration, DjangoIntegration)
+
+
+def test_django_request_started_noop_when_client_none():
+    integration = DjangoIntegration(client=object())  # type: ignore[arg-type]
+    integration.client = None
+    integration._handle_request_started(None, request=object())
+
+
+def test_django_handle_exception_noop_when_client_none():
+    integration = DjangoIntegration(client=object())  # type: ignore[arg-type]
+    integration.client = None
+    integration._handle_exception(None, exception=ValueError("x"))
+
+
+def test_django_handle_exception_noop_when_missing_exception():
+    integration = DjangoIntegration(client=object())  # type: ignore[arg-type]
+    integration._handle_exception(None, request=object())
+
+
+def test_django_middleware_call_returns_response(monkeypatch):
+    import xrayradar.integrations.django as django_mod
+
+    monkeypatch.setattr(django_mod, "get_client", lambda: None)
+
+    middleware = django_mod.ErrorTrackerMiddleware(lambda req: "ok")
+    assert middleware(object()) == "ok"

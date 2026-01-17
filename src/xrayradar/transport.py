@@ -52,6 +52,7 @@ class HttpTransport(Transport):
     def __init__(
         self,
         dsn: str,
+        auth_token: Optional[str] = None,
         timeout: float = 10.0,
         verify_ssl: bool = True,
         max_payload_size: int = 100 * 1024,  # 100KB
@@ -72,8 +73,6 @@ class HttpTransport(Transport):
         # Parse DSN
         parsed = self._parse_dsn(dsn)
         self.project_id = parsed["project_id"]
-        self.public_key = parsed["public_key"]
-        self.secret_key = parsed.get("secret_key")
         self.server_url = parsed["server_url"]
 
         # Create session
@@ -83,30 +82,20 @@ class HttpTransport(Transport):
             "User-Agent": "xrayradar/0.1.0",
         })
 
-        token = os.getenv("XRAYRADAR_AUTH_TOKEN")
+        token = (auth_token or "").strip() or os.getenv("XRAYRADAR_AUTH_TOKEN")
         if token:
             self.session.headers["X-Xrayradar-Token"] = token
-
-        if self.secret_key:
-            self.session.auth = (self.public_key, self.secret_key)
 
     def _parse_dsn(self, dsn: str) -> Dict[str, str]:
         """Parse DSN string into components"""
         try:
             # Supported formats:
             # - {PROTOCOL}://{HOST}:{PORT}/{PROJECT_ID}
-            # - {PROTOCOL}://{PUBLIC_KEY}@{HOST}:{PORT}/{PROJECT_ID}
-            # - {PROTOCOL}://{PUBLIC_KEY}:{SECRET_KEY}@{HOST}:{PORT}/{PROJECT_ID}
             parsed = urlparse(dsn)
 
             if not parsed.scheme or not parsed.netloc:
                 raise InvalidDsnError(
                     f"Invalid DSN format: {self._redact_dsn(dsn)}")
-
-            # Extract optional credentials. Some deployments are unauthenticated
-            # (no username/password in DSN), so treat credentials as optional.
-            public_key = parsed.username or ""
-            secret_key = parsed.password
 
             # Extract project ID from path
             path_parts = parsed.path.strip("/").split("/")
@@ -126,8 +115,6 @@ class HttpTransport(Transport):
 
             return {
                 "project_id": project_id,
-                "public_key": public_key,
-                "secret_key": secret_key,
                 "server_url": server_url,
             }
 

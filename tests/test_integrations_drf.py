@@ -78,3 +78,32 @@ def test_drf_exception_handler_reports_unhandled(monkeypatch):
     resp = handler(RuntimeError("boom"), {"request": DummyRequest()})
     assert resp is None
     assert isinstance(captured.get("exc"), RuntimeError)
+
+
+def test_drf_exception_handler_raises_when_drf_not_installed(monkeypatch):
+    import xrayradar.integrations.drf as drf_mod
+
+    monkeypatch.setattr(drf_mod, "drf_exception_handler", None)
+    handler = drf_mod.make_drf_exception_handler(
+        handler=None, client=ErrorTracker(debug=True))
+
+    with pytest.raises(ImportError):
+        handler(ValueError("x"), {})
+
+
+def test_drf_exception_handler_uses_default_handler_when_available(monkeypatch):
+    import xrayradar.integrations.drf as drf_mod
+
+    calls = {"n": 0}
+
+    def default_handler(exc, context):
+        calls["n"] += 1
+        return SimpleNamespace(status_code=500)
+
+    monkeypatch.setattr(drf_mod, "drf_exception_handler", default_handler)
+
+    handler = drf_mod.make_drf_exception_handler(
+        handler=None, client=ErrorTracker(debug=True))
+    resp = handler(ValueError("boom"), {"request": DummyRequest()})
+    assert resp.status_code == 500
+    assert calls["n"] == 1

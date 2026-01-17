@@ -45,7 +45,7 @@ from xrayradar import ErrorTracker
 
 # Initialize the SDK
 tracker = ErrorTracker(
-    dsn="https://your_public_key@your_host.com/your_project_id",
+    dsn="https://your_host.com/your_project_id",
     environment="production",
     release="1.0.0",
 )
@@ -63,7 +63,7 @@ except Exception as e:
 
 # Or use the global client
 xrayradar.init(
-    dsn="https://your_public_key@your_host.com/your_project_id",
+    dsn="https://your_host.com/your_project_id",
     environment="production",
 )
 
@@ -78,11 +78,33 @@ except Exception:
 You can configure the SDK using environment variables:
 
 ```bash
-export XRAYRADAR_DSN="https://your_public_key@your_host.com/your_project_id"
+export XRAYRADAR_DSN="https://your_host.com/your_project_id"
 export XRAYRADAR_ENVIRONMENT="production"
 export XRAYRADAR_RELEASE="1.0.0"
 export XRAYRADAR_SAMPLE_RATE="0.5"
 export XRAYRADAR_SEND_DEFAULT_PII="false"
+export XRAYRADAR_AUTH_TOKEN="your_token"
+```
+
+### Authentication
+
+If your server requires authentication, configure a token to be sent as the request header:
+
+- `X-Xrayradar-Token: <token>`
+
+You can provide the token either via environment variable:
+
+- `XRAYRADAR_AUTH_TOKEN`
+
+Or explicitly when creating the client (forwarded to `HttpTransport`):
+
+```python
+from xrayradar import ErrorTracker
+
+tracker = ErrorTracker(
+    dsn="http://localhost:8001/1",
+    auth_token="your_token",
+)
 ```
 
 ## Privacy
@@ -138,7 +160,7 @@ MIDDLEWARE = [
 ]
 
 # Optional: Configure via settings
-XRAYRADAR_DSN = "https://your_public_key@your_host.com/your_project_id"
+XRAYRADAR_DSN = "https://your_host.com/your_project_id"
 XRAYRADAR_ENVIRONMENT = "production"
 XRAYRADAR_RELEASE = "1.0.0"
 ```
@@ -260,7 +282,7 @@ Create a configuration file (`xrayradar.json`):
 
 ```json
 {
-    "dsn": "https://your_public_key@your_host.com/your_project_id",
+    "dsn": "https://your_host.com/your_project_id",
     "environment": "production",
     "release": "1.0.0",
     "sample_rate": 0.5,

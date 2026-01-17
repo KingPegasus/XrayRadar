@@ -212,5 +212,7 @@ def init_fastapi_integration(fastapi_app: FastAPI, client: Optional[ErrorTracker
     Returns:
         FastAPIIntegration instance
     """
-    integration = FastAPIIntegration(fastapi_app, client)
+    integration = FastAPIIntegration(fastapi_app)
+    if client is not None:
+        integration.init_app(fastapi_app, client=client)
     return integration

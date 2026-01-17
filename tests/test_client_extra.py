@@ -256,3 +256,156 @@ def test_global_helpers_noop_when_client_none(monkeypatch):
     xrayradar.set_user(id="1")
     xrayradar.set_tag("a", "b")
     xrayradar.set_extra("k", "v")
+
+
+def test_init_uses_http_transport_when_dsn_provided(monkeypatch):
+    import xrayradar.client as client_mod
+
+    created = {}
+
+    class FakeHttpTransport:
+        def __init__(self, dsn, **kwargs):
+            created["dsn"] = dsn
+            created["kwargs"] = kwargs
+
+        def send_event(self, event_data):
+            raise AssertionError("not used")
+
+        def flush(self, timeout=None):
+            pass
+
+    monkeypatch.setattr(client_mod, "HttpTransport", FakeHttpTransport)
+    t = ErrorTracker(dsn="http://example.com/1")
+    assert isinstance(t._transport, FakeHttpTransport)
+    assert created["dsn"] == "http://example.com/1"
+
+
+def test_capture_exception_updates_extra_context(monkeypatch):
+    transport = DummyTransport()
+    t = ErrorTracker(dsn="http://localhost/1", transport=transport)
+    eid = t.capture_exception(ValueError("boom"), foo="bar")
+    assert isinstance(eid, str)
+    assert transport.sent[0]["contexts"]["extra"]["foo"] == "bar"
+
+
+def test_capture_message_returns_none_when_disabled():
+    t = ErrorTracker()
+    assert t.capture_message("hello") is None
+
+
+def test_capture_message_returns_none_when_not_sampled(monkeypatch):
+    transport = DummyTransport()
+    t = ErrorTracker(dsn="http://localhost/1", transport=transport)
+    monkeypatch.setattr(t, "_should_sample", lambda: False)
+    assert t.capture_message("hello") is None
+    assert transport.sent == []
+
+
+def test_capture_message_before_send_can_drop_event():
+    transport = DummyTransport()
+
+    def before_send(_event):
+        return None
+
+    t = ErrorTracker(
+        dsn="http://localhost/1",
+        transport=transport,
+        before_send=before_send,
+    )
+
+    assert t.capture_message("hello") is None
+    assert transport.sent == []
+
+
+def test_capture_message_before_send_exception_is_swallowed():
+    transport = DummyTransport()
+
+    def before_send(_event):
+        raise RuntimeError("bad callback")
+
+    t = ErrorTracker(
+        dsn="http://localhost/1",
+        transport=transport,
+        before_send=before_send,
+    )
+
+    assert t.capture_message("hello") is None
+    assert transport.sent == []
+
+
+def test_capture_message_send_failure_returns_none():
+    class BadTransport(DummyTransport):
+        def send_event(self, event_data):
+            raise RuntimeError("network")
+
+    t = ErrorTracker(dsn="http://localhost/1", transport=BadTransport())
+    assert t.capture_message("hello") is None
+
+
+def test_disabled_client_methods_are_noops():
+    t = ErrorTracker()
+    t.add_breadcrumb("x")
+    t.set_user(id="1")
+    t.set_tag("a", "b")
+    t.set_extra("k", "v")
+    t.set_context("user", {"id": "2"})
+
+    assert t._breadcrumbs == []
+    assert t._context.user is None
+    assert t._context.tags == {}
+    assert t._context.extra == {}
+
+
+def test_close_calls_transport_close_when_present(monkeypatch):
+    called = {"close": 0}
+
+    class ClosingTransport(DummyTransport):
+        def close(self):
+            called["close"] += 1
+
+    t = ErrorTracker(dsn="http://localhost/1", transport=ClosingTransport())
+    t.close()
+    assert called["close"] == 1
+
+
+def test_generate_fingerprint_non_exception_uses_message():
+    t = ErrorTracker(debug=True)
+
+    class Ev:
+        exception = None
+        message = "msg"
+
+    assert t._generate_fingerprint(Ev()) == ["msg"]
+
+
+def test_global_capture_exception_returns_none_when_no_client(monkeypatch):
+    xrayradar.reset_global()
+    assert xrayradar.capture_exception(ValueError("x")) is None
+
+
+def test_global_helpers_delegate_to_client(monkeypatch):
+    calls = []
+
+    class DummyClient:
+        def add_breadcrumb(self, *a, **k):
+            calls.append(("add_breadcrumb", a, k))
+
+        def set_user(self, **k):
+            calls.append(("set_user", k))
+
+        def set_tag(self, k, v):
+            calls.append(("set_tag", k, v))
+
+        def set_extra(self, k, v):
+            calls.append(("set_extra", k, v))
+
+    monkeypatch.setattr(xrayradar.client, "_client", DummyClient())
+    xrayradar.add_breadcrumb(message="x")
+    xrayradar.set_user(id="1")
+    xrayradar.set_tag("a", "b")
+    xrayradar.set_extra("k", "v")
+
+    assert calls[0][0] == "add_breadcrumb"
+    assert calls[1] == ("set_user", {"id": "1"})
+    assert calls[2] == ("set_tag", "a", "b")
+    assert calls[3] == ("set_extra", "k", "v")

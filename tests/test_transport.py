@@ -18,14 +18,18 @@ def test_http_transport_parses_dsn_minimal(monkeypatch):
     t = HttpTransport("https://example.com/1")
     assert t.server_url == "https://example.com"
     assert t.project_id == "1"
-    assert t.public_key == ""
-    assert t.secret_key is None
 
 
 def test_http_transport_sets_token_header(monkeypatch):
     monkeypatch.setenv("XRAYRADAR_AUTH_TOKEN", "tok")
     t = HttpTransport("https://example.com/1")
     assert t.session.headers["X-Xrayradar-Token"] == "tok"
+
+
+def test_http_transport_auth_token_argument_overrides_env(monkeypatch):
+    monkeypatch.setenv("XRAYRADAR_AUTH_TOKEN", "envtok")
+    t = HttpTransport("https://example.com/1", auth_token="argtok")
+    assert t.session.headers["X-Xrayradar-Token"] == "argtok"
 
 
 def test_http_transport_invalid_dsn_raises():
