@@ -35,3 +35,35 @@ class EventOut(BaseModel):
     level: str
     message: str
     payload: dict[str, Any]
+
+
+class TokenCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    email: Optional[str] = Field(default=None, max_length=320)
+    is_admin: bool = False
+
+
+class TokenOut(BaseModel):
+    id: int
+    name: str
+    email: Optional[str] = None
+    is_admin: bool
+    created_at: datetime
+    revoked_at: Optional[datetime] = None
+
+
+class TokenCreateOut(TokenOut):
+    token: str
+
+
+class TokenProjectGrant(BaseModel):
+    token_id: int
+    project_id: int
+
+
+class TokenProjectAccessOut(BaseModel):
+    id: int
+    token_id: int
+    project_id: int
+    created_at: datetime
+    revoked_at: Optional[datetime] = None
