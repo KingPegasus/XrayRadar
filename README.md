@@ -10,7 +10,15 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 docker compose up -d
 ```
 
-2) Run API:
+2) (Optional) Build the marketing site (served by the backend in production)
+
+```bash
+cd xrayradar-web
+npm install
+npm run build
+```
+
+3) Run API:
 
 ```bash
 uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
@@ -44,11 +52,29 @@ alembic -c alembic.ini upgrade head
 
 On Render, the recommended approach is to run migrations during deploy/startup.
 
+You typically want to:
+
+1) Build the marketing site (Vite) into `xrayradar-web/dist`.
+2) Point the backend at that directory with `XRAYRADAR_WEB_DIST`.
+
+Example build command:
+
+```bash
+cd xrayradar-web && npm ci && npm run build
+```
+
 Example start command:
 
 ```bash
 alembic -c alembic.ini upgrade head && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
+
+Required environment variables (typical):
+
+- `XRAYRADAR_DATABASE_URL`
+- `XRAYRADAR_ENV=production`
+- `XRAYRADAR_WEB_DIST=xrayradar-web/dist`
+- `XRAYRADAR_SESSION_SECRET` (if using GitHub OAuth admin login)
 
 This avoids needing `psql` locally.
 

@@ -67,3 +67,21 @@ class TokenProjectAccessOut(BaseModel):
     project_id: int
     created_at: datetime
     revoked_at: Optional[datetime] = None
+
+
+class UserSignup(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=8, max_length=200)
+    plan: str = Field(default="Free", min_length=1, max_length=32)
+
+
+class UserLogin(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    plan: str
+    created_at: datetime

@@ -121,3 +121,22 @@ class TokenProjectAccess(Base):
     token_ref: Mapped[Token] = relationship(
         "Token", back_populates="project_access")
     project: Mapped[Project] = relationship(Project)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(
+        String(320), nullable=False, unique=True, index=True
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    plan: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="Free")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
