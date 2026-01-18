@@ -52,12 +52,14 @@ alembic -c alembic.ini upgrade head
 
 On Render, the recommended approach is to run migrations during deploy/startup.
 
-You typically want to:
+This repo includes a `Dockerfile`. If your Render service uses Docker, the marketing site build happens as part of the Docker image build (multi-stage build) and you do not need a separate Render “Build Command”.
+
+If you are not using Docker on Render, you typically want to:
 
 1) Build the marketing site (Vite) into `xrayradar-web/dist`.
 2) Point the backend at that directory with `XRAYRADAR_WEB_DIST`.
 
-Example build command:
+Example Render Build Command (non-Docker):
 
 ```bash
 cd xrayradar-web && npm ci && npm run build
@@ -73,8 +75,23 @@ Required environment variables (typical):
 
 - `XRAYRADAR_DATABASE_URL`
 - `XRAYRADAR_ENV=production`
+
+If you want the backend to serve the marketing site (non-Docker builds), set:
+
 - `XRAYRADAR_WEB_DIST=xrayradar-web/dist`
-- `XRAYRADAR_SESSION_SECRET` (if using GitHub OAuth admin login)
+
+Admin UI / GitHub OAuth (recommended in production):
+
+- `XRAYRADAR_SESSION_SECRET`
+- `XRAYRADAR_ADMIN_EMAILS` (comma-separated allowlist)
+- `XRAYRADAR_GITHUB_CLIENT_ID`
+- `XRAYRADAR_GITHUB_CLIENT_SECRET`
+- `XRAYRADAR_GITHUB_REDIRECT_URI` (e.g. `https://<your-domain>/auth/github/callback`)
+
+Cookie security note:
+
+- In production, serve the site over HTTPS and keep secure cookies enabled.
+- For local HTTP testing only, set `XRAYRADAR_COOKIE_SECURE=false` to avoid OAuth state-cookie issues.
 
 This avoids needing `psql` locally.
 

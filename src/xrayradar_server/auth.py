@@ -12,7 +12,7 @@ def _is_production() -> bool:
     return (os.getenv("XRAYRADAR_ENV") or "").strip().lower() == "production"
 
 
-def _cookie_secure() -> bool:
+def cookie_secure() -> bool:
     raw = (os.getenv("XRAYRADAR_COOKIE_SECURE") or "").strip().lower()
     if raw in {"1", "true", "yes", "on"}:
         return True
@@ -21,25 +21,28 @@ def _cookie_secure() -> bool:
     return _is_production()
 
 
-def _get_session_serializer() -> URLSafeSerializer:
+def get_session_serializer() -> URLSafeSerializer:
     secret = (os.getenv("XRAYRADAR_SESSION_SECRET") or "").strip()
     if not secret:
         raise RuntimeError("XRAYRADAR_SESSION_SECRET is not set")
     return URLSafeSerializer(secret_key=secret, salt="xrayradar-session")
 
 
-def _parse_admin_allowlist() -> set[str]:
+def parse_admin_allowlist() -> set[str]:
     raw = (os.getenv("XRAYRADAR_ADMIN_EMAILS") or "").strip()
     if not raw:
         return set()
     return {x.strip().lower() for x in raw.split(",") if x.strip()}
 
 
-def _get_session_email(request: Request) -> str | None:
+def get_session_email(request: Request) -> str | None:
     cookie = (request.cookies.get("xrayradar_session") or "").strip()
     if not cookie:
         return None
-    s = _get_session_serializer()
+    try:
+        s = get_session_serializer()
+    except RuntimeError:
+        return None
     try:
         payload = s.loads(cookie)
     except BadSignature:
@@ -49,11 +52,14 @@ def _get_session_email(request: Request) -> str | None:
     return email or None
 
 
-def _get_user_session_email(request: Request) -> str | None:
+def get_user_session_email(request: Request) -> str | None:
     cookie = (request.cookies.get("xrayradar_user_session") or "").strip()
     if not cookie:
         return None
-    s = _get_session_serializer()
+    try:
+        s = get_session_serializer()
+    except RuntimeError:
+        return None
     try:
         payload = s.loads(cookie)
     except BadSignature:
@@ -63,7 +69,7 @@ def _get_user_session_email(request: Request) -> str | None:
     return email or None
 
 
-def _hash_password(password: str) -> str:
+def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
     rounds = 210_000
     dk = hashlib.pbkdf2_hmac(
@@ -75,7 +81,7 @@ def _hash_password(password: str) -> str:
     return f"pbkdf2_sha256${rounds}${salt}${dk.hex()}"
 
 
-def _verify_password(password: str, stored: str) -> bool:
+def verify_password(password: str, stored: str) -> bool:
     try:
         algo, rounds_raw, salt, digest_hex = stored.split("$", 3)
     except ValueError:
@@ -95,13 +101,13 @@ def _verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(dk.hex(), digest_hex)
 
 
-def _unauthorized(detail: str = "Unauthorized") -> HTTPException:
+def unauthorized(detail: str = "Unauthorized") -> HTTPException:
     return HTTPException(status_code=401, detail=detail)
 
 
-def _forbidden(detail: str = "Forbidden") -> HTTPException:
+def forbidden(detail: str = "Forbidden") -> HTTPException:
     return HTTPException(status_code=403, detail=detail)
 
 
-def _session_payload_for_email(email: str) -> dict:
+def session_payload_for_email(email: str) -> dict:
     return {"email": email, "ts": int(datetime.now().timestamp())}

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import _cookie_secure, _get_session_serializer, _hash_password, _unauthorized, _verify_password
+from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
 from ..db import get_db
 from ..deps import require_user
 from ..models import User
@@ -37,7 +37,7 @@ def signup(payload: UserSignup, response: Response, db: Session = Depends(get_db
 
     row = User(
         email=email,
-        password_hash=_hash_password(payload.password),
+        password_hash=hash_password(payload.password),
         plan=plan,
         last_login_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
@@ -45,7 +45,7 @@ def signup(payload: UserSignup, response: Response, db: Session = Depends(get_db
     db.commit()
     db.refresh(row)
 
-    s = _get_session_serializer()
+    s = get_session_serializer()
     session_cookie = s.dumps(
         {"email": row.email, "ts": int(datetime.now(timezone.utc).timestamp())}
     )
@@ -54,7 +54,7 @@ def signup(payload: UserSignup, response: Response, db: Session = Depends(get_db
         session_cookie,
         httponly=True,
         samesite="lax",
-        secure=_cookie_secure(),
+        secure=cookie_secure(),
         path="/",
         max_age=60 * 60 * 24 * 30,
     )
@@ -70,14 +70,14 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
 
     row = db.execute(select(User).where(User.email == email)).scalars().first()
     if row is None:
-        raise _unauthorized("Invalid credentials")
-    if not _verify_password(payload.password, row.password_hash):
-        raise _unauthorized("Invalid credentials")
+        raise unauthorized("Invalid credentials")
+    if not verify_password(payload.password, row.password_hash):
+        raise unauthorized("Invalid credentials")
 
     row.last_login_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
 
-    s = _get_session_serializer()
+    s = get_session_serializer()
     session_cookie = s.dumps(
         {"email": row.email, "ts": int(datetime.now(timezone.utc).timestamp())}
     )
@@ -86,7 +86,7 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
         session_cookie,
         httponly=True,
         samesite="lax",
-        secure=_cookie_secure(),
+        secure=cookie_secure(),
         path="/",
         max_age=60 * 60 * 24 * 30,
     )

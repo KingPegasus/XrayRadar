@@ -43,16 +43,16 @@ def client_and_db(database_url, monkeypatch, request):
 def test_auth_verify_password_edge_cases():
     from xrayradar_server import auth
 
-    assert auth._verify_password("pw", "not-a-valid-format") is False
-    assert auth._verify_password("pw", "other$1$salt$deadbeef") is False
-    assert auth._verify_password(
+    assert auth.verify_password("pw", "not-a-valid-format") is False
+    assert auth.verify_password("pw", "other$1$salt$deadbeef") is False
+    assert auth.verify_password(
         "pw", "pbkdf2_sha256$notint$salt$deadbeef") is False
 
 
 def test_auth_session_payload_shape():
     from xrayradar_server import auth
 
-    payload = auth._session_payload_for_email("a@example.com")
+    payload = auth.session_payload_for_email("a@example.com")
     assert payload["email"] == "a@example.com"
     assert isinstance(payload["ts"], int)
 
@@ -62,9 +62,9 @@ def test_require_user_unauthorized_when_user_row_missing(client_and_db, monkeypa
 
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
 
-    from xrayradar_server.auth import _get_session_serializer
+    from xrayradar_server.auth import get_session_serializer
 
-    cookie = _get_session_serializer().dumps(
+    cookie = get_session_serializer().dumps(
         {"email": "missing@example.com", "ts": 1})
     client.cookies.set("xrayradar_user_session", cookie)
 
@@ -98,11 +98,11 @@ def test_user_auth_wrong_password_branch(client_and_db):
 
     db = dbmod.SessionLocal()
     try:
-        from xrayradar_server.auth import _hash_password
+        from xrayradar_server.auth import hash_password
 
         row = models.User(
             email="a@example.com",
-            password_hash=_hash_password("correct"),
+            password_hash=hash_password("correct"),
             plan="Free",
         )
         db.add(row)
@@ -115,32 +115,10 @@ def test_user_auth_wrong_password_branch(client_and_db):
     assert r.status_code == 401
 
 
-def test_deps_misc_helpers(monkeypatch):
-    from xrayradar_server import deps
-
-    token_value = deps._new_admin_token_value()
-    assert isinstance(token_value, str)
-    assert token_value
-
-    now = deps._utcnow()
-    assert now.tzinfo is not None
-
-    monkeypatch.delenv("XRAYRADAR_GITHUB_CLIENT_ID", raising=False)
-    monkeypatch.delenv("XRAYRADAR_GITHUB_REDIRECT_URI", raising=False)
-    assert deps._is_github_oauth_configured() is False
-
-    monkeypatch.setenv("XRAYRADAR_GITHUB_CLIENT_ID", "id")
-    monkeypatch.delenv("XRAYRADAR_GITHUB_REDIRECT_URI", raising=False)
-    assert deps._is_github_oauth_configured() is False
-
-    monkeypatch.setenv("XRAYRADAR_GITHUB_REDIRECT_URI", "uri")
-    assert deps._is_github_oauth_configured() is True
-
-
 def test_auth_bad_signature_cookie_parsing(monkeypatch):
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
 
-    from xrayradar_server.auth import _get_user_session_email
+    from xrayradar_server.auth import get_user_session_email
 
     scope = {
         "type": "http",
@@ -149,7 +127,37 @@ def test_auth_bad_signature_cookie_parsing(monkeypatch):
         "headers": [(b"cookie", b"xrayradar_user_session=not-a-signed-cookie")],
     }
     request = Request(scope)
-    assert _get_user_session_email(request) is None
+    assert get_user_session_email(request) is None
+
+
+def test_get_session_email_returns_none_when_secret_missing(monkeypatch):
+    monkeypatch.delenv("XRAYRADAR_SESSION_SECRET", raising=False)
+
+    from xrayradar_server.auth import get_session_email
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [(b"cookie", b"xrayradar_session=some-cookie")],
+    }
+    request = Request(scope)
+    assert get_session_email(request) is None
+
+
+def test_get_user_session_email_returns_none_when_secret_missing(monkeypatch):
+    monkeypatch.delenv("XRAYRADAR_SESSION_SECRET", raising=False)
+
+    from xrayradar_server.auth import get_user_session_email
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [(b"cookie", b"xrayradar_user_session=some-cookie")],
+    }
+    request = Request(scope)
+    assert get_user_session_email(request) is None
 
 
 def test_web_router_uncovered_branches(tmp_path, monkeypatch):

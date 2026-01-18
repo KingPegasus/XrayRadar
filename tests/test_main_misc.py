@@ -49,15 +49,19 @@ def app_and_client(database_url, monkeypatch, request):
 
 
 def test_cookie_secure_env_true(app_and_client, monkeypatch):
-    mainmod, _ = app_and_client
+    _, _ = app_and_client
     monkeypatch.setenv("XRAYRADAR_COOKIE_SECURE", "true")
-    assert mainmod._cookie_secure() is True
+    from xrayradar_server.auth import cookie_secure
+
+    assert cookie_secure() is True
 
 
 def test_cookie_secure_env_false(app_and_client, monkeypatch):
-    mainmod, _ = app_and_client
+    _, _ = app_and_client
     monkeypatch.setenv("XRAYRADAR_COOKIE_SECURE", "false")
-    assert mainmod._cookie_secure() is False
+    from xrayradar_server.auth import cookie_secure
+
+    assert cookie_secure() is False
 
 
 def _set_admin_session(client: TestClient, *, secret: str, email: str) -> None:
@@ -344,10 +348,10 @@ def test_session_cookie_bad_signature_is_not_admin(app_and_client, monkeypatch):
 def test_session_secret_missing_raises(monkeypatch):
     monkeypatch.delenv("XRAYRADAR_SESSION_SECRET", raising=False)
 
-    import xrayradar_server.main as mainmod
+    from xrayradar_server.auth import get_session_serializer
 
     with pytest.raises(RuntimeError):
-        mainmod._get_session_serializer()
+        get_session_serializer()
 
 
 def test_github_login_not_configured(app_and_client, monkeypatch):

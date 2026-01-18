@@ -13,10 +13,10 @@ from itsdangerous import BadSignature
 from .db import init_db
 from .admin_ui import render_admin_ui
 from .auth import (
-    _cookie_secure,
-    _get_session_email,
-    _get_session_serializer,
-    _parse_admin_allowlist,
+    cookie_secure,
+    get_session_email,
+    get_session_serializer,
+    parse_admin_allowlist,
 )
 from .deps import (
     _is_session_admin,
@@ -54,7 +54,7 @@ def github_login() -> RedirectResponse:
             status_code=500, detail="GitHub OAuth is not configured")
 
     state = secrets.token_urlsafe(24)
-    s = _get_session_serializer()
+    s = get_session_serializer()
     state_cookie = s.dumps(
         {"state": state, "ts": int(datetime.now(timezone.utc).timestamp())})
 
@@ -71,7 +71,7 @@ def github_login() -> RedirectResponse:
         state_cookie,
         httponly=True,
         samesite="lax",
-        secure=_cookie_secure(),
+        secure=cookie_secure(),
         path="/",
         max_age=600,
     )
@@ -83,7 +83,7 @@ def github_callback(request: Request, code: str | None = None, state: str | None
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code/state")
 
-    s = _get_session_serializer()
+    s = get_session_serializer()
     raw_cookie = (request.cookies.get("xrayradar_oauth_state") or "").strip()
     if not raw_cookie:
         raise HTTPException(
@@ -153,7 +153,7 @@ def github_callback(request: Request, code: str | None = None, state: str | None
     if not email:
         raise HTTPException(status_code=403, detail="No verified email found")
 
-    allowlist = _parse_admin_allowlist()
+    allowlist = parse_admin_allowlist()
     if not allowlist or email not in allowlist:
         raise HTTPException(status_code=403, detail=f"Not allowed for {email}")
 
@@ -166,7 +166,7 @@ def github_callback(request: Request, code: str | None = None, state: str | None
         session_cookie,
         httponly=True,
         samesite="lax",
-        secure=_cookie_secure(),
+        secure=cookie_secure(),
         path="/",
         max_age=60 * 60 * 12,
     )
@@ -180,7 +180,7 @@ def admin_ui(request: Request) -> HTMLResponse:
             '<html><body><a href="/auth/github/login">Login with GitHub</a></body></html>',
             status_code=401,
         )
-    email = _get_session_email(request) or ""
+    email = get_session_email(request) or ""
     return render_admin_ui(email=email)
 
 

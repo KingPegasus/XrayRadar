@@ -1,3 +1,14 @@
+FROM node:20-slim AS web-build
+
+WORKDIR /web
+
+COPY xrayradar-web/package.json xrayradar-web/package-lock.json /web/
+RUN npm ci
+
+COPY xrayradar-web /web
+RUN npm run build
+
+
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -8,6 +19,9 @@ WORKDIR /app
 COPY pyproject.toml README.md alembic.ini /app/
 COPY alembic /app/alembic
 COPY src /app/src
+COPY --from=web-build /web/dist /app/xrayradar-web/dist
+
+ENV XRAYRADAR_WEB_DIST=/app/xrayradar-web/dist
 
 RUN pip install --no-cache-dir -U pip \
     && pip install --no-cache-dir .
