@@ -1,15 +1,48 @@
-import uuid
 from datetime import datetime, timezone
+import os
+import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.types import CHAR, TypeDecorator
 
 from .db import Base
 
 
 def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _is_sqlite() -> bool:
+    return os.getenv("XRAYRADAR_DATABASE_URL", "").startswith("sqlite:")
+
+
+class GUID(TypeDecorator):
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(UUID(as_uuid=True))
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return str(uuid.UUID(str(value)))
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, uuid.UUID):
+            return value
+        return uuid.UUID(str(value))
 
 
 class Project(Base):
@@ -23,7 +56,7 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        GUID(), primary_key=True, default=uuid.uuid4)
     project_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("projects.id"), nullable=False, index=True)
 
@@ -38,7 +71,8 @@ class Event(Base):
         String(64), nullable=True, index=True)
     server_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    payload: Mapped[dict] = mapped_column(
+        JSON if _is_sqlite() else JSONB, nullable=False)
 
     project: Mapped[Project] = relationship(Project)
 

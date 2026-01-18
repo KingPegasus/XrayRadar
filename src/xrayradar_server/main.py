@@ -588,7 +588,6 @@ def admin_ui(request: Request) -> HTMLResponse:
       async function loadAll() {
         showErr(qs('create_err'), '');
         showErr(qs('access_err'), '');
-        qs('create_out').textContent = '';
 
         state.projects = await api('/api/admin/projects');
         state.tokens = await api('/api/admin/tokens');

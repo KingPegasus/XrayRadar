@@ -1,4 +1,5 @@
 import importlib
+import sys
 
 import pytest
 from fastapi import Response
@@ -19,9 +20,10 @@ def app_and_client(database_url, monkeypatch, request):
     import xrayradar_server.db as dbmod
 
     importlib.reload(dbmod)
-    dbmod.init_db()
 
+    sys.modules.pop("xrayradar_server.models", None)
     import xrayradar_server.models as models
+    dbmod.init_db()
 
     db = dbmod.SessionLocal()
     try:
@@ -91,7 +93,7 @@ def test_admin_me_requires_login(app_and_client):
 
 
 def test_admin_ui_session_cookie_allows_access(app_and_client, monkeypatch):
-    mainmod, client = app_and_client
+    _, client = app_and_client
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
     monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
 

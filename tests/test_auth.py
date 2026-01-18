@@ -1,5 +1,6 @@
 import importlib
 import secrets
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,9 +13,10 @@ def app_and_client(database_url, monkeypatch, request):
     import xrayradar_server.db as dbmod
 
     importlib.reload(dbmod)
-    dbmod.init_db()
 
+    sys.modules.pop("xrayradar_server.models", None)
     import xrayradar_server.models as models
+    dbmod.init_db()
 
     db = dbmod.SessionLocal()
     try:
