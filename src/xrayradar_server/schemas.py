@@ -37,6 +37,21 @@ class EventOut(BaseModel):
     payload: dict[str, Any]
 
 
+class AdminEventListItemOut(BaseModel):
+    id: UUID
+    project_id: int
+    timestamp: datetime
+    level: str
+    message: str
+    environment: Optional[str] = None
+    release: Optional[str] = None
+    server_name: Optional[str] = None
+
+
+class AdminEventOut(AdminEventListItemOut):
+    payload: dict[str, Any]
+
+
 class TokenCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     email: Optional[str] = Field(default=None, max_length=320)

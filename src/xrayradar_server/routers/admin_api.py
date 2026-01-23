@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import UUID
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,8 +8,10 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import require_admin
-from ..models import Project, Token, TokenProjectAccess
+from ..models import Event, Project, Token, TokenProjectAccess
 from ..schemas import (
+    AdminEventListItemOut,
+    AdminEventOut,
     ProjectOut,
     TokenCreate,
     TokenCreateOut,
@@ -194,3 +197,83 @@ def admin_list_token_projects(
         )
         for r in rows
     ]
+
+
+@router.get(
+    "/api/admin/projects/{project_id}/events",
+    response_model=list[AdminEventListItemOut],
+)
+def admin_list_project_events(
+    project_id: int,
+    limit: int = 50,
+    before: datetime | None = None,
+    level: str | None = None,
+    environment: str | None = None,
+    release: str | None = None,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    _: Token = Depends(require_admin),
+):
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Unknown project")
+
+    clamped_limit = min(max(limit, 1), 200)
+
+    dt_before: datetime | None = None
+    if before is not None:
+        dt_before = before.replace(tzinfo=None) if before.tzinfo else before
+
+    query = select(Event).where(Event.project_id == project_id)
+    if dt_before is not None:
+        query = query.where(Event.timestamp < dt_before)
+    if level:
+        query = query.where(Event.level == level)
+    if environment:
+        query = query.where(Event.environment == environment)
+    if release:
+        query = query.where(Event.release == release)
+    if q and q.strip():
+        query = query.where(Event.message.ilike(f"%{q.strip()}%"))
+
+    query = query.order_by(Event.timestamp.desc()).limit(clamped_limit)
+    rows = db.execute(query).scalars().all()
+    return [
+        AdminEventListItemOut(
+            id=r.id,
+            project_id=r.project_id,
+            timestamp=r.timestamp,
+            level=r.level,
+            message=r.message,
+            environment=r.environment,
+            release=r.release,
+            server_name=r.server_name,
+        )
+        for r in rows
+    ]
+
+
+@router.get(
+    "/api/admin/projects/{project_id}/events/{event_id}",
+    response_model=AdminEventOut,
+)
+def admin_get_project_event(
+    project_id: int,
+    event_id: UUID,
+    db: Session = Depends(get_db),
+    _: Token = Depends(require_admin),
+):
+    row = db.get(Event, event_id)
+    if row is None or row.project_id != project_id:
+        raise HTTPException(status_code=404, detail="Not found")
+    return AdminEventOut(
+        id=row.id,
+        project_id=row.project_id,
+        timestamp=row.timestamp,
+        level=row.level,
+        message=row.message,
+        environment=row.environment,
+        release=row.release,
+        server_name=row.server_name,
+        payload=row.payload,
+    )

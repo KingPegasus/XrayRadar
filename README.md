@@ -31,6 +31,42 @@ export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localho
 PYTHONPATH=src uvicorn xrayradar_server.main:app --reload --port 8001
 ```
 
+### Run locally with Docker
+
+This repo includes a multi-stage `Dockerfile` that builds the marketing site and serves it from the backend.
+
+1) Start Postgres:
+
+```bash
+docker compose up -d
+```
+
+2) Build the backend image:
+
+```bash
+docker build -t xrayradar-server:local .
+```
+
+3) Run the container on the same Compose network so the hostname `db` resolves:
+
+Make sure your `.env` includes `XRAYRADAR_DATABASE_URL` pointing at `db` (not `localhost`), for example:
+
+```bash
+XRAYRADAR_DATABASE_URL=postgresql+psycopg2://xrayradar:xrayradar@db:5432/xrayradar
+```
+
+```bash
+docker run --rm \
+  --name xrayradar-server-local \
+  --network xrayradar-server_default \
+  -p 8001:8000 \
+  --env-file .env \
+  -e XRAYRADAR_COOKIE_SECURE=false \
+  xrayradar-server:local
+```
+
+If your Compose project name is different, the network name will be different too. You can list Docker networks and use the one ending in `_default`.
+
 ## Database migrations (Alembic)
 
 This project uses Alembic for schema migrations.
@@ -103,6 +139,23 @@ If you want reproducible dependency installs, you can generate a lockfile:
 uv lock
 uv sync
 ```
+
+## Test coverage
+
+Run the test suite with coverage locally:
+
+```bash
+uv sync --extra dev
+uv run pytest -q --cov=src/xrayradar_server --cov-report=term-missing
+```
+
+Generate a coverage XML report (useful for CI/reporting tools):
+
+```bash
+uv run pytest -q --cov=src/xrayradar_server --cov-report=xml:coverage.xml
+```
+
+In CI, the workflow uploads `coverage.xml` as a build artifact for each Python version.
 
 ## SDK endpoint compatibility
 

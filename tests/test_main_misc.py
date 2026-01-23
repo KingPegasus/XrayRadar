@@ -1,5 +1,6 @@
 import importlib
 import sys
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import Response
@@ -714,4 +715,126 @@ def test_admin_revoke_project_access_not_found(app_and_client, monkeypatch):
     _set_admin_session(client, secret="secret", email="admin@example.com")
 
     r = client.post("/api/admin/tokens/1/projects/1/revoke")
+    assert r.status_code == 404
+
+
+def _seed_events_for_project(project_id: int, *, count: int = 2):
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        rows = []
+        for i in range(count):
+            ts = now - timedelta(minutes=i)
+            level = "error" if i % 2 == 0 else "info"
+            rows.append(
+                models.Event(
+                    project_id=project_id,
+                    timestamp=ts,
+                    level=level,
+                    message=f"hello {i}",
+                    environment="production" if i % 2 == 0 else "staging",
+                    release="1.0.0",
+                    server_name="srv1",
+                    payload={"i": i, "msg": f"hello {i}"},
+                )
+            )
+        db.add_all(rows)
+        db.commit()
+        for r in rows:
+            db.refresh(r)
+        return rows
+    finally:
+        db.close()
+
+
+def test_admin_list_project_events_and_detail_with_session(app_and_client, monkeypatch):
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    rows = _seed_events_for_project(1, count=2)
+    newest = max(rows, key=lambda r: r.timestamp)
+
+    r = client.get("/api/admin/projects/1/events")
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) >= 2
+    assert all("payload" not in x for x in data)
+
+    r = client.get("/api/admin/projects/1/events?level=info")
+    assert r.status_code == 200
+    data = r.json()
+    assert all(x["level"] == "info" for x in data)
+
+    # Cover environment filter branch (admin_api.py:233)
+    r = client.get("/api/admin/projects/1/events?environment=production")
+    assert r.status_code == 200
+    data = r.json()
+    assert all(x.get("environment") == "production" for x in data)
+
+    # Add an extra event with a different release and distinctive message
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        special = models.Event(
+            project_id=1,
+            timestamp=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=5),
+            level="error",
+            message="unique-release-msg",
+            environment="production",
+            release="2.0.0",
+            server_name="srv2",
+            payload={"special": True},
+        )
+        db.add(special)
+        db.commit()
+        db.refresh(special)
+    finally:
+        db.close()
+
+    # Cover release filter branch (admin_api.py:235)
+    r = client.get("/api/admin/projects/1/events?release=2.0.0")
+    assert r.status_code == 200
+    data = r.json()
+    assert all(x.get("release") == "2.0.0" for x in data)
+    assert any(x.get("message") == "unique-release-msg" for x in data)
+
+    # Cover q (message substring search) branch (admin_api.py:237)
+    r = client.get("/api/admin/projects/1/events?q=hello%201")
+    assert r.status_code == 200
+    data = r.json()
+    assert all("hello 1" in (x.get("message") or "") for x in data)
+
+    before = newest.timestamp.isoformat()
+    r = client.get(f"/api/admin/projects/1/events?before={before}")
+    assert r.status_code == 200
+    data = r.json()
+    assert all(x["timestamp"] < before for x in data)
+
+    r = client.get(f"/api/admin/projects/1/events/{newest.id}")
+    assert r.status_code == 200
+    detail = r.json()
+    assert detail["id"] == str(newest.id)
+    assert detail["project_id"] == 1
+    assert isinstance(detail.get("payload"), dict)
+
+    # Cover event detail not-found branch (admin_api.py:268) by project mismatch
+    r = client.get(f"/api/admin/projects/999/events/{newest.id}")
+    assert r.status_code == 404
+
+
+def test_admin_list_project_events_unknown_project(app_and_client, monkeypatch):
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/api/admin/projects/999/events")
     assert r.status_code == 404
