@@ -81,7 +81,8 @@ def require_admin(
 ) -> Token:
     if _is_session_admin(request):
         email = get_session_email(request) or "admin"
-        return Token(name=email, token="", is_admin=True)
+        # bandit: token is intentionally empty for session-admin (not a secret)
+        return Token(name=email, token="", is_admin=True)  # nosec B106
 
     token = get_current_token(db=db, x_xrayradar_token=x_xrayradar_token)
     if token.is_admin:

@@ -18,6 +18,7 @@ from .auth import (
     get_session_serializer,
     parse_admin_allowlist,
 )
+from .constants import GITHUB_OAUTH_ACCESS_TOKEN_URL
 from .deps import (
     _is_session_admin,
     admin_me,
@@ -105,7 +106,7 @@ def github_callback(request: Request, code: str | None = None, state: str | None
         raise HTTPException(
             status_code=500, detail="GitHub OAuth is not configured")
 
-    token_url = "https://github.com/login/oauth/access_token"
+    token_url = GITHUB_OAUTH_ACCESS_TOKEN_URL
     async_headers = {"Accept": "application/json"}
     data = {
         "client_id": client_id,
