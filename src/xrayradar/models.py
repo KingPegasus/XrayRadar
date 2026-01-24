@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from .version import get_sdk_info
 
 class Level(Enum):
     """Error event severity levels"""
@@ -92,8 +93,7 @@ class Event:
     level: Level
     message: str
     platform: str = "python"
-    sdk: Dict[str, str] = field(default_factory=lambda: {
-                                "name": "xrayradar", "version": "0.1.0"})
+    sdk: Dict[str, str] = field(default_factory=get_sdk_info)
     contexts: Context = field(default_factory=Context)
     exception: Optional[ExceptionInfo] = None
     breadcrumbs: List[Breadcrumb] = field(default_factory=list)

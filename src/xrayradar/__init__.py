@@ -16,8 +16,9 @@ from .client import (
 )
 from .exceptions import ErrorTrackerException
 from .models import Event, Level, Context
+from .version import get_version
 
-__version__ = "0.1.0"
+__version__ = get_version()
 __all__ = [
     "ErrorTracker",
     "ErrorTrackerException",

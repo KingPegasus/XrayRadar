@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import requests
 
 from .exceptions import TransportError, RateLimitedError, InvalidDsnError
+from .version import get_version
 
 
 class Transport(ABC):
@@ -79,7 +80,7 @@ class HttpTransport(Transport):
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json",
-            "User-Agent": "xrayradar/0.1.0",
+            "User-Agent": f"xrayradar/{get_version()}",
         })
 
         token = (auth_token or "").strip() or os.getenv("XRAYRADAR_AUTH_TOKEN")
