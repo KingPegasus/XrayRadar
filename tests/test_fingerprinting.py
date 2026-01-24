@@ -13,7 +13,7 @@ def test_fingerprint_with_sdk_fingerprint_list():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20  # SHA1 truncated to 20 chars
+    assert len(result) == 64  # Full SHA256 hash (64 hex characters)
 
 
 def test_fingerprint_with_empty_list():
@@ -24,7 +24,7 @@ def test_fingerprint_with_empty_list():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_none_values_in_list():
@@ -35,7 +35,7 @@ def test_fingerprint_with_none_values_in_list():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception():
@@ -51,7 +51,7 @@ def test_fingerprint_with_exception():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_and_stacktrace():
@@ -77,7 +77,7 @@ def test_fingerprint_with_exception_and_stacktrace():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_in_app_frame():
@@ -109,7 +109,7 @@ def test_fingerprint_with_exception_in_app_frame():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_no_in_app_frame():
@@ -135,7 +135,7 @@ def test_fingerprint_with_exception_no_in_app_frame():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_empty_frames():
@@ -154,7 +154,7 @@ def test_fingerprint_with_exception_empty_frames():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_non_dict_frame():
@@ -173,7 +173,7 @@ def test_fingerprint_with_exception_non_dict_frame():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_non_dict_values():
@@ -186,7 +186,7 @@ def test_fingerprint_with_exception_non_dict_values():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_non_list_values():
@@ -199,7 +199,7 @@ def test_fingerprint_with_exception_non_list_values():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_non_dict_stacktrace():
@@ -216,7 +216,7 @@ def test_fingerprint_with_exception_non_dict_stacktrace():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_non_dict_exception():
@@ -227,7 +227,7 @@ def test_fingerprint_with_exception_non_dict_exception():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_fallback_to_message():
@@ -237,7 +237,7 @@ def test_fingerprint_fallback_to_message():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_fallback_to_unknown():
@@ -245,7 +245,7 @@ def test_fingerprint_fallback_to_unknown():
     event = {}
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
     # Should hash "unknown"
     assert result == compute_fingerprint({"message": "unknown"})
 
@@ -257,7 +257,7 @@ def test_fingerprint_with_empty_message():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash
 
 
 def test_fingerprint_with_exception_no_value():
@@ -273,4 +273,4 @@ def test_fingerprint_with_exception_no_value():
     }
     result = compute_fingerprint(event)
     assert isinstance(result, str)
-    assert len(result) == 20
+    assert len(result) == 64  # Full SHA256 hash

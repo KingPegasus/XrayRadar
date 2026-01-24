@@ -8,11 +8,11 @@ def compute_fingerprint(event: dict[str, Any]) -> str:
     """
     Compute a stable grouping key for an event.
 
-    This is a simplified "Sentry-like" fingerprinting approach:
+    This is a simplified fingerprinting approach:
     - If the SDK provided a `fingerprint` list, use it.
     - Else use exception type + value/message + first frame (if available).
 
-    Returns a short hex string (sha1 truncated) suitable for indexing.
+    Returns a 64-character hex string (full sha256) suitable for indexing.
     """
     fp = event.get("fingerprint")
     if isinstance(fp, list) and fp:
@@ -61,6 +61,10 @@ def compute_fingerprint(event: dict[str, Any]) -> str:
 
 
 def _hash(raw: str) -> str:
-    h = hashlib.sha1(raw.encode("utf-8", errors="ignore")).hexdigest()
-    return h[:20]
+    """Hash a string for fingerprinting (non-cryptographic use)."""
+    # Use SHA256 instead of SHA1 for better security posture
+    # This is for error grouping, not security, but SHA1 is deprecated
+    # Return full 64-character SHA256 hash for maximum collision resistance
+    # Database column is VARCHAR(64), so this uses the full capacity
+    return hashlib.sha256(raw.encode("utf-8", errors="ignore")).hexdigest()
 

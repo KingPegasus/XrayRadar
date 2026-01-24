@@ -2,6 +2,14 @@
 
 Web application for Xrayradar (React + Vite). Includes a marketing landing page, user authentication, and a full dashboard for managing projects, viewing issues, and managing tokens.
 
+## Requirements
+
+- **Node.js**: 20.19.0, 22.12.0+, or 24.0.0+
+  - Vitest 4.x requires: `^20.0.0 || ^22.0.0 || >=24.0.0`
+  - Vite 7.x requires: `^20.19.0 || >=22.12.0`
+  - **Recommended**: Node.js 24.x or Node.js 22.x (LTS)
+  - Check version: `node --version`
+
 ## Local development
 
 ```bash
@@ -73,10 +81,10 @@ The backend handles client-side routing by serving `index.html` for all non-API 
 - **User Authentication**: Signup and login functionality
 - **Dashboard**: Full-featured dashboard for authenticated users
   - **Projects**: Create and manage projects
-  - **Issues**: View error issues grouped by fingerprint (Sentry-like)
+  - **Issues**: View error issues grouped by fingerprint
   - **Events**: View detailed event information with stack traces, breadcrumbs, and context
   - **Tokens**: Request and manage API tokens for project access
-- **Sentry-like Error Display**: Rich error details including:
+- **Error Display**: Rich error details including:
   - Stack traces with source context
   - Breadcrumbs timeline
   - User and device information

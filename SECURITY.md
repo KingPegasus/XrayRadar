@@ -62,6 +62,10 @@ cd xrayradar-web && npm audit
 - ✅ **Regular Audits**: Dependencies scanned for known vulnerabilities in CI
 - ✅ **Pinned Versions**: Dependencies use version constraints to prevent unexpected updates
 
+### 6. pip-audit Notes
+- **Expected Warning**: `pip-audit` may report that `xrayradar-server` itself cannot be audited because it's not published on PyPI. This is expected and harmless - the project code itself doesn't need vulnerability scanning, only its dependencies do.
+- **Local Packages**: If you see "Dependency not found on PyPI" for `xrayradar-server`, this is normal for local/private projects.
+
 ## Known Security Considerations
 
 ### 1. CORS Configuration

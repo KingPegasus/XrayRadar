@@ -12,8 +12,14 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 - **Frontend (React)**: 90.39% - 98 tests passing ✓
 
 > Coverage is automatically calculated in CI. To check locally:
-> - Backend: `uv run pytest --cov=src/xrayradar_server --cov-report=term`
-> - Frontend: `cd xrayradar-web && npm run test:coverage`
+> - **Backend**: From the `xrayradar-server` root directory, run:
+>   ```bash
+>   uv run pytest --cov=src/xrayradar_server --cov-report=term
+>   ```
+> - **Frontend**: From the `xrayradar-server` root directory, run:
+>   ```bash
+>   cd xrayradar-web && npm run test:coverage
+>   ```
 
 ## Security
 
@@ -46,7 +52,7 @@ npm run build
 or 
 
 ```bash
-cd xrayradar-web && npm ci && npm run build
+cd xrayradar-web && npm ci && npm run build && cd ..
 ```
 
 3) Run API:
@@ -182,12 +188,14 @@ uv sync
 
 ## Test coverage
 
-Run the test suite with coverage locally:
+Run the test suite with coverage locally (from the `xrayradar-server` root directory):
 
 ```bash
 uv sync --extra dev
 uv run pytest -q --cov=src/xrayradar_server --cov-report=term-missing
 ```
+
+**Note**: Make sure you're in the `xrayradar-server` root directory (not `xrayradar-web`) when running backend tests.
 
 Generate a coverage XML report (useful for CI/reporting tools):
 
@@ -230,7 +238,7 @@ Sends a real exception with:
 - Device/runtime information
 - Tags and metadata
 
-This is useful for testing Sentry-like features in the dashboard.
+This is useful for testing features in the dashboard.
 
 ```bash
 python scripts/send_real_error.py \
@@ -407,7 +415,7 @@ Endpoints:
 After logging in, users can access the dashboard at `/dashboard`:
 
 - **Projects**: Create and list user-owned projects
-- **Issues**: View issues grouped by fingerprint (Sentry-like grouping)
+- **Issues**: View issues grouped by fingerprint
 - **Issue detail**: Drill down into individual events and view full JSON payloads
 
 ### User API endpoints
@@ -460,4 +468,4 @@ Events are automatically grouped by fingerprint on ingestion. The fingerprinting
    - Exception value/message
    - First in-app stack frame (filename, function, line number)
 
-This provides Sentry-like issue grouping where similar errors are grouped together for easier debugging.
+This provides issue grouping where similar errors are grouped together for easier debugging.

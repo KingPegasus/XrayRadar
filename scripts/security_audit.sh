@@ -84,34 +84,68 @@ fi
 
 if command -v uv &> /dev/null; then
     PIP_AUDIT_REPORT="${REPORT_DIR}/pip-audit-report.json"
+    # uv environments don't have pip by default, install it first
+    echo -e "${YELLOW}  Installing pip in uv environment (required for pip-audit)...${NC}"
+    uv pip install pip &> /dev/null || true
+    
     # pip-audit may exit with non-zero if vulnerabilities found, but still produces valid output
     uv run pip-audit --format=json > "$PIP_AUDIT_REPORT" 2>&1 || true
     
     if [ -f "$PIP_AUDIT_REPORT" ] && [ -s "$PIP_AUDIT_REPORT" ]; then
-        echo -e "${GREEN}✓ pip-audit completed${NC}"
-        if command -v jq &> /dev/null; then
-            # Check if it's valid JSON and has vulnerabilities
-            if jq -e '.vulnerabilities' "$PIP_AUDIT_REPORT" &> /dev/null; then
-                VULNS=$(jq -r '.vulnerabilities | length' "$PIP_AUDIT_REPORT" 2>/dev/null || echo "0")
-                if [ "$VULNS" != "0" ]; then
-                    echo -e "${RED}  Found: $VULNS vulnerabilities${NC}"
-                    EXIT_CODE=1
+        # Check if the report contains valid JSON or is an error
+        if grep -q "^{" "$PIP_AUDIT_REPORT" 2>/dev/null; then
+            echo -e "${GREEN}✓ pip-audit completed${NC}"
+            if command -v jq &> /dev/null; then
+                # Check if it's valid JSON and has vulnerabilities
+                if jq -e '.dependencies' "$PIP_AUDIT_REPORT" &> /dev/null 2>&1; then
+                    # Count actual vulnerabilities (not skipped packages)
+                    VULNS=$(jq -r '[.dependencies[]?.vulns[]?] | length' "$PIP_AUDIT_REPORT" 2>/dev/null || echo "0")
+                    SKIPPED=$(jq -r '[.dependencies[]? | select(.skip_reason != null)] | length' "$PIP_AUDIT_REPORT" 2>/dev/null || echo "0")
+                    
+                    if [ "$VULNS" != "0" ]; then
+                        echo -e "${RED}  Found: $VULNS vulnerabilities${NC}"
+                        EXIT_CODE=1
+                    else
+                        echo -e "${GREEN}  Found: $VULNS vulnerabilities${NC}"
+                    fi
+                    
+                    # Note about skipped packages (like xrayradar-server itself)
+                    if [ "$SKIPPED" != "0" ]; then
+                        echo -e "${YELLOW}  Note: $SKIPPED package(s) skipped (local/private packages, expected)${NC}"
+                    fi
                 else
-                    echo -e "${GREEN}  Found: $VULNS vulnerabilities${NC}"
+                    # Check if it's an error message
+                    if grep -qi "error\|traceback\|exception" "$PIP_AUDIT_REPORT"; then
+                        echo -e "${YELLOW}  pip-audit encountered an error (check report)${NC}"
+                        echo -e "${YELLOW}  Note: This may be due to uv environment configuration${NC}"
+                        EXIT_CODE=1
+                    else
+                        echo -e "${GREEN}  No vulnerabilities found${NC}"
+                    fi
                 fi
             else
-                # Check if it's an error message
-                if grep -q "error\|Error\|ERROR" "$PIP_AUDIT_REPORT"; then
-                    echo -e "${YELLOW}  pip-audit encountered an error (check report)${NC}"
-                    EXIT_CODE=1
-                else
-                    echo -e "${GREEN}  No vulnerabilities found${NC}"
-                fi
+                echo -e "${YELLOW}  Report generated (install 'jq' for detailed summary)${NC}"
             fi
+            echo "  Full report: $PIP_AUDIT_REPORT"
         else
-            echo -e "${YELLOW}  Report generated (install 'jq' for detailed summary)${NC}"
+            # Report is not valid JSON, likely an error
+            if grep -qi "No module named pip\|pip.*not found" "$PIP_AUDIT_REPORT"; then
+                echo -e "${YELLOW}⚠ pip-audit requires pip in uv environment${NC}"
+                echo -e "${YELLOW}  Attempting to install pip and retry...${NC}"
+                uv pip install pip &> /dev/null
+                uv run pip-audit --format=json > "$PIP_AUDIT_REPORT" 2>&1 || true
+                if grep -q "^{" "$PIP_AUDIT_REPORT" 2>/dev/null; then
+                    echo -e "${GREEN}✓ pip-audit completed (after pip install)${NC}"
+                else
+                    echo -e "${YELLOW}⚠ pip-audit still having issues (check report)${NC}"
+                    EXIT_CODE=1
+                fi
+            else
+                echo -e "${YELLOW}⚠ pip-audit encountered an error (check report)${NC}"
+                EXIT_CODE=1
+            fi
+            echo "  Full report: $PIP_AUDIT_REPORT"
         fi
-        echo "  Full report: $PIP_AUDIT_REPORT"
     else
         echo -e "${RED}✗ pip-audit failed - check if pip-audit is installed: uv pip install pip-audit${NC}"
         EXIT_CODE=1
