@@ -100,3 +100,56 @@ class UserOut(BaseModel):
     email: str
     plan: str
     created_at: datetime
+
+
+class UserProjectCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class UserProjectOut(BaseModel):
+    id: int
+    name: str
+
+
+class TokenRequestCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class TokenRequestOut(BaseModel):
+    id: int
+    name: str
+    note: Optional[str] = None
+    created_at: datetime
+    fulfilled_at: Optional[datetime] = None
+    fulfilled_token_id: Optional[int] = None
+
+
+class UserTokenOut(BaseModel):
+    id: int
+    name: str
+    token: str
+    created_at: datetime
+    revoked_at: Optional[datetime] = None
+
+
+class IssueSummaryOut(BaseModel):
+    fingerprint: str
+    count: int
+    first_seen: datetime
+    last_seen: datetime
+    level: str
+    message: str
+    environment: Optional[str] = None
+    release: Optional[str] = None
+
+
+class AdminTokenRequestOut(BaseModel):
+    id: int
+    user_id: int
+    user_email: str
+    name: str
+    note: Optional[str] = None
+    created_at: datetime
+    fulfilled_at: Optional[datetime] = None
+    fulfilled_token_id: Optional[int] = None

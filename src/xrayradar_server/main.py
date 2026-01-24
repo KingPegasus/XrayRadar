@@ -27,6 +27,7 @@ from .deps import (
 from .routers.web import register_web
 from .routers import admin_api as admin_api_router
 from .routers import api as api_router
+from .routers import user_api as user_api_router
 from .routers import user_auth as user_auth_router
 
 
@@ -44,6 +45,7 @@ register_web(app)
 app.include_router(user_auth_router.router)
 app.include_router(api_router.router)
 app.include_router(admin_api_router.router)
+app.include_router(user_api_router.router)
 
 
 @app.get("/auth/github/login")

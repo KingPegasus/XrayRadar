@@ -46,8 +46,13 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
       .muted { color: #94a3b8; font-size: 12px; }
       .error { color: #fca5a5; font-size: 12px; white-space: pre-wrap; }
       .ok { color: #86efac; font-size: 12px; white-space: pre-wrap; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { border-bottom: 1px solid #1f2937; padding: 8px; font-size: 13px; text-align: left; vertical-align: top; }
+      table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+      th, td { border-bottom: 1px solid #1f2937; padding: 8px; font-size: 13px; text-align: left; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
+      th:nth-child(1), td:nth-child(1) { width: 50px; } /* ID */
+      th:nth-child(2), td:nth-child(2) { width: 25%; min-width: 100px; } /* Name */
+      th:nth-child(3), td:nth-child(3) { width: 35%; min-width: 150px; word-break: break-all; } /* Email - wrap */
+      th:nth-child(4), td:nth-child(4) { width: auto; white-space: normal; } /* Flags */
+      .pill { white-space: nowrap; display: inline-block; }
       th { color: #cbd5e1; font-weight: 600; }
       tr:hover td { background: rgba(148, 163, 184, 0.06); }
       .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #334155; color: #cbd5e1; }
@@ -86,6 +91,13 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
             <div>
               <div style="font-weight: 700; font-size: 13px">Tokens</div>
               <div class="muted" style="margin-top: 2px">Create and manage access</div>
+            </div>
+          </div>
+          <div class="navItem" data-view="requests" role="link" tabindex="0" style="margin-top: 8px">
+            <span class="navDot" aria-hidden="true"></span>
+            <div>
+              <div style="font-weight: 700; font-size: 13px">Token requests</div>
+              <div class="muted" style="margin-top: 2px">Fulfill user requests</div>
             </div>
           </div>
           <div class="navItem" data-view="logs" role="link" tabindex="0" style="margin-top: 8px">
@@ -128,7 +140,7 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
 
               <h2>Tokens</h2>
               <div class="muted">Click a token to manage its project access.</div>
-              <div style="margin-top: 10px">
+              <div style="margin-top: 10px; overflow-x: auto; max-width: 100%;">
                 <table>
                   <thead>
                     <tr>
@@ -180,6 +192,32 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
               </div>
             </section>
           </div>
+        </div>
+
+        <div id="view_requests" class="view hidden">
+          <section>
+            <h2>Token requests</h2>
+            <div class="muted">Users can request a token. Fulfill a request to create a token linked to that user.</div>
+
+            <div id="req_err" class="error" style="margin-top: 10px"></div>
+            <div id="req_out" class="ok" style="margin-top: 10px"></div>
+
+            <div style="margin-top: 12px">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Name</th>
+                    <th>Created</th>
+                    <th>Fulfilled</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="req_rows"></tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
         <div id="view_logs" class="view hidden">
@@ -274,6 +312,7 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         projects: [],
         selectedTokenId: null,
         view: 'tokens',
+        tokenRequests: [],
         logs: {
           projectId: null,
           events: [],
@@ -302,8 +341,9 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
       }
 
       function setView(view) {
-        state.view = view === 'logs' ? 'logs' : 'tokens';
+        state.view = view === 'logs' ? 'logs' : (view === 'requests' ? 'requests' : 'tokens');
         qs('view_tokens').classList.toggle('hidden', state.view !== 'tokens');
+        qs('view_requests').classList.toggle('hidden', state.view !== 'requests');
         qs('view_logs').classList.toggle('hidden', state.view !== 'logs');
 
         for (const el of document.querySelectorAll('.navItem')) {
@@ -313,11 +353,15 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         if (state.view === 'logs') {
           maybeAutoLoadLogs();
         }
+        if (state.view === 'requests') {
+          refreshTokenRequests();
+        }
       }
 
       function viewFromHash() {
         const h = (window.location.hash || '').replace('#', '').trim().toLowerCase();
         if (h === 'logs') return 'logs';
+        if (h === 'requests') return 'requests';
         return 'tokens';
       }
 
@@ -367,6 +411,56 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
             <td>${flags.join(' ')}</td>
           `;
           tbody.appendChild(tr);
+        }
+      }
+
+      function renderTokenRequests() {
+        const tbody = qs('req_rows');
+        tbody.innerHTML = '';
+        for (const r of state.tokenRequests) {
+          const tr = document.createElement('tr');
+          const fulfilled = r.fulfilled_at ? escapeHtml(r.fulfilled_at) : '';
+          const btn = document.createElement('button');
+          btn.className = 'small primary';
+          btn.textContent = r.fulfilled_at ? 'Fulfilled' : 'Fulfill';
+          btn.disabled = !!r.fulfilled_at;
+          btn.addEventListener('click', async () => {
+            await fulfillTokenRequest(r.id);
+          });
+          tr.innerHTML = `
+            <td>${r.id}</td>
+            <td>${escapeHtml(r.user_email || '')}</td>
+            <td>${escapeHtml(r.name || '')}</td>
+            <td>${escapeHtml(r.created_at || '')}</td>
+            <td>${fulfilled}</td>
+            <td></td>
+          `;
+          tr.children[5].appendChild(btn);
+          tbody.appendChild(tr);
+        }
+      }
+
+      async function refreshTokenRequests() {
+        showErr(qs('req_err'), '');
+        qs('req_out').textContent = '';
+        try {
+          state.tokenRequests = await api('/api/admin/token-requests');
+          renderTokenRequests();
+        } catch (e) {
+          showErr(qs('req_err'), e.message);
+        }
+      }
+
+      async function fulfillTokenRequest(id) {
+        showErr(qs('req_err'), '');
+        qs('req_out').textContent = '';
+        try {
+          const out = await api(`/api/admin/token-requests/${id}/fulfill`, { method: 'POST' });
+          qs('req_out').textContent = `Fulfilled request ${id}. Token id=${out.id}. Token value (copy now): ${out.token}`;
+          await refreshTokenRequests();
+          await loadAll();
+        } catch (e) {
+          showErr(qs('req_err'), e.message);
         }
       }
 
@@ -654,6 +748,7 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         showErr(qs('create_err'), '');
         showErr(qs('access_err'), '');
         showErr(qs('logs_err'), '');
+        showErr(qs('req_err'), '');
 
         state.projects = await api('/api/admin/projects');
         state.tokens = await api('/api/admin/tokens');
@@ -661,6 +756,9 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         renderProjects();
         renderLogsProjects();
         renderTokens();
+        if (state.view === 'requests') {
+          await refreshTokenRequests();
+        }
 
         if (state.selectedTokenId) {
           const exists = state.tokens.some(t => t.id === state.selectedTokenId);

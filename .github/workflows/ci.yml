@@ -48,7 +48,7 @@ jobs:
           if-no-files-found: error
 
   security:
-    name: Security (pip-audit + bandit)
+    name: Security (pip-audit + bandit + npm audit)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -74,4 +74,48 @@ jobs:
 
       - name: Static security scan (bandit)
         run: uv run bandit -q -r src
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: xrayradar-web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: xrayradar-web
+        run: npm ci
+
+      - name: Frontend dependency audit (npm audit)
+        working-directory: xrayradar-web
+        run: npm audit --audit-level=moderate || true
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: xrayradar-web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: xrayradar-web
+        run: npm ci
+
+      - name: Run tests with coverage
+        working-directory: xrayradar-web
+        run: npm run test:coverage -- --run
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-frontend
+          path: xrayradar-web/coverage/
+          if-no-files-found: warn
 

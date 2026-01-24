@@ -1,0 +1,140 @@
+name: Update Coverage Badges
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-badges:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: xrayradar-web/package-lock.json
+
+      - name: Install backend dependencies
+        run: uv sync --extra dev
+
+      - name: Install frontend dependencies
+        working-directory: xrayradar-web
+        run: npm ci
+
+      - name: Get backend coverage
+        id: backend-cov
+        run: |
+          COV=$(uv run pytest --cov=src/xrayradar_server --cov-report=term --quiet 2>&1 | grep -E "^TOTAL" | awk '{print $NF}' | sed 's/%//' || echo "0")
+          echo "coverage=$COV" >> $GITHUB_OUTPUT
+          echo "Backend coverage: $COV%"
+
+      - name: Get frontend coverage
+        id: frontend-cov
+        working-directory: xrayradar-web
+        run: |
+          COV=$(npm run test:coverage -- --run 2>&1 | grep -E "^All files" | awk '{print $4}' | sed 's/%//' || echo "0")
+          echo "coverage=$COV" >> $GITHUB_OUTPUT
+          echo "Frontend coverage: $COV%"
+
+      - name: Determine badge colors
+        id: colors
+        run: |
+          BACKEND_COV=${{ steps.backend-cov.outputs.coverage }}
+          FRONTEND_COV=${{ steps.frontend-cov.outputs.coverage }}
+          
+          if (( $(echo "$BACKEND_COV >= 90" | bc -l) )); then
+            BACKEND_COLOR="brightgreen"
+          elif (( $(echo "$BACKEND_COV >= 75" | bc -l) )); then
+            BACKEND_COLOR="green"
+          elif (( $(echo "$BACKEND_COV >= 50" | bc -l) )); then
+            BACKEND_COLOR="yellow"
+          else
+            BACKEND_COLOR="red"
+          fi
+          
+          if (( $(echo "$FRONTEND_COV >= 90" | bc -l) )); then
+            FRONTEND_COLOR="brightgreen"
+          elif (( $(echo "$FRONTEND_COV >= 75" | bc -l) )); then
+            FRONTEND_COLOR="green"
+          elif (( $(echo "$FRONTEND_COV >= 50" | bc -l) )); then
+            FRONTEND_COLOR="yellow"
+          else
+            FRONTEND_COLOR="red"
+          fi
+          
+          echo "backend_color=$BACKEND_COLOR" >> $GITHUB_OUTPUT
+          echo "frontend_color=$FRONTEND_COLOR" >> $GITHUB_OUTPUT
+
+      - name: Update README with coverage badges
+        run: |
+          BACKEND_COV=${{ steps.backend-cov.outputs.coverage }}
+          FRONTEND_COV=${{ steps.frontend-cov.outputs.coverage }}
+          BACKEND_COLOR=${{ steps.colors.outputs.backend_color }}
+          FRONTEND_COLOR=${{ steps.colors.outputs.frontend_color }}
+          
+          # Use Python to update README more reliably
+          python3 << EOF
+          import re
+          
+          with open('README.md', 'r') as f:
+              content = f.read()
+          
+          # Update backend badge
+          content = re.sub(
+              r'!\[Backend Coverage\]\(https://img\.shields\.io/badge/backend%20coverage-[0-9.]+%25-[a-z]+\?style=flat-square\)',
+              f'![Backend Coverage](https://img.shields.io/badge/backend%20coverage-{BACKEND_COV}%25-{BACKEND_COLOR}?style=flat-square)',
+              content
+          )
+          
+          # Update frontend badge
+          content = re.sub(
+              r'!\[Frontend Coverage\]\(https://img\.shields\.io/badge/frontend%20coverage-[0-9.]+%25-[a-z]+\?style=flat-square\)',
+              f'![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-{FRONTEND_COV}%25-{FRONTEND_COLOR}?style=flat-square)',
+              content
+          )
+          
+          # Update coverage text
+          content = re.sub(
+              r'- \*\*Backend \(Python\)\*\*: [0-9.]+%',
+              f'- **Backend (Python)**: {BACKEND_COV}%',
+              content
+          )
+          
+          content = re.sub(
+              r'- \*\*Frontend \(React\)\*\*: [0-9.]+%',
+              f'- **Frontend (React)**: {FRONTEND_COV}%',
+              content
+          )
+          
+          with open('README.md', 'w') as f:
+              f.write(content)
+          EOF
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git diff --exit-code README.md || (git add README.md && git commit -m "chore: update test coverage badges [skip ci]" && git push)

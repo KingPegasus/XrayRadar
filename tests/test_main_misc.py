@@ -30,8 +30,10 @@ def app_and_client(database_url, monkeypatch, request):
     try:
         db.query(models.TokenProjectAccess).delete()
         db.query(models.Event).delete()
+        db.query(models.TokenRequest).delete()
         db.query(models.Token).delete()
         db.query(models.Project).delete()
+        db.query(models.User).delete()
         db.commit()
 
         db.add(models.Token(id=1, name="admin", token="admin", is_admin=True))
@@ -838,3 +840,168 @@ def test_admin_list_project_events_unknown_project(app_and_client, monkeypatch):
 
     r = client.get("/api/admin/projects/999/events")
     assert r.status_code == 404
+
+
+def test_admin_list_token_requests_empty(app_and_client, monkeypatch):
+    """Test listing token requests when none exist"""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/api/admin/token-requests")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_admin_list_token_requests(app_and_client, monkeypatch):
+    """Test listing token requests"""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    # Create a user and token request
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(email="user@example.com", password_hash="hash", plan="Free")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        req = models.TokenRequest(user_id=user.id, name="My Token", note="For production")
+        db.add(req)
+        db.commit()
+        db.refresh(req)
+    finally:
+        db.close()
+
+    r = client.get("/api/admin/token-requests")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "My Token"
+    assert data[0]["user_email"] == "user@example.com"
+    assert data[0]["note"] == "For production"
+
+
+def test_admin_fulfill_token_request_not_found(app_and_client, monkeypatch):
+    """Test fulfilling non-existent token request"""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.post("/api/admin/token-requests/999/fulfill")
+    assert r.status_code == 404
+
+
+def test_admin_fulfill_token_request_already_fulfilled(app_and_client, monkeypatch):
+    """Test fulfilling already fulfilled token request"""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    # Create a user and fulfilled token request
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(email="user@example.com", password_hash="hash", plan="Free")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        token = models.Token(name="existing", token="token", user_id=user.id)
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+
+        req = models.TokenRequest(
+            user_id=user.id,
+            name="My Token",
+            fulfilled_at=datetime.now(timezone.utc),
+            fulfilled_token_id=token.id
+        )
+        db.add(req)
+        db.commit()
+        db.refresh(req)
+
+        r = client.post(f"/api/admin/token-requests/{req.id}/fulfill")
+        assert r.status_code == 400
+    finally:
+        db.close()
+
+
+def test_admin_fulfill_token_request_user_not_found(app_and_client, monkeypatch):
+    """Test fulfilling token request when user doesn't exist"""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    # Create a token request with invalid user_id
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        req = models.TokenRequest(user_id=999, name="My Token")
+        db.add(req)
+        db.commit()
+        db.refresh(req)
+
+        r = client.post(f"/api/admin/token-requests/{req.id}/fulfill")
+        assert r.status_code == 404
+    finally:
+        db.close()
+
+
+def test_admin_fulfill_token_request(app_and_client, monkeypatch):
+    """Test fulfilling a token request"""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    # Create a user and token request
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(email="user@example.com", password_hash="hash", plan="Free")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        req = models.TokenRequest(user_id=user.id, name="My Token", note="For production")
+        db.add(req)
+        db.commit()
+        db.refresh(req)
+        request_id = req.id
+    finally:
+        db.close()
+
+    # Fulfill the request
+    r = client.post(f"/api/admin/token-requests/{request_id}/fulfill")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "My Token"
+    assert data["email"] == "user@example.com"
+    assert "token" in data
+    assert len(data["token"]) > 0
+
+    # Verify request is marked as fulfilled
+    db = dbmod.SessionLocal()
+    try:
+        req = db.get(models.TokenRequest, request_id)
+        assert req.fulfilled_at is not None
+        assert req.fulfilled_token_id is not None
+    finally:
+        db.close()

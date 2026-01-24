@@ -2,6 +2,32 @@
 
 Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
+## Test Coverage
+
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-100%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-90%25-brightgreen?style=flat-square)
+
+**Current Coverage:**
+- **Backend (Python)**: 100% - All tests passing ✓
+- **Frontend (React)**: 90.39% - 98 tests passing ✓
+
+> Coverage is automatically calculated in CI. To check locally:
+> - Backend: `uv run pytest --cov=src/xrayradar_server --cov-report=term`
+> - Frontend: `cd xrayradar-web && npm run test:coverage`
+
+## Security
+
+Security scanning is automated in CI and includes:
+- **Backend**: `bandit` (static analysis) + `pip-audit` (dependency vulnerabilities)
+- **Frontend**: `npm audit` (dependency vulnerabilities)
+
+**Run security audit locally:**
+```bash
+./scripts/security_audit.sh
+```
+
+For detailed security practices and audit results, see [SECURITY.md](SECURITY.md).
+
 ## Run locally
 
 1) Start Postgres:
@@ -16,6 +42,11 @@ docker compose up -d
 cd xrayradar-web
 npm install
 npm run build
+```
+or 
+
+```bash
+cd xrayradar-web && npm ci && npm run build
 ```
 
 3) Run API:
@@ -73,16 +104,25 @@ This project uses Alembic for schema migrations.
 
 To apply migrations locally:
 
+**If using `uv` (recommended):**
+
 ```bash
-XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar" \
+export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
+uv run alembic -c alembic.ini upgrade head
+```
+
+**If using pip/conda:**
+
+```bash
+export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
 alembic -c alembic.ini upgrade head
 ```
 
-If you are running with `--env-file .env`, make sure `.env` contains `XRAYRADAR_DATABASE_URL` and run:
+**Note:** Always use `uv run alembic` (not the system `alembic` command) to ensure the correct SQLAlchemy version is used.
 
-```bash
-alembic -c alembic.ini upgrade head
-```
+**Available migrations:**
+- `0001_init` - Initial schema (projects, tokens, events, token_project_access, users)
+- `0002_user_projects_fingerprints` - User-owned projects, token requests, event fingerprints
 
 ### Render.com
 
@@ -167,6 +207,38 @@ Example DSN to point the SDK to this server:
 
 - `http://localhost:8001/1`
 
+### Testing event ingestion
+
+Two scripts are available for testing:
+
+**1. Basic test event** (`scripts/send_test_event.py`):
+Sends a simple test event with basic exception info.
+
+```bash
+python scripts/send_test_event.py \
+  --base-url http://127.0.0.1:8001 \
+  --project-id 1 \
+  --token "<your_token>" \
+  --message "Test error"
+```
+
+**2. Real error with stack trace** (`scripts/send_real_error.py`):
+Sends a real exception with:
+- Full stack trace with source code context
+- Breadcrumbs (user activity timeline)
+- User context (ID, email, IP)
+- Device/runtime information
+- Tags and metadata
+
+This is useful for testing Sentry-like features in the dashboard.
+
+```bash
+python scripts/send_real_error.py \
+  --base-url http://127.0.0.1:8001 \
+  --project-id 1 \
+  --token "<your_token>"
+```
+
 ## Authentication
 
 All endpoints require authentication.
@@ -189,7 +261,11 @@ The server serves a minimal admin UI at:
 
 - `GET /admin`
 
-The UI is protected by GitHub OAuth and an email allowlist.
+The UI is protected by GitHub OAuth and an email allowlist. It includes:
+
+- **Tokens**: Create tokens, manage token-project access
+- **Token requests**: Fulfill user token requests
+- **Project logs**: Browse raw events with filtering and detail view
 
 Required environment variables:
 
@@ -293,3 +369,95 @@ List project grants (including revoked):
 
 - `GET /api/admin/tokens`
 - `POST /api/admin/tokens/{token_id}/revoke`
+
+### Token requests
+
+Users can request tokens via the client dashboard. Admins can fulfill these requests:
+
+- `GET /api/admin/token-requests` - List all token requests
+- `POST /api/admin/token-requests/{request_id}/fulfill` - Create a token for a user and mark the request as fulfilled
+
+The admin UI (`/admin#requests`) provides a UI for managing token requests.
+
+### Project events (admin)
+
+Admin-only endpoints for browsing project events:
+
+- `GET /api/admin/projects/{project_id}/events` - List events with filtering (level, environment, release, message search, pagination)
+- `GET /api/admin/projects/{project_id}/events/{event_id}` - Get full event detail including payload
+
+These endpoints support admin session cookies (from GitHub OAuth) or admin tokens.
+
+## Client signup and login
+
+The marketing site (`/`) includes signup and login functionality:
+
+- **Signup**: Click "Choose Free" or "Choose Basic" in the Pricing section to open the signup modal
+- **Login**: Click "Sign in" in the top navbar to go to `/login`
+
+Endpoints:
+
+- `POST /auth/signup` - Create a new user account
+- `POST /auth/login` - Sign in with email/password
+- `POST /auth/logout` - Sign out
+- `GET /api/me` - Get current user info (requires session cookie)
+
+## Client dashboard
+
+After logging in, users can access the dashboard at `/dashboard`:
+
+- **Projects**: Create and list user-owned projects
+- **Issues**: View issues grouped by fingerprint (Sentry-like grouping)
+- **Issue detail**: Drill down into individual events and view full JSON payloads
+
+### User API endpoints
+
+All user endpoints require authentication via session cookie (set after login):
+
+**Projects:**
+- `GET /api/user/projects` - List user's projects
+- `POST /api/user/projects` - Create a new project (owned by the logged-in user)
+
+**Issues (grouped by fingerprint):**
+- `GET /api/user/projects/{project_id}/issues` - List issues for a project (grouped by fingerprint)
+- `GET /api/user/projects/{project_id}/issues/{fingerprint}/events` - List events for a specific issue
+- `GET /api/user/projects/{project_id}/events/{event_id}` - Get full event detail including payload
+
+**Tokens:**
+- `GET /api/user/tokens` - List tokens owned by the user
+- `GET /api/user/tokens/{token_id}/projects` - List projects a token has access to
+- `POST /api/user/tokens/{token_id}/projects/{project_id}/grant` - Grant a token access to a project (user must own both)
+
+**Token requests:**
+- `GET /api/user/token-requests` - List user's token requests
+- `POST /api/user/token-requests` - Request a new token (admin will fulfill it)
+
+### How tokens work with projects
+
+**Important:** Tokens are **not automatically linked to projects**. When you receive a token from an admin, you must grant it access to your projects before you can use it.
+
+**Workflow:**
+1. Request a token from an admin via the dashboard (`/dashboard/tokens`)
+2. Admin fulfills the request and creates a token for you
+3. Go to `/dashboard/tokens` and find your token
+4. Click "Manage project access" on the token
+5. Click "Grant access" for each project you want to use the token with
+6. Use the token in your SDK with the project's DSN
+
+**Why this design?**
+- Tokens can be granted access to multiple projects
+- You control which projects each token can access
+- You can revoke access later if needed (via admin UI)
+- Provides fine-grained access control
+
+### Issue grouping (fingerprinting)
+
+Events are automatically grouped by fingerprint on ingestion. The fingerprinting algorithm:
+
+1. Uses the SDK-provided `fingerprint` field if present
+2. Otherwise computes a hash from:
+   - Exception type
+   - Exception value/message
+   - First in-app stack frame (filename, function, line number)
+
+This provides Sentry-like issue grouping where similar errors are grouped together for easier debugging.

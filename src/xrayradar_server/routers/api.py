@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
+from ..fingerprinting import compute_fingerprint
 from ..models import Event, Project, Token
 from ..schemas import EventOut, ProjectCreate, ProjectOut
 
@@ -60,6 +61,7 @@ def store_event(
     env = (event.get("contexts") or {}).get("environment")
     rel = (event.get("contexts") or {}).get("release")
     server_name = (event.get("contexts") or {}).get("server_name")
+    fp = compute_fingerprint(event) if isinstance(event, dict) else None
 
     row = Event(
         project_id=project_id,
@@ -69,6 +71,7 @@ def store_event(
         environment=env,
         release=rel,
         server_name=server_name,
+        fingerprint=fp,
         payload=event,
     )
 

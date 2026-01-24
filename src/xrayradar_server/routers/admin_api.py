@@ -8,10 +8,11 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import require_admin
-from ..models import Event, Project, Token, TokenProjectAccess
+from ..models import Event, Project, Token, TokenProjectAccess, TokenRequest, User
 from ..schemas import (
     AdminEventListItemOut,
     AdminEventOut,
+    AdminTokenRequestOut,
     ProjectOut,
     TokenCreate,
     TokenCreateOut,
@@ -276,4 +277,76 @@ def admin_get_project_event(
         release=row.release,
         server_name=row.server_name,
         payload=row.payload,
+    )
+
+
+@router.get("/api/admin/token-requests", response_model=list[AdminTokenRequestOut])
+def admin_list_token_requests(db: Session = Depends(get_db), _: Token = Depends(require_admin)):
+    q = select(TokenRequest).order_by(TokenRequest.id.desc())
+    rows = db.execute(q).scalars().all()
+    # Fetch user emails in one shot
+    user_ids = {r.user_id for r in rows}
+    users = {}
+    if user_ids:
+        uq = select(User).where(User.id.in_(sorted(user_ids)))
+        users = {u.id: u for u in db.execute(uq).scalars().all()}
+    out = []
+    for r in rows:
+        u = users.get(r.user_id)
+        out.append(
+            AdminTokenRequestOut(
+                id=r.id,
+                user_id=r.user_id,
+                user_email=(u.email if u else ""),
+                name=r.name,
+                note=r.note,
+                created_at=r.created_at,
+                fulfilled_at=r.fulfilled_at,
+                fulfilled_token_id=r.fulfilled_token_id,
+            )
+        )
+    return out
+
+
+@router.post("/api/admin/token-requests/{request_id}/fulfill", response_model=TokenCreateOut)
+def admin_fulfill_token_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    _: Token = Depends(require_admin),
+):
+    req = db.get(TokenRequest, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Token request not found")
+    if req.fulfilled_at is not None or req.fulfilled_token_id is not None:
+        raise HTTPException(status_code=400, detail="Token request already fulfilled")
+
+    user = db.get(User, req.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    token_value = secrets.token_urlsafe(32)
+    row = Token(
+        name=req.name,
+        email=user.email,
+        token=token_value,
+        is_admin=False,
+        user_id=user.id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    req.fulfilled_at = datetime.now(timezone.utc)
+    req.fulfilled_token_id = row.id
+    db.add(req)
+    db.commit()
+
+    return TokenCreateOut(
+        id=row.id,
+        name=row.name,
+        email=row.email,
+        is_admin=row.is_admin,
+        created_at=row.created_at,
+        revoked_at=row.revoked_at,
+        token=row.token,
     )
