@@ -90,14 +90,19 @@ jobs:
 
       - name: Update README with coverage badges
         run: |
-          BACKEND_COV=${{ steps.backend-cov.outputs.coverage }}
-          FRONTEND_COV=${{ steps.frontend-cov.outputs.coverage }}
-          BACKEND_COLOR=${{ steps.colors.outputs.backend_color }}
-          FRONTEND_COLOR=${{ steps.colors.outputs.frontend_color }}
-          
           # Use Python to update README more reliably
-          python3 << EOF
+          BACKEND_COV=${{ steps.backend-cov.outputs.coverage }} \
+          FRONTEND_COV=${{ steps.frontend-cov.outputs.coverage }} \
+          BACKEND_COLOR=${{ steps.colors.outputs.backend_color }} \
+          FRONTEND_COLOR=${{ steps.colors.outputs.frontend_color }} \
+          python3 << 'EOF'
+          import os
           import re
+          
+          BACKEND_COV = os.environ['BACKEND_COV']
+          FRONTEND_COV = os.environ['FRONTEND_COV']
+          BACKEND_COLOR = os.environ['BACKEND_COLOR']
+          FRONTEND_COLOR = os.environ['FRONTEND_COLOR']
           
           with open('README.md', 'r') as f:
               content = f.read()
