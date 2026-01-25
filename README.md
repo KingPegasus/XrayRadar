@@ -1,17 +1,36 @@
-# XrayRadar
+# XrayRadar Python SDK
 
-A Python error tracking SDK for capturing, processing, and sending error events to a tracking server.
+![PyPI version](https://img.shields.io/pypi/v/xrayradar?style=flat-square)
+![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?style=flat-square)
+![CI](https://img.shields.io/github/actions/workflow/status/KingPegasus/XrayRadar/ci.yml?label=CI&style=flat-square)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?style=flat-square)
+
+**Official Python SDK for XrayRadar** — Capture, track, and monitor errors in your Python applications with ease.
+
+XrayRadar is a powerful error tracking and monitoring platform that helps you identify, debug, and resolve issues in your applications. This SDK provides seamless integration with XrayRadar's error tracking service, enabling automatic exception capture, rich context collection, and real-time error monitoring.
 
 ## Features
 
-- **Automatic Exception Capture**: Automatically captures uncaught exceptions
-- **Manual Error Reporting**: Capture exceptions and messages manually
-- **Rich Context**: Collects breadcrumbs, tags, and custom context
-- **Framework Integrations**: Built-in integrations for Flask, Django, and FastAPI
-- **Flexible Transport**: HTTP transport with retry logic and rate limiting
-- **Sampling**: Configurable sampling to reduce noise
+- **Automatic Exception Capture**: Automatically captures uncaught exceptions from your application
+- **Manual Error Reporting**: Capture exceptions and messages manually with full control
+- **Rich Context**: Collects breadcrumbs, tags, user data, and custom context for better debugging
+- **Framework Integrations**: Built-in integrations for Flask, Django, FastAPI, Graphene (GraphQL), and Django REST Framework (DRF)
+- **Flexible Transport**: HTTP transport with retry logic and rate limiting for reliable delivery
+- **Sampling**: Configurable sampling to reduce noise and control event volume
+- **Privacy-First**: Default PII protection with opt-in for sensitive data
 - **Debug Mode**: Console output for development and testing
-- **Configuration**: Environment variables and file-based configuration
+- **Configuration**: Environment variables and file-based configuration for flexible setup
+
+## Prerequisites
+
+Before using the XrayRadar Python SDK, you need to:
+
+1. **Sign up for XrayRadar**: Create an account at [XrayRadar](https://xrayradar.com)
+2. **Create a Project**: After signing up, create a new project in your XrayRadar dashboard
+3. **Get Your DSN**: Copy your project's DSN (Data Source Name) from the project settings. The DSN format is: `https://xrayradar.com/your_project_id`
+4. **Get Your Token**: Obtain your authentication token from your project settings. This token is required for authenticating requests to the XrayRadar server
+
+Once you have your DSN and token, you're ready to integrate the SDK into your application.
 
 ## Installation
 
@@ -43,9 +62,10 @@ pip install xrayradar[dev]
 import xrayradar
 from xrayradar import ErrorTracker
 
-# Initialize the SDK
+# Initialize the SDK with your XrayRadar DSN
+# Replace with your actual DSN from your XrayRadar project settings
 tracker = ErrorTracker(
-    dsn="https://your_host.com/your_project_id",
+    dsn="https://xrayradar.com/your_project_id",  # Your XrayRadar DSN
     environment="production",
     release="1.0.0",
 )
@@ -61,9 +81,9 @@ try:
 except Exception as e:
     tracker.capture_exception(e)
 
-# Or use the global client
+# Or use the global client (recommended for simple applications)
 xrayradar.init(
-    dsn="https://your_host.com/your_project_id",
+    dsn="https://xrayradar.com/your_project_id",  # Your XrayRadar DSN
     environment="production",
 )
 
@@ -75,37 +95,51 @@ except Exception:
 
 ### Environment Variables
 
-You can configure the SDK using environment variables:
+You can configure the SDK using environment variables. This is especially useful for deployment and different environments:
 
 ```bash
-export XRAYRADAR_DSN="https://your_host.com/your_project_id"
+# Required: Your XrayRadar project DSN
+export XRAYRADAR_DSN="https://xrayradar.com/your_project_id"
+
+# Required: Authentication token for XrayRadar
+export XRAYRADAR_AUTH_TOKEN="your_token"
+
+# Optional: Environment and release information
 export XRAYRADAR_ENVIRONMENT="production"
 export XRAYRADAR_RELEASE="1.0.0"
-export XRAYRADAR_SAMPLE_RATE="0.5"
-export XRAYRADAR_SEND_DEFAULT_PII="false"
-export XRAYRADAR_AUTH_TOKEN="your_token"
+
+# Optional: Sampling and privacy settings
+export XRAYRADAR_SAMPLE_RATE="0.5"  # Send 50% of events (0.0 to 1.0)
+export XRAYRADAR_SEND_DEFAULT_PII="false"  # Privacy-first by default
+
 ```
 
 ### Authentication
 
-If your server requires authentication, configure a token to be sent as the request header:
+XrayRadar requires authentication to ensure secure error reporting. The SDK automatically sends your authentication token in the request header:
 
-- `X-Xrayradar-Token: <token>`
+- Header: `X-Xrayradar-Token: <your_token>`
 
-You can provide the token either via environment variable:
+You can provide your authentication token in two ways:
 
-- `XRAYRADAR_AUTH_TOKEN`
+**Option 1: Environment Variable** (Recommended for production)
 
-Or explicitly when creating the client (forwarded to `HttpTransport`):
+```bash
+export XRAYRADAR_AUTH_TOKEN="your_token_here"
+```
+
+**Option 2: Explicit Configuration**
 
 ```python
 from xrayradar import ErrorTracker
 
 tracker = ErrorTracker(
-    dsn="http://localhost:8001/1",
-    auth_token="your_token",
+    dsn="https://xrayradar.com/your_project_id",
+    auth_token="your_token_here",
 )
 ```
+
+> **Note**: Your authentication token can be found in your XrayRadar project settings. Keep your token secure and never commit it to version control.
 
 ## Privacy
 
@@ -118,7 +152,10 @@ By default, `xrayradar` is privacy-first:
 If you want the SDK to include default PII, opt in:
 
 ```python
-tracker = ErrorTracker(dsn="your_dsn_here", send_default_pii=True)
+tracker = ErrorTracker(
+    dsn="https://xrayradar.com/your_project_id",
+    send_default_pii=True
+)
 ```
 
 ## Framework Integrations
@@ -132,8 +169,8 @@ from xrayradar.integrations import FlaskIntegration
 
 app = Flask(__name__)
 
-# Initialize error tracker
-tracker = ErrorTracker(dsn="your_dsn_here")
+# Initialize error tracker with your XrayRadar DSN
+tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
 
 # Setup Flask integration
 flask_integration = FlaskIntegration(app, tracker)
@@ -159,8 +196,9 @@ MIDDLEWARE = [
     # ... other middleware
 ]
 
-# Optional: Configure via settings
-XRAYRADAR_DSN = "https://your_host.com/your_project_id"
+# Optional: Configure via Django settings
+# Replace with your actual XrayRadar DSN from your project settings
+XRAYRADAR_DSN = "https://xrayradar.com/your_project_id"
 XRAYRADAR_ENVIRONMENT = "production"
 XRAYRADAR_RELEASE = "1.0.0"
 ```
@@ -201,8 +239,8 @@ from xrayradar.integrations import FastAPIIntegration
 
 app = FastAPI()
 
-# Initialize error tracker
-tracker = ErrorTracker(dsn="your_dsn_here")
+# Initialize error tracker with your XrayRadar DSN
+tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
 
 # Setup FastAPI integration
 fastapi_integration = FastAPIIntegration(app, tracker)
@@ -224,7 +262,7 @@ async def error():
 ```python
 from xrayradar import ErrorTracker
 
-tracker = ErrorTracker(dsn="your_dsn_here")
+tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
 
 # Set user context
 tracker.set_user(
@@ -271,7 +309,7 @@ def before_send(event: Event) -> Event:
     return event
 
 tracker = ErrorTracker(
-    dsn="your_dsn_here",
+    dsn="https://xrayradar.com/your_project_id",
     before_send=before_send
 )
 ```
@@ -282,13 +320,14 @@ Create a configuration file (`xrayradar.json`):
 
 ```json
 {
-    "dsn": "https://your_host.com/your_project_id",
+    "dsn": "https://xrayradar.com/your_project_id",
     "environment": "production",
     "release": "1.0.0",
     "sample_rate": 0.5,
     "max_breadcrumbs": 50,
     "timeout": 5.0,
-    "verify_ssl": true
+    "verify_ssl": true,
+    "auth_token": "your_token_here"
 }
 ```
 
@@ -388,7 +427,7 @@ The SDK supports multiple transport implementations:
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-org-or-username>/xrayradar.git
+git clone https://github.com/KingPegasus/XrayRadar.git
 cd xrayradar
 
 # Install in development mode
