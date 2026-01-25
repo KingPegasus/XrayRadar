@@ -1,9 +1,9 @@
 # XrayRadar Python SDK
 
-![PyPI version](https://img.shields.io/pypi/v/xrayradar?style=flat-square)
+[![PyPI version](https://img.shields.io/pypi/v/xrayradar?style=flat-square)](https://pypi.org/project/xrayradar/)
 ![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue?style=flat-square)
-![CI](https://img.shields.io/github/actions/workflow/status/KingPegasus/XrayRadar/ci.yml?label=CI&style=flat-square)
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?style=flat-square)
+[![CI](https://img.shields.io/github/actions/workflow/status/KingPegasus/XrayRadar/ci.yml?label=CI&style=flat-square)](https://github.com/KingPegasus/XrayRadar/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?style=flat-square)](https://kingpegasus.github.io/XrayRadar/)
 
 **Official Python SDK for XrayRadar** — Capture, track, and monitor errors in your Python applications with ease.
 

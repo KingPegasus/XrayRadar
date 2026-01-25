@@ -4,18 +4,21 @@ Flask integration example for xrayradar
 """
 
 from flask import Flask, jsonify, request
-from xrayradar import ErrorTracker
+from xrayradar import ErrorTracker, Level
 from xrayradar.integrations import FlaskIntegration
 
 # Create Flask app
 app = Flask(__name__)
 
-# Initialize error tracker
+# Initialize error tracker with your XrayRadar DSN
+# Replace with your actual DSN from your XrayRadar project settings
+# Format: https://xrayradar.com/your_project_id
 tracker = ErrorTracker(
-    dsn="https://your_public_key@your_host.com/your_project_id",
+    dsn="https://xrayradar.com/your_project_id",
     environment="development",
     release="1.0.0",
     debug=True,  # Enable debug mode to see events in console
+    # auth_token="your_token_here",  # Required for XrayRadar authentication
 )
 
 # Setup Flask integration
@@ -28,7 +31,7 @@ def index():
     tracker.add_breadcrumb(
         message="User visited home page",
         category="navigation",
-        level="info"
+        level=Level.INFO
     )
     return jsonify({
         "message": "Welcome to the Flask Error Tracker Example!",
@@ -49,7 +52,7 @@ def hello(name):
     tracker.add_breadcrumb(
         message=f"Greeting requested for {name}",
         category="user",
-        level="info"
+        level=Level.INFO
     )
     return jsonify({"message": f"Hello, {name}!"})
 
@@ -60,7 +63,7 @@ def trigger_error():
     tracker.add_breadcrumb(
         message="User accessed error endpoint",
         category="user",
-        level="warning"
+        level=Level.WARNING
     )
 
     # This will be automatically captured by the Flask integration
@@ -80,7 +83,7 @@ def user_profile(user_id):
     tracker.add_breadcrumb(
         message=f"User {user_id} profile viewed",
         category="user",
-        level="info"
+        level=Level.INFO
     )
 
     # Simulate some user data
@@ -123,7 +126,7 @@ def calculate():
         tracker.add_breadcrumb(
             message=f"Calculation performed: {operation}({a}, {b}) = {result}",
             category="api",
-            level="info"
+            level=Level.INFO
         )
 
         return jsonify({
@@ -180,7 +183,7 @@ def not_found(error):
     """Handle 404 errors"""
     tracker.capture_message(
         f"404 Not Found: {request.path}",
-        level="warning",
+        level=Level.WARNING,
         path=request.path,
         method=request.method,
         referer=request.headers.get('Referer')

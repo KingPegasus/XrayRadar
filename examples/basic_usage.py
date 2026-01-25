@@ -8,13 +8,15 @@ from xrayradar import ErrorTracker, Level
 
 
 def main():
-    # Initialize the SDK with your DSN
-    # Replace with your actual DSN from your error tracking service
+    # Initialize the SDK with your XrayRadar DSN
+    # Replace with your actual DSN from your XrayRadar project settings
+    # Format: https://xrayradar.com/your_project_id
     tracker = ErrorTracker(
-        dsn="https://your_public_key@your_host.com/your_project_id",
+        dsn="https://xrayradar.com/your_project_id",
         environment="development",
         release="1.0.0",
         debug=True,  # Enable debug mode to see events in console
+        # auth_token="your_token_here",  # Required for XrayRadar authentication
     )
 
     print("xrayradar Basic Usage Example")
@@ -32,7 +34,7 @@ def main():
     print("\n2. Capturing a message:")
     event_id = tracker.capture_message(
         "User login failed",
-        level="warning",
+        level=Level.WARNING,
         user_id="123",
         username="johndoe"
     )
@@ -60,12 +62,12 @@ def main():
     tracker.add_breadcrumb(
         message="User clicked checkout button",
         category="user",
-        level="info"
+        level=Level.INFO
     )
     tracker.add_breadcrumb(
         message="Payment processing started",
         category="payment",
-        level="info"
+        level=Level.INFO
     )
     print("   Breadcrumbs added")
 
@@ -86,9 +88,10 @@ def main():
     # Example 7: Using global client
     print("\n7. Using global client:")
     xrayradar.init(
-        dsn="https://your_public_key@your_host.com/your_project_id",
+        dsn="https://xrayradar.com/your_project_id",
         environment="development",
-        debug=True
+        debug=True,
+        # auth_token="your_token_here",  # Required for XrayRadar authentication
     )
 
     try:
@@ -101,11 +104,11 @@ def main():
 
     # Example 8: Different log levels
     print("\n8. Different log levels:")
-    xrayradar.capture_message("Debug message", level="debug")
-    xrayradar.capture_message("Info message", level="info")
-    xrayradar.capture_message("Warning message", level="warning")
-    xrayradar.capture_message("Error message", level="error")
-    xrayradar.capture_message("Fatal message", level="fatal")
+    xrayradar.capture_message("Debug message", level=Level.DEBUG)
+    xrayradar.capture_message("Info message", level=Level.INFO)
+    xrayradar.capture_message("Warning message", level=Level.WARNING)
+    xrayradar.capture_message("Error message", level=Level.ERROR)
+    xrayradar.capture_message("Fatal message", level=Level.FATAL)
     print("   Messages with different levels captured")
 
     # Cleanup

@@ -9,18 +9,21 @@ from pydantic import BaseModel
 
 from fastapi import FastAPI, HTTPException, Request
 import uvicorn
-from xrayradar import ErrorTracker
+from xrayradar import ErrorTracker, Level
 from xrayradar.integrations import FastAPIIntegration
 
 # Create FastAPI app
 app = FastAPI(title="XrayRadar FastAPI Example")
 
-# Initialize error tracker
+# Initialize error tracker with your XrayRadar DSN
+# Replace with your actual DSN from your XrayRadar project settings
+# Format: https://xrayradar.com/your_project_id
 tracker = ErrorTracker(
-    dsn="https://your_public_key@your_host.com/your_project_id",
+    dsn="https://xrayradar.com/your_project_id",
     environment="development",
     release="1.0.0",
     debug=True,  # Enable debug mode to see events in console
+    # auth_token="your_token_here",  # Required for XrayRadar authentication
 )
 
 # Setup FastAPI integration
@@ -52,7 +55,7 @@ async def root():
     tracker.add_breadcrumb(
         message="User visited root endpoint",
         category="navigation",
-        level="info"
+        level=Level.INFO
     )
     return {
         "message": "Welcome to the FastAPI Error Tracker Example!",
@@ -75,7 +78,7 @@ async def hello(name: str):
     tracker.add_breadcrumb(
         message=f"Greeting requested for {name}",
         category="user",
-        level="info"
+        level=Level.INFO
     )
     return {"message": f"Hello, {name}!"}
 
@@ -86,7 +89,7 @@ async def trigger_error():
     tracker.add_breadcrumb(
         message="User accessed error endpoint",
         category="user",
-        level="warning"
+        level=Level.WARNING
     )
 
     # This will be automatically captured by the FastAPI integration
@@ -126,7 +129,7 @@ async def create_user(user: UserCreate):
         tracker.add_breadcrumb(
             message=f"User created: {user.username}",
             category="user",
-            level="info",
+            level=Level.INFO,
             data={"user_id": user_id}
         )
 
@@ -150,7 +153,7 @@ async def get_user(user_id: int):
     if user_id not in users_db:
         tracker.capture_message(
             f"User not found: {user_id}",
-            level="warning",
+            level=Level.WARNING,
             user_id=user_id,
             endpoint="/users/{user_id}"
         )
@@ -168,7 +171,7 @@ async def get_user(user_id: int):
     tracker.add_breadcrumb(
         message=f"User profile viewed: {user_data['username']}",
         category="user",
-        level="info"
+        level=Level.INFO
     )
 
     return user_data
@@ -198,7 +201,7 @@ async def calculate(calc_input: CalculationInput):
         tracker.add_breadcrumb(
             message=f"Calculation performed: {operation}({a}, {b}) = {result}",
             category="api",
-            level="info"
+            level=Level.INFO
         )
 
         return {
