@@ -164,7 +164,9 @@ class ErrorTracker:
             exc_info = sys.exc_info()
             if exc_info[0] is None:
                 raise ValueError(
-                    "No exception provided and no current exception")
+                    "No exception provided and no current exception in context. "
+                    "Either provide an exception object or call capture_exception() "
+                    "from within an except block.")
             exception = exc_info[1]
 
         # Create event

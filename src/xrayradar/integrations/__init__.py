@@ -33,3 +33,11 @@ try:
     __all__.append("make_drf_exception_handler")
 except ImportError:  # pragma: no cover
     make_drf_exception_handler = None  # pragma: no cover
+
+try:
+    from .logging import LoggingIntegration, setup_logging
+    __all__.append("LoggingIntegration")
+    __all__.append("setup_logging")
+except ImportError:  # pragma: no cover
+    LoggingIntegration = None  # pragma: no cover
+    setup_logging = None  # pragma: no cover

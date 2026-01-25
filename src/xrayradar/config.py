@@ -78,16 +78,25 @@ class Config:
     def _validate(self):
         """Validate configuration values"""
         if self.sample_rate < 0.0 or self.sample_rate > 1.0:
-            raise ValueError("sample_rate must be between 0.0 and 1.0")
+            raise ValueError(
+                f"sample_rate must be between 0.0 and 1.0, got {self.sample_rate}. "
+                f"Use 0.0 to disable sampling, 1.0 to capture all events, or a value "
+                f"in between (e.g., 0.5 for 50% sampling).")
 
         if self.max_breadcrumbs < 0:
-            raise ValueError("max_breadcrumbs must be non-negative")
+            raise ValueError(
+                f"max_breadcrumbs must be non-negative, got {self.max_breadcrumbs}. "
+                f"Use a positive integer to limit the number of breadcrumbs stored.")
 
         if self.timeout <= 0:
-            raise ValueError("timeout must be positive")
+            raise ValueError(
+                f"timeout must be positive, got {self.timeout}. "
+                f"Specify timeout in seconds (e.g., 10.0 for 10 seconds).")
 
         if self.max_payload_size <= 0:
-            raise ValueError("max_payload_size must be positive")
+            raise ValueError(
+                f"max_payload_size must be positive, got {self.max_payload_size}. "
+                f"Specify size in bytes (e.g., 102400 for 100KB).")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert configuration to dictionary"""
@@ -140,7 +149,9 @@ def load_config(config_source: Optional[Union[Dict[str, Any], str, Config]] = No
         return _load_config_from_file(config_source)
     else:
         raise TypeError(
-            f"Unsupported config source type: {type(config_source)}")
+            f"Unsupported config source type: {type(config_source).__name__}. "
+            f"Expected one of: dict, str (file path), Config instance, or None (environment variables). "
+            f"Please provide a valid configuration source.")
 
 
 def _load_config_from_file(file_path: str) -> Config:
@@ -149,7 +160,10 @@ def _load_config_from_file(file_path: str) -> Config:
     import yaml
 
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Configuration file not found: {file_path}")
+        raise FileNotFoundError(
+            f"Configuration file not found: {file_path}. "
+            f"Please ensure the file exists and the path is correct. "
+            f"You can create a configuration file or use environment variables instead.")
 
     with open(file_path, 'r') as f:
         if file_path.endswith('.json'):
@@ -157,7 +171,10 @@ def _load_config_from_file(file_path: str) -> Config:
         elif file_path.endswith(('.yml', '.yaml')):
             config_dict = yaml.safe_load(f)
         else:
+            ext = os.path.splitext(file_path)[1]
             raise ValueError(
-                f"Unsupported configuration file format: {file_path}")
+                f"Unsupported configuration file format: '{ext}'. "
+                f"Supported formats are: .json, .yaml, .yml. "
+                f"Please use one of these formats or load configuration programmatically.")
 
     return Config.from_dict(config_dict)

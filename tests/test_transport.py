@@ -76,6 +76,8 @@ def test_send_event_http_error_includes_short_body(monkeypatch):
 
     msg = str(e.value)
     assert "HTTP 500" in msg
+    assert "Server error" in msg
+    assert "XrayRadar support" in msg
     assert len(msg) < 600
 
 
@@ -89,3 +91,57 @@ def test_send_event_truncates_payload(monkeypatch):
 
     big = {"message": "x" * 5000}
     t.send_event(big)
+
+
+def test_send_event_401_authentication_failed(monkeypatch):
+    """Test 401 status code includes authentication error message"""
+    t = HttpTransport("https://example.com/1")
+
+    def fake_post(*args, **kwargs):
+        return DummyResponse(status_code=401, text="Unauthorized")
+
+    monkeypatch.setattr(t.session, "post", fake_post)
+
+    with pytest.raises(TransportError) as e:
+        t.send_event({"message": "test"})
+
+    msg = str(e.value)
+    assert "HTTP 401" in msg
+    assert "Authentication failed" in msg
+    assert "XRAYRADAR_AUTH_TOKEN" in msg
+
+
+def test_send_event_403_access_forbidden(monkeypatch):
+    """Test 403 status code includes access forbidden error message"""
+    t = HttpTransport("https://example.com/1")
+
+    def fake_post(*args, **kwargs):
+        return DummyResponse(status_code=403, text="Forbidden")
+
+    monkeypatch.setattr(t.session, "post", fake_post)
+
+    with pytest.raises(TransportError) as e:
+        t.send_event({"message": "test"})
+
+    msg = str(e.value)
+    assert "HTTP 403" in msg
+    assert "Access forbidden" in msg
+    assert "project permissions" in msg
+
+
+def test_send_event_404_project_not_found(monkeypatch):
+    """Test 404 status code includes project not found error message"""
+    t = HttpTransport("https://example.com/1")
+
+    def fake_post(*args, **kwargs):
+        return DummyResponse(status_code=404, text="Not Found")
+
+    monkeypatch.setattr(t.session, "post", fake_post)
+
+    with pytest.raises(TransportError) as e:
+        t.send_event({"message": "test"})
+
+    msg = str(e.value)
+    assert "HTTP 404" in msg
+    assert "Project not found" in msg
+    assert "DSN" in msg or "project ID" in msg

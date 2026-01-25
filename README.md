@@ -14,12 +14,14 @@ XrayRadar is a powerful error tracking and monitoring platform that helps you id
 - **Automatic Exception Capture**: Automatically captures uncaught exceptions from your application
 - **Manual Error Reporting**: Capture exceptions and messages manually with full control
 - **Rich Context**: Collects breadcrumbs, tags, user data, and custom context for better debugging
-- **Framework Integrations**: Built-in integrations for Flask, Django, FastAPI, Graphene (GraphQL), and Django REST Framework (DRF)
+- **Framework Integrations**: Built-in integrations for Flask, Django, FastAPI, Graphene (GraphQL), Django REST Framework (DRF), and Python Logging
+- **Logging Integration**: Capture Python logging module messages and send them to XrayRadar automatically
 - **Flexible Transport**: HTTP transport with retry logic and rate limiting for reliable delivery
 - **Sampling**: Configurable sampling to reduce noise and control event volume
 - **Privacy-First**: Default PII protection with opt-in for sensitive data
 - **Debug Mode**: Console output for development and testing
 - **Configuration**: Environment variables and file-based configuration for flexible setup
+- **Clear Error Messages**: Helpful, actionable error messages to quickly resolve configuration and runtime issues
 
 ## Prerequisites
 
@@ -255,6 +257,34 @@ async def error():
     raise ValueError("Something went wrong!")
 ```
 
+### Python Logging
+
+Capture log messages from Python's `logging` module and send them to XrayRadar:
+
+```python
+import logging
+from xrayradar import ErrorTracker
+from xrayradar.integrations.logging import setup_logging
+
+# Initialize error tracker
+tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
+
+# Setup logging integration
+# This will capture WARNING, ERROR, and CRITICAL log messages by default
+setup_logging(client=tracker, level=logging.WARNING)
+
+# Now all log messages at WARNING level and above will be sent to XrayRadar
+logging.warning("This warning will be sent to XrayRadar")
+logging.error("This error will be sent to XrayRadar")
+
+# You can also exclude specific loggers
+setup_logging(
+    client=tracker,
+    level=logging.ERROR,
+    exclude_loggers={"urllib3", "requests"}  # Exclude noisy loggers
+)
+```
+
 ## Advanced Usage
 
 ### Custom Context
@@ -465,6 +495,14 @@ pytest tests/test_client.py
 > 2. Under **Source**, select **GitHub Actions**
 > 3. Save the settings
 > 4. After the next push to `main`, the coverage report will be available at the GitHub Pages URL
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes and version releases.
+
+## Security
+
+For security practices, audit results, and reporting security issues, see [SECURITY.md](SECURITY.md).
 
 ## License
 

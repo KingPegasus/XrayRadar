@@ -96,18 +96,24 @@ class HttpTransport(Transport):
 
             if not parsed.scheme or not parsed.netloc:
                 raise InvalidDsnError(
-                    f"Invalid DSN format: {self._redact_dsn(dsn)}")
+                    f"Invalid DSN format: {self._redact_dsn(dsn)}. "
+                    f"Expected format: https://xrayradar.com/your_project_id. "
+                    f"Please check your DSN in your XrayRadar project settings.")
 
             # Extract project ID from path
             path_parts = parsed.path.strip("/").split("/")
             if not path_parts:
                 raise InvalidDsnError(
-                    f"Missing project ID in DSN: {self._redact_dsn(dsn)}")
+                    f"Missing project ID in DSN: {self._redact_dsn(dsn)}. "
+                    f"The DSN must include a project ID in the path, e.g., "
+                    f"https://xrayradar.com/your_project_id")
 
             project_id = path_parts[-1]
             if not project_id:
                 raise InvalidDsnError(
-                    f"Missing project ID in DSN: {self._redact_dsn(dsn)}")
+                    f"Missing project ID in DSN: {self._redact_dsn(dsn)}. "
+                    f"The project ID cannot be empty. Please verify your DSN "
+                    f"in your XrayRadar project settings.")
 
             # Build server URL
             server_url = f"{parsed.scheme}://{parsed.hostname}"
@@ -123,7 +129,9 @@ class HttpTransport(Transport):
             if isinstance(e, InvalidDsnError):
                 raise
             raise InvalidDsnError(
-                f"Failed to parse DSN: {self._redact_dsn(dsn)}") from e
+                f"Failed to parse DSN: {self._redact_dsn(dsn)}. "
+                f"Error: {str(e)}. Please verify your DSN format is correct: "
+                f"https://xrayradar.com/your_project_id") from e
 
     def send_event(self, event_data: Dict[str, Any]) -> None:
         """Send an event to the server"""
@@ -148,7 +156,9 @@ class HttpTransport(Transport):
             if response.status_code == 429:
                 retry_after = response.headers.get("Retry-After", "60")
                 raise RateLimitedError(
-                    f"Rate limited. Retry after {retry_after} seconds")
+                    f"Rate limited by XrayRadar server. Please wait {retry_after} seconds "
+                    f"before sending more events. Consider reducing your event volume or "
+                    f"adjusting the sample_rate configuration.")
 
             elif response.status_code >= 400:
                 body = (response.text or "").strip()
@@ -157,13 +167,28 @@ class HttpTransport(Transport):
                     error_msg = f"HTTP {response.status_code}: {body}"
                 else:
                     error_msg = f"HTTP {response.status_code}"
-                raise TransportError(f"Failed to send event: {error_msg}")
+                
+                # Provide helpful context based on status code
+                if response.status_code == 401:
+                    error_msg += ". Authentication failed. Please verify your XRAYRADAR_AUTH_TOKEN is correct."
+                elif response.status_code == 403:
+                    error_msg += ". Access forbidden. Please check your project permissions and authentication token."
+                elif response.status_code == 404:
+                    error_msg += ". Project not found. Please verify your DSN and project ID are correct."
+                elif response.status_code >= 500:
+                    error_msg += ". Server error. Please try again later or contact XrayRadar support."
+                
+                raise TransportError(f"Failed to send event to XrayRadar: {error_msg}")
 
         except requests.exceptions.RequestException as e:
             raise TransportError(
-                f"Network error while sending event: {e}") from e
+                f"Network error while sending event to XrayRadar: {e}. "
+                f"Please check your network connection and XrayRadar server availability.") from e
         except (ValueError, TypeError) as e:
-            raise TransportError(f"Failed to encode event data: {e}") from e
+            raise TransportError(
+                f"Failed to encode event data: {e}. "
+                f"This may indicate invalid data in the event payload. "
+                f"Please check your event data and try again.") from e
 
     def _truncate_payload(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """Truncate large payloads to fit within size limits"""
