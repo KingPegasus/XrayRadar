@@ -81,7 +81,16 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: coverage-report
-          path: htmlcov/
+          path: ./
+      
+      - name: Verify coverage files
+        run: |
+          if [ ! -f "htmlcov/index.html" ]; then
+            echo "Error: htmlcov/index.html not found"
+            ls -la htmlcov/ || echo "htmlcov directory not found"
+            exit 1
+          fi
+          echo "Coverage report found at htmlcov/index.html"
       
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -451,11 +451,20 @@ mypy src/
 pytest
 
 # Run with coverage
-pytest --cov=xrayradar
+pytest --cov=xrayradar --cov-report=html
+
+# View coverage report
+# Open htmlcov/index.html in your browser
 
 # Run specific test file
 pytest tests/test_client.py
 ```
+
+> **Note**: Test coverage reports are automatically generated in CI and deployed to [GitHub Pages](https://kingpegasus.github.io/XrayRadar/). To enable this:
+> 1. Go to your repository **Settings** → **Pages**
+> 2. Under **Source**, select **GitHub Actions**
+> 3. Save the settings
+> 4. After the next push to `main`, the coverage report will be available at the GitHub Pages URL
 
 ## License
 
