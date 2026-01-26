@@ -35,7 +35,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
     })
-    expect(screen.getByText(/Xrayradar is a minimal error tracking stack/i)).toBeInTheDocument()
+    expect(screen.getByText(/XrayRadar is a minimal error tracking stack/i)).toBeInTheDocument()
   })
 
   it('shows sign in button when not authenticated', async () => {

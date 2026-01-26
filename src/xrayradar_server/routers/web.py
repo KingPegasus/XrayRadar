@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -15,10 +16,14 @@ def _get_web_dist_dir() -> Path:
     return (Path(__file__).resolve().parents[3] / "xrayradar-web" / "dist")
 
 
-def register_web(app: FastAPI) -> None:
+# Track which apps have had root route registered
+_registered_apps = set()
+
+def register_web(app: FastAPI, register_catch_all: bool = True) -> None:
     web_dist_dir = _get_web_dist_dir()
     web_index = web_dist_dir / "index.html"
 
+    # Always register assets mount if it exists (mounts can be safely re-registered)
     if web_index.exists():
         assets_dir = web_dist_dir / "assets"
         if assets_dir.exists():
@@ -28,33 +33,67 @@ def register_web(app: FastAPI) -> None:
                 name="web-assets",
             )
 
-    @app.get("/", include_in_schema=False)
-    def web_root():
-        if web_index.exists():
-            return FileResponse(str(web_index))
-        raise HTTPException(status_code=404, detail="Not Found")
+    # Only register root route once per app instance
+    if id(app) not in _registered_apps:
+        @app.get("/", include_in_schema=False)
+        def web_root():
+            if web_index.exists():
+                return FileResponse(str(web_index))
+            raise HTTPException(status_code=404, detail="Not Found")
+        
+        _registered_apps.add(id(app))
+    
+    # Only register catch-all if requested (should be called after server routes)
+    if not register_catch_all:
+        return
 
     def _should_spa_fallback(path: str) -> bool:
-        if not web_index.exists():
+        """Check if path should fall back to SPA index.html.
+        
+        Returns True for client routes that should serve the SPA.
+        Returns False for server routes, WordPress paths, and assets (which are mounted).
+        """
+        # FastAPI {path:path} captures without leading slash, so normalize
+        normalized_path = "/" + path if path and not path.startswith("/") else (path or "/")
+        
+        if normalized_path == "/":
+            return True
+        
+        # Assets are mounted separately, so they shouldn't reach here
+        # But if they do, don't serve SPA for them
+        if normalized_path.startswith("/assets/"):
             return False
-
-        path = (path or "").lstrip("/")
-        if not path:
+        
+        # Block WordPress and other suspicious paths
+        if (normalized_path.startswith("/wp-") or 
+            normalized_path.startswith("/wp/") or 
+            normalized_path.startswith("/wordpress") or
+            normalized_path == "/index.php" or
+            normalized_path.startswith("/index.php/") or
+            "/wp-admin" in normalized_path or
+            "wp-admin" in normalized_path):
             return False
-
-        if path.startswith("api/"):
+        
+        # Don't handle API, auth, and other server routes - let FastAPI handle them
+        # These will be matched by their actual route handlers before this catch-all
+        if normalized_path.startswith("/api/") or normalized_path.startswith("/auth/"):
             return False
-        if path.startswith("auth/"):
+        
+        # Server routes like /admin, /health, /docs are handled by their actual routes
+        # Don't intercept them here
+        server_routes = {"/docs", "/redoc", "/openapi.json", "/admin", "/health"}
+        if normalized_path in server_routes:
             return False
-        if path.startswith("assets/"):
-            return False
-        if path in {"docs", "redoc", "openapi.json", "admin", "health"}:
-            return False
-
+        
+        # Allow all other client-side routes to fall back to SPA
+        # This includes /pricing, /some-client-route, etc.
         return True
 
-    @app.exception_handler(StarletteHTTPException)
-    async def spa_404_handler(request: Request, exc: StarletteHTTPException):
-        if exc.status_code == 404 and _should_spa_fallback(request.url.path):
-            return FileResponse(str(web_index))
-        return await http_exception_handler(request, exc)
+    @app.get("/{path:path}", include_in_schema=False)
+    def handle_spa_routes(path: str, request: Request):
+        if _should_spa_fallback(path):
+            if web_index.exists():
+                return FileResponse(str(web_index))
+        
+        # Block WordPress and other blocked paths
+        raise HTTPException(status_code=404, detail="Not Found")

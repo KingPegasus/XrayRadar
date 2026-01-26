@@ -16,7 +16,7 @@ describe('DashboardLayout', () => {
       </DashboardLayout>
     )
 
-    expect(screen.getByText('Xrayradar')).toBeInTheDocument()
+    expect(screen.getByText('XrayRadar')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Projects/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Tokens/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Sign out/i })).toBeInTheDocument()

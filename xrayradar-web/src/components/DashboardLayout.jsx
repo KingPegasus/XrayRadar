@@ -1,4 +1,5 @@
 import { Link } from './Link'
+import { Logo } from './Logo'
 
 export function DashboardLayout({ me, onLogout, children }) {
   return (
@@ -6,8 +7,10 @@ export function DashboardLayout({ me, onLogout, children }) {
       <header className="nav">
         <div className="container navInner">
           <Link className="brand" to="/">
-            <span className="logo" aria-hidden="true" />
-            <span>Xrayradar</span>
+            <span className="logo" aria-hidden="true">
+              <Logo size={36} />
+            </span>
+            <span>XrayRadar</span>
           </Link>
           <nav className="navLinks" aria-label="Primary">
             <Link to="/dashboard">Projects</Link>

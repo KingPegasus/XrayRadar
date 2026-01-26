@@ -519,6 +519,53 @@ def test_db_get_database_url_missing(monkeypatch):
         dbmod.get_database_url()
 
 
+def test_db_engine_dispose_on_url_change(monkeypatch, tmp_path):
+    """Test that engine is disposed when database URL changes (covers line 30 in db.py)."""
+    import importlib
+    import xrayradar_server.db as dbmod
+    
+    # First database URL
+    db1 = tmp_path / "test1.sqlite3"
+    url1 = f"sqlite:///{db1}"
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", url1)
+    importlib.reload(dbmod)
+    
+    # Access engine to initialize it
+    engine1 = dbmod.engine
+    assert engine1 is not None
+    
+    # Change database URL
+    db2 = tmp_path / "test2.sqlite3"
+    url2 = f"sqlite:///{db2}"
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", url2)
+    importlib.reload(dbmod)
+    
+    # Access engine again - should create new engine and dispose old one
+    engine2 = dbmod.engine
+    assert engine2 is not None
+    assert engine2 is not engine1
+
+
+def test_db_ensure_engine_when_session_local_none(monkeypatch, tmp_path):
+    """Test that _ensure_engine is called when SessionLocal is None (covers line 43 in db.py)."""
+    import importlib
+    import xrayradar_server.db as dbmod
+    
+    db_path = tmp_path / "test.sqlite3"
+    url = f"sqlite:///{db_path}"
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", url)
+    importlib.reload(dbmod)
+    
+    # Access SessionLocal - this should trigger _ensure_engine if SessionLocal is None
+    # The __getattr__ will call _ensure_session_local which calls _ensure_engine
+    session_local = dbmod.SessionLocal
+    assert session_local is not None
+    
+    # Access engine directly - should also work
+    engine = dbmod.engine
+    assert engine is not None
+
+
 def test_create_project_requires_admin_token(app_and_client):
     _, client = app_and_client
     r = client.post("/api/projects", json={"name": "p"})

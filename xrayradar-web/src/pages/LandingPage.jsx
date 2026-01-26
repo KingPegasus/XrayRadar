@@ -1,6 +1,7 @@
 import { Link } from '../components/Link'
 import { SectionHeader } from '../components/SectionHeader'
 import { Check } from '../components/Check'
+import { Logo } from '../components/Logo'
 import { FEATURES } from '../utils/constants'
 
 export function LandingPage({ me, onSignupOpen, onLogout }) {
@@ -9,8 +10,10 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
       <header className="nav">
         <div className="container navInner">
           <a className="brand" href="#top">
-            <span className="logo" aria-hidden="true" />
-            <span>Xrayradar</span>
+            <span className="logo" aria-hidden="true">
+              <Logo size={36} />
+            </span>
+            <span>XrayRadar</span>
           </a>
           <nav className="navLinks" aria-label="Primary">
             <a href="#features">Features</a>
@@ -47,7 +50,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 Error tracking that stays out of your way.
               </h1>
               <p className="lead">
-                Xrayradar is a minimal error tracking stack: lightweight SDKs + a simple server.
+                XrayRadar is a minimal error tracking stack: lightweight SDKs + a simple server.
                 Capture exceptions, keep context, and debug faster — without the bloat.
               </p>
 
@@ -69,7 +72,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
 pip install xrayradar
 
 # Env
-XRAYRADAR_DSN=http://localhost:8001/1
+XRAYRADAR_DSN=https://xrayradar.com/1
 XRAYRADAR_AUTH_TOKEN=<token>
 
 # Capture
@@ -157,7 +160,7 @@ except Exception as e:
               <div className="card">
                 <h3 className="cardTitle">Is the DSN supposed to contain credentials?</h3>
                 <p className="cardText">
-                  No. The DSN is a simple project endpoint like <code>http://host:port/&lt;project_id&gt;</code>. Auth is done via token header.
+                  No. The DSN is a simple project endpoint like <code>https://xrayradar.com/&lt;project_id&gt;</code>. Auth is done via token header.
                 </p>
               </div>
               <div className="card">
@@ -169,7 +172,7 @@ except Exception as e:
               <div className="card">
                 <h3 className="cardTitle">Do you offer self-hosting?</h3>
                 <p className="cardText">
-                  Xrayradar is offered as a hosted service. If you need a dedicated deployment or on-prem setup, reach out and we'll discuss options.
+                  XrayRadar is offered as a hosted service. If you need a dedicated deployment or on-prem setup, reach out and we'll discuss options.
                 </p>
               </div>
             </div>
@@ -178,7 +181,7 @@ except Exception as e:
 
         <footer className="footer">
           <div className="container footerInner">
-            <div className="small">© {new Date().getFullYear()} Xrayradar</div>
+            <div className="small">© {new Date().getFullYear()} XrayRadar</div>
             <div className="small" style={{ display: 'flex', gap: 14 }}>
               <a href="#features">Features</a>
               <a href="#pricing">Pricing</a>

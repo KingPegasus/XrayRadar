@@ -40,7 +40,8 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="xrayradar-server", lifespan=lifespan)
 
 
-register_web(app)
+# Register web static files and root route, but not catch-all yet
+register_web(app, register_catch_all=False)
 
 app.include_router(user_auth_router.router)
 app.include_router(api_router.router)
@@ -195,6 +196,11 @@ def admin_me_endpoint(request: Request) -> dict:
 @app.get("/health", response_model=dict)
 def health_endpoint() -> dict:
     return health()
+
+
+# Register catch-all route for SPA AFTER all server routes are defined
+# This ensures server routes like /admin, /health are matched first
+register_web(app, register_catch_all=True)
 
 
 # Backward-compatible re-exports for tests that call mainmod.* directly.
