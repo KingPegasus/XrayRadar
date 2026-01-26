@@ -9,16 +9,45 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update-badges:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    # Only run if CI succeeded, or if it's a manual dispatch
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
     steps:
+      - name: Get PR branch info
+        id: pr-info
+        if: github.event_name == 'workflow_run'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowRun = context.payload.workflow_run;
+            const prNumber = workflowRun.pull_requests?.[0]?.number;
+            
+            if (prNumber) {
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              core.setOutput('branch', pr.data.head.ref);
+              core.setOutput('is_pr', 'true');
+            } else {
+              core.setOutput('branch', workflowRun.head_branch || 'main');
+              core.setOutput('is_pr', 'false');
+            }
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # For PRs, checkout the PR branch; for workflow_run, use the branch from pr-info or head_branch
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || (github.event_name == 'workflow_run' && steps.pr-info.outputs.branch) || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch) || 'main' }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -138,8 +167,51 @@ jobs:
               f.write(content)
           EOF
 
+      - name: Determine branch and PR status
+        id: branch-info
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_run" ]; then
+            # Use pr-info output if available (for PRs), otherwise fall back to workflow_run head_branch
+            BRANCH="${{ steps.pr-info.outputs.branch }}"
+            if [ -z "$BRANCH" ]; then
+              BRANCH="${{ github.event.workflow_run.head_branch }}"
+            fi
+            echo "branch=${BRANCH:-main}" >> $GITHUB_OUTPUT
+            IS_PR="${{ steps.pr-info.outputs.is_pr }}"
+            echo "is_pr=${IS_PR:-false}" >> $GITHUB_OUTPUT
+          else
+            # For workflow_dispatch, default to main
+            echo "branch=main" >> $GITHUB_OUTPUT
+            echo "is_pr=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Skip if main branch
+        id: skip-main
+        run: |
+          BRANCH="${{ steps.branch-info.outputs.branch }}"
+          if [ "$BRANCH" == "main" ] || [ "$BRANCH" == "master" ]; then
+            echo "Skipping README update on main branch"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Commit and push if changed
+        if: steps.skip-main.outputs.skip != 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git diff --exit-code README.md || (git add README.md && git commit -m "chore: update test coverage badges [skip ci]" && git push)
+          
+          # Check if README changed
+          if git diff --exit-code README.md; then
+            echo "No changes to README.md"
+            exit 0
+          fi
+          
+          git add README.md
+          git commit -m "chore: update test coverage badges [skip ci]"
+          
+          # Push to the PR branch
+          BRANCH="${{ steps.branch-info.outputs.branch }}"
+          echo "Pushing to PR branch: $BRANCH"
+          git push origin HEAD:$BRANCH
