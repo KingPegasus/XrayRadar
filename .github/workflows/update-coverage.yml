@@ -180,8 +180,9 @@ jobs:
             IS_PR="${{ steps.pr-info.outputs.is_pr }}"
             echo "is_pr=${IS_PR:-false}" >> $GITHUB_OUTPUT
           else
-            # For workflow_dispatch, default to main
-            echo "branch=main" >> $GITHUB_OUTPUT
+            # For workflow_dispatch, use the actual branch (refs/heads/branch -> branch)
+            BRANCH="${{ github.ref_name }}"
+            echo "branch=${BRANCH:-main}" >> $GITHUB_OUTPUT
             echo "is_pr=false" >> $GITHUB_OUTPUT
           fi
 
@@ -189,7 +190,11 @@ jobs:
         id: skip-main
         run: |
           BRANCH="${{ steps.branch-info.outputs.branch }}"
-          if [ "$BRANCH" == "main" ] || [ "$BRANCH" == "master" ]; then
+          # Don't skip on main branch if it's a manual dispatch (workflow_dispatch)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manual dispatch: allowing commit even on main branch"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH" == "main" ] || [ "$BRANCH" == "master" ]; then
             echo "Skipping README update on main branch"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
