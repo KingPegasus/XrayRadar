@@ -6,6 +6,11 @@ import App from './App'
 // Mock fetch globally
 global.fetch = vi.fn()
 
+// Mock navigation
+vi.mock('./utils/navigation', () => ({
+  navigate: vi.fn(),
+}))
+
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -35,8 +40,10 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
     })
-    expect(screen.getByText(/XrayRadar is a minimal error tracking stack/i)).toBeInTheDocument()
+    expect(screen.getByText(/XrayRadar is a minimal error tracking service/i)).toBeInTheDocument()
   })
+
+
 
   it('shows sign in button when not authenticated', async () => {
     fetch.mockResolvedValueOnce({
@@ -79,6 +86,29 @@ describe('App', () => {
     expect(screen.getByText(/Use an email \+ password to create your account/i)).toBeInTheDocument()
   })
 
+  it('opens signup modal with Basic plan when clicking Basic button', async () => {
+    const user = userEvent.setup()
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    render(<App />)
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
+    })
+    
+    const basicButton = screen.getByRole('button', { name: /Choose Basic/i })
+    await user.click(basicButton)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/you@company.com/i)).toBeInTheDocument()
+    }, { timeout: 3000 })
+    
+    expect(screen.getByText(/Use an email \+ password to create your account/i)).toBeInTheDocument()
+  })
+
   it('shows dashboard link when authenticated', async () => {
     fetch.mockResolvedValueOnce({
       ok: true,
@@ -89,6 +119,190 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
+    })
+  })
+
+  it('handles logout', async () => {
+    const user = userEvent.setup()
+    const mockMe = { id: 1, email: 'test@example.com' }
+
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMe,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+      })
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/dashboard',
+        href: '/dashboard',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Sign out/i })).toBeInTheDocument()
+    })
+
+    const signOutButton = screen.getByRole('button', { name: /Sign out/i })
+    await user.click(signOutButton)
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    })
+  })
+
+  it('handles logout error gracefully', async () => {
+    const user = userEvent.setup()
+    const mockMe = { id: 1, email: 'test@example.com' }
+
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockMe,
+      })
+      .mockRejectedValueOnce(new Error('Network error'))
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/dashboard',
+        href: '/dashboard',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Sign out/i })).toBeInTheDocument()
+    })
+
+    const signOutButton = screen.getByRole('button', { name: /Sign out/i })
+    await user.click(signOutButton)
+
+    // Should still navigate even if logout fails
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    })
+  })
+
+  it('redirects to login when accessing dashboard without auth', async () => {
+    const { navigate } = await import('./utils/navigation')
+    
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/dashboard',
+        href: '/dashboard',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/login')
+    }, { timeout: 2000 })
+  })
+
+  it('shows loading state when me is not loaded', async () => {
+    fetch.mockImplementation(() => new Promise(() => {})) // Never resolves
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/dashboard',
+        href: '/dashboard',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    const { container } = render(<App />)
+
+    // Should render nothing while loading
+    await waitFor(() => {
+      expect(container.firstChild).toBeNull()
+    })
+  })
+
+  it('renders dashboard when authenticated', async () => {
+    const mockMe = { id: 1, email: 'test@example.com' }
+
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockMe,
+    })
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/dashboard',
+        href: '/dashboard',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Projects/i })).toBeInTheDocument()
+    })
+  })
+
+  it('closes signup modal', async () => {
+    const user = userEvent.setup()
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
+    })
+
+    const freeButton = screen.getByRole('button', { name: /Choose Free/i })
+    await user.click(freeButton)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/you@company.com/i)).toBeInTheDocument()
+    })
+
+    // Close modal
+    const closeButton = screen.getByRole('button', { name: /Close/i })
+    await user.click(closeButton)
+
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText(/you@company.com/i)).not.toBeInTheDocument()
     })
   })
 })

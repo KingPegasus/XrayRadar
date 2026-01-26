@@ -51,6 +51,15 @@ describe('EventDetailPage', () => {
     })
   })
 
+  it('displays error message when error has no message', async () => {
+    api.fetchJson.mockRejectedValueOnce(new Error())
+    render(<EventDetailPage projectId={1} fingerprint="abc123" eventId="event1" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load event/i)).toBeInTheDocument()
+    })
+  })
+
   it('navigates back to issue on error', async () => {
     const user = userEvent.setup()
     api.fetchJson.mockRejectedValueOnce(new Error('Failed to load'))
@@ -105,6 +114,17 @@ describe('EventDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/EventDetailView: event2/i)).toBeInTheDocument()
+    })
+  })
+
+  it('returns null when event is null after loading', async () => {
+    api.fetchJson.mockResolvedValueOnce(null)
+    const { container } = render(<EventDetailPage projectId={1} fingerprint="abc123" eventId="event1" />)
+
+    await waitFor(() => {
+      // Should not show loading or error, just return null
+      expect(screen.queryByText(/Loading event/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Event Details/i)).not.toBeInTheDocument()
     })
   })
 })

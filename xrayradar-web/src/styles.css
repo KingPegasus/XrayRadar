@@ -54,17 +54,18 @@ a { color: inherit; text-decoration: none; }
   gap: 10px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  color: #B3B8B7;
 }
 
 .logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--brand), var(--brand-2));
-  box-shadow: 0 10px 30px rgba(79, 124, 255, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Remove fixed dimensions - let the img element control size */
+}
+
+.brand-text {
+  display: inline;
 }
 
 .navLinks {

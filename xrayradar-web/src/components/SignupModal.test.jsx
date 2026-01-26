@@ -138,4 +138,59 @@ describe('SignupModal', () => {
     const emailInput = screen.getByPlaceholderText(/you@company.com/i)
     expect(emailInput).toHaveValue('')
   })
+
+  it('handles error when fetchMe fails after signup', async () => {
+    const user = userEvent.setup()
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    })
+    api.fetchMe.mockRejectedValueOnce(new Error('Failed to fetch user'))
+
+    render(<SignupModal open={true} plan="Free" onClose={onClose} />)
+
+    const emailInput = screen.getByPlaceholderText(/you@company.com/i)
+    const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
+    const passwordInput = passwordInputs[0]
+    const confirmInput = passwordInputs[1]
+    const submitButton = screen.getByRole('button', { name: /Create account/i })
+
+    await user.type(emailInput, 'test@example.com')
+    await user.type(passwordInput, 'password123')
+    await user.type(confirmInput, 'password123')
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Something went wrong. Please try again./i)).toBeInTheDocument()
+    })
+  })
+
+  it('prevents double submission when submitting', async () => {
+    const user = userEvent.setup()
+    fetch.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({
+      ok: true,
+      json: async () => ({}),
+    }), 100)))
+
+    render(<SignupModal open={true} plan="Free" onClose={onClose} />)
+
+    const emailInput = screen.getByPlaceholderText(/you@company.com/i)
+    const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
+    const passwordInput = passwordInputs[0]
+    const confirmInput = passwordInputs[1]
+    const submitButton = screen.getByRole('button', { name: /Create account/i })
+
+    await user.type(emailInput, 'test@example.com')
+    await user.type(passwordInput, 'password123')
+    await user.type(confirmInput, 'password123')
+    
+    // Click submit button twice quickly - second click should return early (line 27)
+    await user.click(submitButton)
+    await user.click(submitButton)
+
+    // Should only call fetch once due to early return
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+  })
 })

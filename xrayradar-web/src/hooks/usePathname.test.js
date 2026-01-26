@@ -46,6 +46,28 @@ describe('usePathname', () => {
     expect(result.current).toBe('/dashboard')
   })
 
+  it('handles missing pathname in popstate event', () => {
+    Object.defineProperty(window, 'location', {
+      value: { pathname: '/' },
+      writable: true,
+      configurable: true,
+    })
+    const { result } = renderHook(() => usePathname())
+    expect(result.current).toBe('/')
+
+    act(() => {
+      Object.defineProperty(window, 'location', {
+        value: {},
+        writable: true,
+        configurable: true,
+      })
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+
+    // Should default to '/' when pathname is missing
+    expect(result.current).toBe('/')
+  })
+
   it('handles missing pathname', () => {
     Object.defineProperty(window, 'location', {
       value: {},

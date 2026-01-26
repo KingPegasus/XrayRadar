@@ -1,29 +1,37 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+// Mock ReactDOM before importing
+const mockRender = vi.fn()
+const mockCreateRoot = vi.fn(() => ({
+  render: mockRender,
+}))
+
+vi.mock('react-dom/client', () => ({
+  default: {
+    createRoot: mockCreateRoot,
+  },
+}))
+
+// Mock App component
+vi.mock('./App', () => ({
+  default: () => <div>Mock App</div>,
+}))
+
 describe('main.jsx', () => {
   let rootElement
 
   beforeEach(() => {
+    vi.clearAllMocks()
     // Create a mock root element
     rootElement = document.createElement('div')
     rootElement.id = 'root'
     document.body.appendChild(rootElement)
-
-    // Mock ReactDOM
-    vi.mock('react-dom/client', () => ({
-      default: {
-        createRoot: vi.fn(() => ({
-          render: vi.fn(),
-        })),
-      },
-    }))
   })
 
   afterEach(() => {
     if (rootElement.parentNode) {
       rootElement.parentNode.removeChild(rootElement)
     }
-    vi.clearAllMocks()
   })
 
   it('has root element in DOM', () => {
@@ -31,13 +39,17 @@ describe('main.jsx', () => {
     expect(root).toBeInTheDocument()
   })
 
-  it('can import main module', async () => {
-    // This test verifies the module can be imported without errors
-    // The actual rendering is tested in App.test.jsx
-    expect(() => {
-      // Just verify the file structure is correct
-      const root = document.getElementById('root')
-      expect(root).toBeTruthy()
-    }).not.toThrow()
+  it('renders App to root element', async () => {
+    // Dynamically import main.jsx to trigger the render
+    await import('./main.jsx')
+
+    // Wait for the render to be called
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(mockCreateRoot).toHaveBeenCalledWith(rootElement)
+    expect(mockRender).toHaveBeenCalled()
+    
+    // Verify render was called with some content (App wrapped in StrictMode)
+    expect(mockRender.mock.calls.length).toBeGreaterThan(0)
   })
 })
