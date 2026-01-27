@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,10 +15,12 @@ from ..schemas import (
     TokenProjectAccessOut,
     TokenRequestCreate,
     TokenRequestOut,
+    UsageOut,
     UserProjectCreate,
     UserProjectOut,
     UserTokenOut,
 )
+from ..usage import check_user_event_limit, get_user_event_count, is_near_limit
 
 router = APIRouter()
 
@@ -57,6 +59,28 @@ def user_create_project(
     db.commit()
     db.refresh(row)
     return UserProjectOut(id=row.id, name=row.name)
+
+
+@router.get("/api/user/usage", response_model=UsageOut)
+def user_get_usage(user: User = Depends(require_user), db: Session = Depends(get_db)):
+    """Get current event storage usage and limits for the authenticated user."""
+    current_count, limit, is_exceeded = check_user_event_limit(
+        db, user, raise_on_exceed=False
+    )
+    near_limit = is_near_limit(current_count, limit)
+
+    percentage_used = None
+    if limit is not None and limit > 0:
+        percentage_used = min(100.0, (current_count / limit) * 100.0)
+
+    return UsageOut(
+        current_count=current_count,
+        limit=limit,
+        plan=user.plan,
+        is_exceeded=is_exceeded,
+        is_near_limit=near_limit,
+        percentage_used=percentage_used,
+    )
 
 
 @router.get("/api/user/tokens", response_model=list[UserTokenOut])
@@ -230,6 +254,158 @@ def user_list_issues(
     return out
 
 
+@router.get("/api/user/projects/{project_id}/events", response_model=list[dict])
+def user_list_project_events(
+    project_id: int,
+    limit: int = 200,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """List events for a project (for frequency chart). Returns events from the last 30 days."""
+    _require_owned_project(db, user=user, project_id=project_id)
+    
+    # Filter to last 30 days to ensure we have data for the full frequency chart range
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    clamped_limit = min(max(limit, 1), 500)
+    q = (
+        select(Event)
+        .where(Event.project_id == project_id)
+        .where(Event.timestamp >= thirty_days_ago)
+        .order_by(Event.timestamp.desc())
+        .limit(clamped_limit)
+    )
+    rows = db.execute(q).scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "timestamp": r.timestamp,
+            "level": r.level,
+            "message": r.message,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/api/user/projects/{project_id}/events/frequency", response_model=dict)
+def user_get_project_event_frequency(
+    project_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Get event frequency counts per day for the last 30 days (for frequency chart).
+    This uses aggregation to efficiently count all events without limit restrictions."""
+    _require_owned_project(db, user=user, project_id=project_id)
+    
+    # Filter to last 30 days
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    # Aggregate events by date (UTC date, ignoring time)
+    # Use func.date() to extract just the date part for grouping
+    q = (
+        select(
+            func.date(Event.timestamp).label("date"),
+            func.count(Event.id).label("count"),
+        )
+        .where(Event.project_id == project_id)
+        .where(Event.timestamp >= thirty_days_ago)
+        .group_by(func.date(Event.timestamp))
+        .order_by(func.date(Event.timestamp))
+    )
+    rows = db.execute(q).all()
+    
+    # Convert to dictionary with date strings as keys
+    frequency = {}
+    for date_obj, count in rows:
+        # Convert date to ISO string (YYYY-MM-DD)
+        if isinstance(date_obj, datetime):
+            date_str = date_obj.date().isoformat()
+        elif hasattr(date_obj, 'isoformat'):
+            date_str = date_obj.isoformat()
+        else:
+            # Handle string dates or other formats
+            date_str = str(date_obj)
+            # If it's a datetime string, extract just the date part
+            if ' ' in date_str or 'T' in date_str:
+                date_str = date_str.split()[0].split('T')[0]
+        frequency[date_str] = int(count or 0)
+    
+    # Get total count for the period
+    total_q = (
+        select(func.count(Event.id))
+        .where(Event.project_id == project_id)
+        .where(Event.timestamp >= thirty_days_ago)
+    )
+    total_count = db.execute(total_q).scalar() or 0
+    
+    return {
+        "frequency": frequency,
+        "total": total_count,
+    }
+
+
+@router.get(
+    "/api/user/projects/{project_id}/issues/{fingerprint}/events/frequency",
+    response_model=dict,
+)
+def user_get_issue_event_frequency(
+    project_id: int,
+    fingerprint: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Get event frequency counts per day for a specific issue (last 30 days).
+    This uses aggregation to efficiently count all events without limit restrictions."""
+    _require_owned_project(db, user=user, project_id=project_id)
+    
+    # Filter to last 30 days
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
+    # Aggregate events by date (UTC date, ignoring time)
+    q = (
+        select(
+            func.date(Event.timestamp).label("date"),
+            func.count(Event.id).label("count"),
+        )
+        .where(Event.project_id == project_id)
+        .where(Event.fingerprint == fingerprint)
+        .where(Event.timestamp >= thirty_days_ago)
+        .group_by(func.date(Event.timestamp))
+        .order_by(func.date(Event.timestamp))
+    )
+    rows = db.execute(q).all()
+    
+    # Convert to dictionary with date strings as keys
+    frequency = {}
+    for date_obj, count in rows:
+        # Convert date to ISO string (YYYY-MM-DD)
+        if isinstance(date_obj, datetime):
+            date_str = date_obj.date().isoformat()
+        elif hasattr(date_obj, 'isoformat'):
+            date_str = date_obj.isoformat()
+        else:
+            # Handle string dates or other formats
+            date_str = str(date_obj)
+            # If it's a datetime string, extract just the date part
+            if ' ' in date_str or 'T' in date_str:
+                date_str = date_str.split()[0].split('T')[0]
+        frequency[date_str] = int(count or 0)
+    
+    # Get total count for the period
+    total_q = (
+        select(func.count(Event.id))
+        .where(Event.project_id == project_id)
+        .where(Event.fingerprint == fingerprint)
+        .where(Event.timestamp >= thirty_days_ago)
+    )
+    total_count = db.execute(total_q).scalar() or 0
+    
+    return {
+        "frequency": frequency,
+        "total": total_count,
+    }
+
+
 @router.get(
     "/api/user/projects/{project_id}/issues/{fingerprint}/events",
     response_model=list[dict],
@@ -243,10 +419,15 @@ def user_list_issue_events(
 ):
     _require_owned_project(db, user=user, project_id=project_id)
     clamped_limit = min(max(limit, 1), 200)
+    
+    # Filter to last 30 days to ensure we have data for the full frequency chart range
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    
     q = (
         select(Event)
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
+        .where(Event.timestamp >= thirty_days_ago)
         .order_by(Event.timestamp.desc())
         .limit(clamped_limit)
     )

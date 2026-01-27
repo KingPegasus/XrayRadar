@@ -10,6 +10,12 @@ from ..deps import authorize_ingest_for_project, require_admin, require_project_
 from ..fingerprinting import compute_fingerprint
 from ..models import Event, Project, Token
 from ..schemas import EventOut, ProjectCreate, ProjectOut
+from ..usage import (
+    get_user_event_count,
+    get_user_event_limit,
+    get_user_from_project,
+    is_near_limit,
+)
 
 router = APIRouter()
 
@@ -45,6 +51,30 @@ def store_event(
     if project is None:
         raise HTTPException(status_code=404, detail="Unknown project")
 
+    # Check event storage limits for the project owner
+    user = get_user_from_project(db, project)
+    warning_message = None
+    if user is not None:
+        # Get current count before storing this event
+        current_count = get_user_event_count(db, user.id)
+        limit = get_user_event_limit(user)
+        
+        # Check if storing this event would exceed the limit
+        if limit is not None and (current_count + 1) > limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Event storage limit exceeded. Current: {current_count}, Limit: {limit}. "
+                f"Please upgrade your plan to store more events.",
+            )
+        
+        # Check if approaching limit (after storing this event)
+        if limit is not None and is_near_limit(current_count + 1, limit):
+            percentage = int(((current_count + 1) / limit) * 100)
+            warning_message = (
+                f"Warning: You've used {percentage}% of your event storage limit "
+                f"({current_count + 1}/{limit}). Consider upgrading your plan."
+            )
+
     timestamp = event.get("timestamp")
     level = event.get("level") or "error"
     message = event.get("message") or ""
@@ -79,7 +109,10 @@ def store_event(
     db.commit()
     db.refresh(row)
 
-    return {"id": str(row.id)}
+    response = {"id": str(row.id)}
+    if warning_message:
+        response["warning"] = warning_message
+    return response
 
 
 @router.get("/api/{project_id}/events", response_model=list[EventOut])

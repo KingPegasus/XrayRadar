@@ -153,3 +153,12 @@ class AdminTokenRequestOut(BaseModel):
     created_at: datetime
     fulfilled_at: Optional[datetime] = None
     fulfilled_token_id: Optional[int] = None
+
+
+class UsageOut(BaseModel):
+    current_count: int
+    limit: Optional[int] = None
+    plan: str
+    is_exceeded: bool
+    is_near_limit: bool
+    percentage_used: Optional[float] = None
