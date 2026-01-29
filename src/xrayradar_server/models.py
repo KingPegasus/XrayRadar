@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 import os
 import uuid
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -55,6 +55,12 @@ class Project(Base):
     )
 
     owner: Mapped["User | None"] = relationship("User", back_populates="projects")
+    alert_settings: Mapped["ProjectAlertSettings | None"] = relationship(
+        "ProjectAlertSettings", back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
+    alert_recipients: Mapped[list["ProjectAlertRecipient"]] = relationship(
+        "ProjectAlertRecipient", back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Event(Base):
@@ -189,3 +195,50 @@ class TokenRequest(Base):
 
     user: Mapped[User] = relationship("User", back_populates="token_requests")
     fulfilled_token: Mapped[Token | None] = relationship("Token")
+
+
+class ProjectAlertSettings(Base):
+    __tablename__ = "project_alert_settings"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    level_filter: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="error"
+    )
+    cooldown_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    project: Mapped[Project] = relationship(
+        "Project", back_populates="alert_settings"
+    )
+
+
+class ProjectAlertRecipient(Base):
+    __tablename__ = "project_alert_recipients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+
+    project: Mapped[Project] = relationship(
+        "Project", back_populates="alert_recipients"
+    )
+
+    __table_args__ = (UniqueConstraint("project_id", "email", name="uq_project_alert_recipients_project_email"),)
+
+
+class AlertCooldown(Base):
+    __tablename__ = "alert_cooldown"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, primary_key=True
+    )
+    fingerprint: Mapped[str] = mapped_column(
+        String(64), nullable=False, primary_key=True
+    )
+    last_notified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )

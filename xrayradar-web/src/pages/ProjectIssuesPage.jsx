@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { fetchJson } from '../utils/api'
 import { navigate } from '../utils/navigation'
 import { EventFrequencyChart } from '../components/EventFrequencyChart'
+import { ProjectSettingsModal } from '../components/ProjectSettingsModal'
 
 export function ProjectIssuesPage({ projectId }) {
   const [issues, setIssues] = useState([])
@@ -61,7 +62,8 @@ export function ProjectIssuesPage({ projectId }) {
               Issues are grouped by fingerprint.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <ProjectSettingsModal projectId={projectId} />
             <button className="button" type="button" onClick={() => navigate('/dashboard')}>
               Back
             </button>

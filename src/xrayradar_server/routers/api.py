@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from ..db import get_db
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
 from ..fingerprinting import compute_fingerprint
 from ..models import Event, Project, Token
+from ..notifications import get_alert_recipients, send_alert_emails, should_send_alert
 from ..schemas import EventOut, ProjectCreate, ProjectOut
 from ..usage import (
     get_user_event_count,
@@ -37,6 +38,7 @@ def create_project(
 def store_event(
     project_id: int,
     event: dict,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     x_xrayradar_token: str | None = Header(
         default=None, alias="X-Xrayradar-Token"),
@@ -108,6 +110,20 @@ def store_event(
     db.add(row)
     db.commit()
     db.refresh(row)
+
+    # Email alerts: non-blocking, only for error level
+    if level == "error":
+        recipients = get_alert_recipients(db, project)
+        if recipients and should_send_alert(db, project_id, fp, str(level)):
+            background_tasks.add_task(
+                send_alert_emails,
+                recipients=recipients,
+                project_name=project.name,
+                event_message=str(message)[:500],
+                event_id=row.id,
+                project_id=project_id,
+                fingerprint=fp,
+            )
 
     response = {"id": str(row.id)}
     if warning_message:

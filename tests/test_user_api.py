@@ -35,6 +35,12 @@ def app_and_client_with_user(database_url, monkeypatch, request):
     try:
         db.query(models.TokenProjectAccess).delete()
         db.query(models.Event).delete()
+        if hasattr(models, "AlertCooldown"):
+            db.query(models.AlertCooldown).delete()
+        if hasattr(models, "ProjectAlertRecipient"):
+            db.query(models.ProjectAlertRecipient).delete()
+        if hasattr(models, "ProjectAlertSettings"):
+            db.query(models.ProjectAlertSettings).delete()
         db.query(models.TokenRequest).delete()
         db.query(models.Token).delete()
         db.query(models.Project).delete()
@@ -755,3 +761,77 @@ def test_user_get_event_wrong_project(app_and_client_with_user):
         assert r.status_code == 404
     finally:
         db.close()
+
+
+def test_user_get_alert_settings_default(app_and_client_with_user):
+    """GET alert-settings when no row exists returns defaults"""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+
+    r = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["enabled"] is False
+    assert data["level_filter"] == "error"
+    assert data["cooldown_minutes"] is None
+    assert data["additional_emails"] == []
+
+
+def test_user_update_and_get_alert_settings(app_and_client_with_user):
+    """PATCH alert-settings and GET returns updated values"""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={"enabled": True, "cooldown_minutes": 60, "additional_emails": ["a@x.com", "b@x.com"]},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["enabled"] is True
+    assert data["cooldown_minutes"] == 60
+    assert set(data["additional_emails"]) == {"a@x.com", "b@x.com"}
+
+    r2 = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r2.status_code == 200
+    assert r2.json()["enabled"] is True
+    assert r2.json()["additional_emails"]  # order may vary
+
+
+def test_user_alert_settings_other_project_404(app_and_client_with_user):
+    """GET/PATCH alert-settings for non-owned project returns 404"""
+    mainmod, client, user = app_and_client_with_user
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        other_user = models.User(
+            email="other@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(other_user)
+        db.commit()
+        db.refresh(other_user)
+        proj = models.Project(name="Other", owner_user_id=other_user.id)
+        db.add(proj)
+        db.commit()
+        db.refresh(proj)
+        other_id = proj.id
+    finally:
+        db.close()
+
+    r = client.get(f"/api/user/projects/{other_id}/alert-settings")
+    assert r.status_code == 404
+
+    r2 = client.patch(
+        f"/api/user/projects/{other_id}/alert-settings",
+        json={"enabled": True},
+    )
+    assert r2.status_code == 404

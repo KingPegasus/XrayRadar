@@ -162,3 +162,18 @@ class UsageOut(BaseModel):
     is_exceeded: bool
     is_near_limit: bool
     percentage_used: Optional[float] = None
+
+
+class AlertSettingsOut(BaseModel):
+    enabled: bool
+    level_filter: str
+    cooldown_minutes: Optional[int] = None
+    min_cooldown_minutes: Optional[int] = None  # plan-based minimum (Free=10, Basic/Pro=1)
+    additional_emails: list[str] = []
+
+
+class AlertSettingsUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    level_filter: Optional[str] = None
+    cooldown_minutes: Optional[int] = None
+    additional_emails: Optional[list[str]] = None
