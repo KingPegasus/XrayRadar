@@ -4,7 +4,7 @@ import { navigate } from '../utils/navigation'
 import { EventFrequencyChart } from '../components/EventFrequencyChart'
 import { ProjectSettingsModal } from '../components/ProjectSettingsModal'
 
-export function ProjectIssuesPage({ projectId }) {
+export function ProjectIssuesPage({ projectId, me }) {
   const [issues, setIssues] = useState([])
   const [error, setError] = useState('')
 
@@ -63,7 +63,7 @@ export function ProjectIssuesPage({ projectId }) {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <ProjectSettingsModal projectId={projectId} />
+            <ProjectSettingsModal projectId={projectId} me={me} />
             <button className="button" type="button" onClick={() => navigate('/dashboard')}>
               Back
             </button>

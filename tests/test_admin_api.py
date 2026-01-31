@@ -196,14 +196,130 @@ def test_admin_revoke_token(app_and_client, monkeypatch):
     data = r.json()
     assert data["revoked_at"] is not None
 
-    # Revoking again should be idempotent
-    r = client.post(f"/api/admin/tokens/{token_id}/revoke")
-    assert r.status_code == 200
+    # Revoking again should be idempotent (no db.add/commit when already revoked)
+    first_revoked_at = data["revoked_at"]
+    r2 = client.post(f"/api/admin/tokens/{token_id}/revoke")
+    assert r2.status_code == 200
+    assert r2.json()["revoked_at"] == first_revoked_at  # same timestamp
 
 
 # ============================================================================
 # Project Management Tests
 # ============================================================================
+
+
+def test_admin_list_users_requires_auth(app_and_client):
+    """Listing users requires admin auth."""
+    _, client = app_and_client
+    r = client.get("/api/admin/users")
+    assert r.status_code == 401
+
+
+def test_admin_list_users_empty(app_and_client, monkeypatch):
+    """Listing users when none exist returns empty list."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+    r = client.get("/api/admin/users")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_admin_list_users(app_and_client, monkeypatch):
+    """Listing users returns users with plan and event_count."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+    db = dbmod.SessionLocal()
+    try:
+        u = models.User(email="u@example.com", password_hash="h", plan="Free")
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+    finally:
+        db.close()
+
+    r = client.get("/api/admin/users")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) >= 1
+    one = next((x for x in data if x.get("email") == "u@example.com"), None)
+    assert one is not None
+    assert one["plan"] == "Free"
+    assert "event_count" in one
+
+
+def test_admin_update_user_plan_requires_auth(app_and_client):
+    """Updating user plan requires admin auth."""
+    _, client = app_and_client
+    r = client.patch("/api/admin/users/1/plan", json={"plan": "Pro"})
+    assert r.status_code == 401
+
+
+def test_admin_update_user_plan_not_found(app_and_client, monkeypatch):
+    """Updating plan for non-existent user returns 404."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+    r = client.patch("/api/admin/users/99999/plan", json={"plan": "Pro"})
+    assert r.status_code == 404
+
+
+def test_admin_update_user_plan_invalid_plan(app_and_client, monkeypatch):
+    """Updating plan with invalid value returns 400."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+    db = dbmod.SessionLocal()
+    try:
+        u = models.User(email="planuser@example.com", password_hash="h", plan="Free")
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+        user_id = u.id
+    finally:
+        db.close()
+
+    r = client.patch(f"/api/admin/users/{user_id}/plan", json={"plan": "Invalid"})
+    assert r.status_code == 400
+    assert "invalid" in r.json().get("detail", "").lower()
+
+
+def test_admin_update_user_plan(app_and_client, monkeypatch):
+    """Updating user plan returns updated user with event_count."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+    db = dbmod.SessionLocal()
+    try:
+        u = models.User(email="planupdate@example.com", password_hash="h", plan="Free")
+        db.add(u)
+        db.commit()
+        db.refresh(u)
+        user_id = u.id
+    finally:
+        db.close()
+
+    r = client.patch(f"/api/admin/users/{user_id}/plan", json={"plan": "Pro"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["plan"] == "Pro"
+    assert data["email"] == "planupdate@example.com"
+    assert "event_count" in data
 
 
 def test_admin_list_projects_requires_auth(app_and_client):
@@ -941,3 +1057,192 @@ def test_admin_fulfill_token_request(app_and_client, monkeypatch):
         assert req.fulfilled_token_id == data["id"]
     finally:
         db.close()
+
+
+# ============================================================================
+# Deletion Request Tests
+# ============================================================================
+
+
+def test_admin_list_deletion_requests_requires_auth(app_and_client):
+    """Listing deletion requests requires admin auth."""
+    _, client = app_and_client
+    r = client.get("/api/admin/deletion-requests")
+    assert r.status_code == 401
+
+
+def test_admin_list_deletion_requests_empty(app_and_client, monkeypatch):
+    """Listing deletion requests when none exist."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/api/admin/deletion-requests")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_admin_list_deletion_requests(app_and_client, monkeypatch):
+    """Listing deletion requests returns pending requests with user email."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(
+            email="delreq@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        dr = models.DeletionRequest(user_id=user.id, reason="Leaving")
+        db.add(dr)
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get("/api/admin/deletion-requests")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 1
+    assert data[0]["user_email"] == "delreq@example.com"
+    assert data[0]["reason"] == "Leaving"
+    assert "id" in data[0]
+    assert "created_at" in data[0]
+
+
+def test_admin_fulfill_deletion_request(app_and_client, monkeypatch):
+    """Fulfilling a deletion request deletes the user and all their data."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(
+            email="todelete@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        proj = models.Project(name="P", owner_user_id=user.id)
+        db.add(proj)
+        db.commit()
+        db.refresh(proj)
+        dr = models.DeletionRequest(user_id=user.id, reason="Bye")
+        db.add(dr)
+        db.commit()
+        db.refresh(dr)
+        request_id = dr.id
+        user_id = user.id
+    finally:
+        db.close()
+
+    r = client.post(f"/api/admin/deletion-requests/{request_id}/fulfill")
+    assert r.status_code == 200
+    assert "deleted" in r.json().get("message", "").lower()
+
+    db = dbmod.SessionLocal()
+    try:
+        assert db.get(models.User, user_id) is None
+        assert db.get(models.DeletionRequest, request_id) is None
+    finally:
+        db.close()
+
+
+def test_admin_fulfill_deletion_request_not_found(app_and_client, monkeypatch):
+    """Fulfilling non-existent deletion request returns 404."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.post("/api/admin/deletion-requests/99999/fulfill")
+    assert r.status_code == 404
+
+
+def test_admin_fulfill_deletion_request_already_fulfilled(app_and_client, monkeypatch):
+    """Fulfilling an already fulfilled request returns 400."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(
+            email="alreadyfulfilled@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        dr = models.DeletionRequest(
+            user_id=user.id,
+            reason="x",
+            fulfilled_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        db.add(dr)
+        db.commit()
+        db.refresh(dr)
+        request_id = dr.id
+    finally:
+        db.close()
+
+    r = client.post(f"/api/admin/deletion-requests/{request_id}/fulfill")
+    assert r.status_code == 400
+    assert "already" in r.json().get("detail", "").lower()
+
+
+def test_admin_fulfill_deletion_request_cancelled(app_and_client, monkeypatch):
+    """Fulfilling a cancelled deletion request returns 400."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+    db = dbmod.SessionLocal()
+    try:
+        user = models.User(
+            email="cancelledreq@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        dr = models.DeletionRequest(
+            user_id=user.id,
+            reason="x",
+            cancelled_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        db.add(dr)
+        db.commit()
+        db.refresh(dr)
+        request_id = dr.id
+    finally:
+        db.close()
+
+    r = client.post(f"/api/admin/deletion-requests/{request_id}/fulfill")
+    assert r.status_code == 400
+    assert "cancelled" in r.json().get("detail", "").lower()

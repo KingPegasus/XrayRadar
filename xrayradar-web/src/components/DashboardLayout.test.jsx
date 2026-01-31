@@ -48,6 +48,16 @@ describe('DashboardLayout', () => {
     expect(screen.getByText('Test Content')).toBeInTheDocument()
   })
 
+  it('shows plan badge when me has plan', async () => {
+    const me = { email: 'test@example.com', plan: 'Basic' }
+    render(
+      <DashboardLayout me={me} onLogout={vi.fn()}>
+        <div>Content</div>
+      </DashboardLayout>
+    )
+    expect(screen.getByText('Basic')).toBeInTheDocument()
+  })
+
   it('calls onLogout when sign out is clicked', async () => {
     const user = await import('@testing-library/user-event').then(m => m.default.setup())
     const me = { email: 'test@example.com' }

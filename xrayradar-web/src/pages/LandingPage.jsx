@@ -34,9 +34,9 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
               </>
             ) : (
               <>
-                <Link className="button" to="/login">
+                <a className="button" href="/login">
                   Sign in
-                </Link>
+                </a>
                 <a className="button buttonPrimary" href="#pricing">
                   Get started
                 </a>
@@ -130,6 +130,7 @@ except Exception as e:
                   <li><Check /> Early access account</li>
                   <li><Check /> Token-based auth</li>
                   <li><Check /> Minimal ingestion API + storage</li>
+                  <li><Check /> Email alerts (10 min cooldown)</li>
                 </ul>
                 <div style={{ marginTop: 16 }}>
                   <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Free')}>
@@ -146,6 +147,7 @@ except Exception as e:
                   <li><Check /> 50,000 events stored</li>
                   <li><Check /> Everything in Free</li>
                   <li><Check /> Priority ingestion (best effort)</li>
+                  <li><Check /> Email alerts (1 min cooldown)</li>
                 </ul>
                 <div style={{ marginTop: 16 }}>
                   <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Basic')}>

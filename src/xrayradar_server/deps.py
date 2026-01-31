@@ -1,4 +1,4 @@
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,8 @@ from .auth import (
 )
 from .db import get_db
 from .models import Token, TokenProjectAccess, User
+
+EMAIL_VERIFICATION_REQUIRED_DETAIL = "Email verification required for this action."
 
 
 def _is_session_admin(request: Request) -> bool:
@@ -33,6 +35,16 @@ def require_user(
     if row is None:
         raise unauthorized("Not logged in")
     return row
+
+
+def require_verified_user(user: User = Depends(require_user)) -> User:
+    """Require the user to have a verified email for sensitive actions."""
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail=EMAIL_VERIFICATION_REQUIRED_DETAIL,
+        )
+    return user
 
 
 def get_current_token(

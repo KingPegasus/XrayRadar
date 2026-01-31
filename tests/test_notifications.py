@@ -1,5 +1,6 @@
 """Tests for notifications module (email alerts)"""
 
+import sys
 import uuid
 import pytest
 from unittest.mock import patch, MagicMock
@@ -27,9 +28,10 @@ def db_session(database_url):
 
 @pytest.fixture
 def project_with_owner(db_session):
-    """Create a user and project owned by that user."""
+    """Create a user and project owned by that user. Unique email per test to avoid UNIQUE constraint."""
+    email = f"owner-{uuid.uuid4().hex}@example.com"
     user = models.User(
-        email="owner@example.com",
+        email=email,
         password_hash="hash",
         plan="Free",
     )
@@ -86,7 +88,7 @@ def test_get_alert_recipients_owner_only(db_session, project_with_owner):
     # Ensure owner is loaded
     project = db_session.get(models.Project, project.id)
     recipients = get_alert_recipients(db_session, project)
-    assert set(recipients) == {"owner@example.com"}
+    assert set(recipients) == {user.email}
 
 
 def test_get_alert_recipients_no_owner(db_session, project_no_owner):
@@ -96,6 +98,20 @@ def test_get_alert_recipients_no_owner(db_session, project_no_owner):
     assert recipients == []
 
 
+def test_get_alert_recipients_owner_missing(db_session):
+    """When project has owner_user_id but user no longer exists, only additional emails returned."""
+    # Use a non-existent user id so owner lookup returns None (simulates deleted/missing owner)
+    project = models.Project(name="P", owner_user_id=999999)
+    db_session.add(project)
+    db_session.commit()
+    db_session.refresh(project)
+    db_session.add(models.ProjectAlertRecipient(project_id=project.id, email="extra@x.com"))
+    db_session.commit()
+    project = db_session.get(models.Project, project.id)
+    recipients = get_alert_recipients(db_session, project)
+    assert set(recipients) == {"extra@x.com"}
+
+
 def test_get_alert_recipients_owner_plus_additional(db_session, project_with_owner):
     """Recipients include owner and additional, deduped."""
     project, user = project_with_owner
@@ -103,12 +119,12 @@ def test_get_alert_recipients_owner_plus_additional(db_session, project_with_own
         models.ProjectAlertRecipient(project_id=project.id, email="extra@x.com")
     )
     db_session.add(
-        models.ProjectAlertRecipient(project_id=project.id, email="owner@example.com")
+        models.ProjectAlertRecipient(project_id=project.id, email=user.email)
     )
     db_session.commit()
     project = db_session.get(models.Project, project.id)
     recipients = get_alert_recipients(db_session, project)
-    assert set(recipients) == {"owner@example.com", "extra@x.com"}
+    assert set(recipients) == {user.email, "extra@x.com"}
 
 
 def test_should_send_alert_disabled(db_session, project_with_owner):
@@ -172,6 +188,32 @@ def test_should_send_alert_cooldown_first_send(db_session, project_with_owner):
     assert row is not None
 
 
+def test_should_send_alert_cooldown_blocks_second_send(db_session, project_with_owner):
+    """When cooldown row exists and within cooldown window, returns False."""
+    from datetime import timedelta, timezone
+    from datetime import datetime as dt
+
+    project, _ = project_with_owner
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=60,
+        )
+    )
+    now = dt.now(timezone.utc).replace(tzinfo=None)
+    db_session.add(
+        models.AlertCooldown(
+            project_id=project.id,
+            fingerprint="fp1",
+            last_notified_at=now - timedelta(minutes=5),
+        )
+    )
+    db_session.commit()
+    assert should_send_alert(db_session, project.id, "fp1", "error") is False
+
+
 def test_send_alert_emails_no_recipients():
     """send_alert_emails with empty list does nothing."""
     send_alert_emails(
@@ -199,9 +241,12 @@ def test_send_alert_emails_resend_not_configured():
 
 def test_send_alert_emails_mock_resend():
     """send_alert_emails calls Resend when configured; exceptions are caught."""
-    with patch("xrayradar_server.notifications.RESEND_API_KEY", "key"):
-        with patch("xrayradar_server.notifications.RESEND_FROM_EMAIL", "from@x.com"):
-            with patch("resend.Emails.send", MagicMock(return_value={"id": "123"})) as mock_send:
+    # Mock resend module so import resend succeeds without the package installed
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(return_value={"id": "123"})
+    with patch.dict("sys.modules", {"resend": mock_resend}):
+        with patch("xrayradar_server.notifications.RESEND_API_KEY", "key"):
+            with patch("xrayradar_server.notifications.RESEND_FROM_EMAIL", "from@x.com"):
                 send_alert_emails(
                     recipients=["a@x.com"],
                     project_name="P",
@@ -210,8 +255,27 @@ def test_send_alert_emails_mock_resend():
                     project_id=1,
                     fingerprint="fp",
                 )
-                mock_send.assert_called_once()
-                call_args = mock_send.call_args[0][0]
+                mock_resend.Emails.send.assert_called_once()
+                call_args = mock_resend.Emails.send.call_args[0][0]
                 assert call_args["to"] == ["a@x.com"]
                 assert "P" in call_args["subject"]
                 assert "msg" in call_args["html"]
+
+
+def test_send_alert_emails_resend_raises_swallowed():
+    """When Resend.Emails.send raises, exception is caught and not propagated."""
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(side_effect=RuntimeError("Resend API error"))
+    with patch.dict("sys.modules", {"resend": mock_resend}):
+        with patch("xrayradar_server.notifications.RESEND_API_KEY", "key"):
+            with patch("xrayradar_server.notifications.RESEND_FROM_EMAIL", "from@x.com"):
+                send_alert_emails(
+                    recipients=["a@x.com"],
+                    project_name="P",
+                    event_message="msg",
+                    event_id=uuid.uuid4(),
+                    project_id=1,
+                    fingerprint="fp",
+                )
+    # No exception raised
+    mock_resend.Emails.send.assert_called_once()

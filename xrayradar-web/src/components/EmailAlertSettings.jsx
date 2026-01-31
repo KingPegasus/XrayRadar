@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { fetchJson } from '../utils/api'
 
-export function EmailAlertSettings({ projectId, compact = false }) {
+export function EmailAlertSettings({ projectId, me, compact = false }) {
   const [alertEnabled, setAlertEnabled] = useState(false)
   const [alertCooldown, setAlertCooldown] = useState('')
   const [minCooldownMinutes, setMinCooldownMinutes] = useState(null) // plan-based min (Free=10, Basic/Pro=1)
@@ -129,10 +129,15 @@ export function EmailAlertSettings({ projectId, compact = false }) {
         {alertSaveError ? (
           <div className="fieldError" style={{ marginBottom: 10 }}>{alertSaveError}</div>
         ) : null}
+        {!me?.email_verified && (
+          <div className="small" style={{ marginBottom: 10, color: '#fbbf24' }}>
+            Verify your email to save alert settings.
+          </div>
+        )}
         <button
           type="button"
           className="button buttonPrimary"
-          disabled={alertSaveBusy}
+          disabled={alertSaveBusy || !me?.email_verified}
           onClick={async () => {
             setAlertSaveError('')
             const cooldown = alertCooldown.trim() === '' ? null : parseInt(alertCooldown, 10)

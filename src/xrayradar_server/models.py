@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-import os
 import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
@@ -15,8 +14,15 @@ def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def _is_sqlite() -> bool:
-    return os.getenv("XRAYRADAR_DATABASE_URL", "").startswith("sqlite:")
+class JSONOrJSONB(TypeDecorator):
+    """JSON for SQLite, JSONB for PostgreSQL. Resolved at compile time so tests work with either dialect."""
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(JSON())
 
 
 class GUID(TypeDecorator):
@@ -87,7 +93,7 @@ class Event(Base):
     )
 
     payload: Mapped[dict] = mapped_column(
-        JSON if _is_sqlite() else JSONB, nullable=False)
+        JSONOrJSONB(), nullable=False)
 
     project: Mapped[Project] = relationship(Project)
 
@@ -155,6 +161,13 @@ class User(Base):
     plan: Mapped[str] = mapped_column(
         String(32), nullable=False, default="Free")
 
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    verification_token: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, default=_utcnow_naive
     )
@@ -170,6 +183,9 @@ class User(Base):
     )
     token_requests: Mapped[list["TokenRequest"]] = relationship(
         "TokenRequest", back_populates="user", cascade="all, delete-orphan"
+    )
+    deletion_requests: Mapped[list["DeletionRequest"]] = relationship(
+        "DeletionRequest", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -242,3 +258,25 @@ class AlertCooldown(Base):
     last_notified_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False
     )
+
+
+class DeletionRequest(Base):
+    __tablename__ = "deletion_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+    fulfilled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+
+    user: Mapped[User] = relationship("User", back_populates="deletion_requests")

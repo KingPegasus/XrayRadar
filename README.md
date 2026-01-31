@@ -182,7 +182,7 @@ Cookie security note:
 
 - `RESEND_API_KEY` — Resend API key for sending alert emails. If unset, email alerts are disabled (no send, no error).
 - `RESEND_FROM_EMAIL` — From address for alert emails (e.g. `alerts@xrayradar.com`); must be a verified sending domain in Resend.
-- `XRAYRADAR_BASE_URL` — Base URL for links in alert emails (e.g. `https://app.example.com`). Defaults to `http://localhost:5173` if unset.
+- `XRAYRADAR_BASE_URL` — Base URL for links in alert emails (e.g. `https://xrayaradar.com`). Defaults to `http://localhost:8001` if unset.
 
 Leaving `RESEND_API_KEY` unset disables email alerts; event ingest continues to work normally.
 

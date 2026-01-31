@@ -16,7 +16,7 @@ TIER_WARNING_THRESHOLD = 0.8  # 80%
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "")
 # Base URL for links in alert emails (e.g. https://app.example.com)
-XRAYRADAR_BASE_URL = os.environ.get("XRAYRADAR_BASE_URL", "http://localhost:5173")
+XRAYRADAR_BASE_URL = os.environ.get("XRAYRADAR_BASE_URL", "http://localhost:8001")
 
 # Max additional alert recipients per project (besides owner)
 MAX_ALERT_RECIPIENTS = 20

@@ -45,7 +45,9 @@ def get_alert_recipients(db: Session, project: Project) -> list[str]:
         .scalars().all()
     )
     for r in recs:
-        emails.add(r[0] if isinstance(r, tuple) else r)
+        # Handle both scalar (str) and Row/tuple from different SQLAlchemy result shapes
+        val = r[0] if (isinstance(r, (tuple, list)) or (hasattr(r, "__getitem__") and not isinstance(r, str))) else r
+        emails.add(val)
     return list(emails)
 
 

@@ -100,6 +100,20 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
               <div class="muted" style="margin-top: 2px">Fulfill user requests</div>
             </div>
           </div>
+          <div class="navItem" data-view="users" role="link" tabindex="0" style="margin-top: 8px">
+            <span class="navDot" aria-hidden="true"></span>
+            <div>
+              <div style="font-weight: 700; font-size: 13px">Users</div>
+              <div class="muted" style="margin-top: 2px">Manage plans</div>
+            </div>
+          </div>
+          <div class="navItem" data-view="deletions" role="link" tabindex="0" style="margin-top: 8px">
+            <span class="navDot" aria-hidden="true"></span>
+            <div>
+              <div style="font-weight: 700; font-size: 13px">Deletions</div>
+              <div class="muted" style="margin-top: 2px">Account deletion requests</div>
+            </div>
+          </div>
           <div class="navItem" data-view="logs" role="link" tabindex="0" style="margin-top: 8px">
             <span class="navDot" aria-hidden="true"></span>
             <div>
@@ -220,6 +234,57 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
           </section>
         </div>
 
+        <div id="view_users" class="view hidden">
+          <section>
+            <h2>Users</h2>
+            <div class="muted">View and manage user plans. Change a user's plan to Free, Basic, or Pro.</div>
+
+            <div id="users_err" class="error" style="margin-top: 10px"></div>
+            <div id="users_out" class="ok" style="margin-top: 10px"></div>
+
+            <div style="margin-top: 12px">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 50px">ID</th>
+                    <th style="width: 30%">Email</th>
+                    <th style="width: 100px">Plan</th>
+                    <th style="width: 100px">Events</th>
+                    <th style="width: 140px">Created</th>
+                    <th style="width: 180px">Change Plan</th>
+                  </tr>
+                </thead>
+                <tbody id="users_rows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <div id="view_deletions" class="view hidden">
+          <section>
+            <h2>Account Deletion Requests</h2>
+            <div class="muted">Review and fulfill user account deletion requests. Fulfilling a request permanently deletes the user and all their data.</div>
+
+            <div id="del_err" class="error" style="margin-top: 10px"></div>
+            <div id="del_out" class="ok" style="margin-top: 10px"></div>
+
+            <div style="margin-top: 12px">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 50px">ID</th>
+                    <th style="width: 30%">User Email</th>
+                    <th style="width: 30%">Reason</th>
+                    <th style="width: 140px">Requested</th>
+                    <th style="width: 120px"></th>
+                  </tr>
+                </thead>
+                <tbody id="del_rows"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
         <div id="view_logs" class="view hidden">
           <section>
             <h2>Project logs</h2>
@@ -310,6 +375,8 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
       const state = {
         tokens: [],
         projects: [],
+        users: [],
+        deletionRequests: [],
         selectedTokenId: null,
         view: 'tokens',
         tokenRequests: [],
@@ -341,9 +408,12 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
       }
 
       function setView(view) {
-        state.view = view === 'logs' ? 'logs' : (view === 'requests' ? 'requests' : 'tokens');
+        const validViews = ['tokens', 'requests', 'users', 'deletions', 'logs'];
+        state.view = validViews.includes(view) ? view : 'tokens';
         qs('view_tokens').classList.toggle('hidden', state.view !== 'tokens');
         qs('view_requests').classList.toggle('hidden', state.view !== 'requests');
+        qs('view_users').classList.toggle('hidden', state.view !== 'users');
+        qs('view_deletions').classList.toggle('hidden', state.view !== 'deletions');
         qs('view_logs').classList.toggle('hidden', state.view !== 'logs');
 
         for (const el of document.querySelectorAll('.navItem')) {
@@ -356,12 +426,20 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         if (state.view === 'requests') {
           refreshTokenRequests();
         }
+        if (state.view === 'users') {
+          refreshUsers();
+        }
+        if (state.view === 'deletions') {
+          refreshDeletionRequests();
+        }
       }
 
       function viewFromHash() {
         const h = (window.location.hash || '').replace('#', '').trim().toLowerCase();
         if (h === 'logs') return 'logs';
+        if (h === 'deletions') return 'deletions';
         if (h === 'requests') return 'requests';
+        if (h === 'users') return 'users';
         return 'tokens';
       }
 
@@ -437,6 +515,121 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
           `;
           tr.children[5].appendChild(btn);
           tbody.appendChild(tr);
+        }
+      }
+
+      function renderUsers() {
+        const tbody = qs('users_rows');
+        tbody.innerHTML = '';
+        for (const u of state.users) {
+          const tr = document.createElement('tr');
+          const planBadgeClass = u.plan === 'Basic' ? 'admin' : (u.plan === 'Pro' ? 'admin' : '');
+          tr.innerHTML = `
+            <td>${u.id}</td>
+            <td>${escapeHtml(u.email || '')}</td>
+            <td><span class="pill ${planBadgeClass}">${escapeHtml(u.plan)}</span></td>
+            <td>${u.event_count.toLocaleString()}</td>
+            <td>${escapeHtml(u.created_at ? u.created_at.split('T')[0] : '')}</td>
+            <td>
+              <select class="plan-select" data-user-id="${u.id}" style="width: 80px; padding: 6px">
+                <option value="Free" ${u.plan === 'Free' ? 'selected' : ''}>Free</option>
+                <option value="Basic" ${u.plan === 'Basic' ? 'selected' : ''}>Basic</option>
+                <option value="Pro" ${u.plan === 'Pro' ? 'selected' : ''}>Pro</option>
+              </select>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        }
+        // Add event listeners to plan selects
+        for (const sel of tbody.querySelectorAll('.plan-select')) {
+          sel.addEventListener('change', async (e) => {
+            const userId = parseInt(e.target.getAttribute('data-user-id'), 10);
+            const newPlan = e.target.value;
+            await updateUserPlan(userId, newPlan);
+          });
+        }
+      }
+
+      async function refreshUsers() {
+        showErr(qs('users_err'), '');
+        qs('users_out').textContent = '';
+        try {
+          state.users = await api('/api/admin/users');
+          renderUsers();
+        } catch (e) {
+          showErr(qs('users_err'), e.message);
+        }
+      }
+
+      async function updateUserPlan(userId, newPlan) {
+        showErr(qs('users_err'), '');
+        qs('users_out').textContent = '';
+        try {
+          await api(`/api/admin/users/${userId}/plan`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan: newPlan }),
+          });
+          qs('users_out').textContent = `Updated user ${userId} to ${newPlan} plan.`;
+          await refreshUsers();
+        } catch (e) {
+          showErr(qs('users_err'), e.message);
+          await refreshUsers(); // Reset to actual state
+        }
+      }
+
+      function renderDeletionRequests() {
+        const tbody = qs('del_rows');
+        tbody.innerHTML = '';
+        if (state.deletionRequests.length === 0) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td colspan="5" style="color: var(--muted); text-align: center; padding: 20px">No pending deletion requests</td>';
+          tbody.appendChild(tr);
+          return;
+        }
+        for (const r of state.deletionRequests) {
+          const tr = document.createElement('tr');
+          const btn = document.createElement('button');
+          btn.className = 'small danger';
+          btn.textContent = 'Delete Account';
+          btn.addEventListener('click', async () => {
+            if (!confirm(`Are you sure you want to permanently delete user ${r.user_email} and all their data? This cannot be undone.`)) {
+              return;
+            }
+            await fulfillDeletionRequest(r.id, r.user_email);
+          });
+          tr.innerHTML = `
+            <td>${r.id}</td>
+            <td>${escapeHtml(r.user_email || '')}</td>
+            <td>${escapeHtml(r.reason || '(no reason provided)')}</td>
+            <td>${escapeHtml(r.created_at ? r.created_at.split('T')[0] : '')}</td>
+            <td></td>
+          `;
+          tr.children[4].appendChild(btn);
+          tbody.appendChild(tr);
+        }
+      }
+
+      async function refreshDeletionRequests() {
+        showErr(qs('del_err'), '');
+        qs('del_out').textContent = '';
+        try {
+          state.deletionRequests = await api('/api/admin/deletion-requests');
+          renderDeletionRequests();
+        } catch (e) {
+          showErr(qs('del_err'), e.message);
+        }
+      }
+
+      async function fulfillDeletionRequest(requestId, userEmail) {
+        showErr(qs('del_err'), '');
+        qs('del_out').textContent = '';
+        try {
+          await api(`/api/admin/deletion-requests/${requestId}/fulfill`, { method: 'POST' });
+          qs('del_out').textContent = `User ${userEmail} and all associated data deleted.`;
+          await refreshDeletionRequests();
+        } catch (e) {
+          showErr(qs('del_err'), e.message);
         }
       }
 
@@ -749,6 +942,8 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         showErr(qs('access_err'), '');
         showErr(qs('logs_err'), '');
         showErr(qs('req_err'), '');
+        showErr(qs('users_err'), '');
+        showErr(qs('del_err'), '');
 
         state.projects = await api('/api/admin/projects');
         state.tokens = await api('/api/admin/tokens');
@@ -758,6 +953,12 @@ def render_admin_ui(*, email: str) -> HTMLResponse:
         renderTokens();
         if (state.view === 'requests') {
           await refreshTokenRequests();
+        }
+        if (state.view === 'users') {
+          await refreshUsers();
+        }
+        if (state.view === 'deletions') {
+          await refreshDeletionRequests();
         }
 
         if (state.selectedTokenId) {

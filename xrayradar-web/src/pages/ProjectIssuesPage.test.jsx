@@ -40,7 +40,9 @@ describe('ProjectIssuesPage', () => {
       },
     ]
 
-    fetchJson.mockResolvedValueOnce(mockIssues)
+    fetchJson
+      .mockResolvedValueOnce(mockIssues) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -72,7 +74,9 @@ describe('ProjectIssuesPage', () => {
       },
     ]
 
-    fetchJson.mockResolvedValueOnce(mockIssues)
+    fetchJson
+      .mockResolvedValueOnce(mockIssues) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 5 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -90,7 +94,9 @@ describe('ProjectIssuesPage', () => {
   })
 
   it('handles empty issues list', async () => {
-    fetchJson.mockResolvedValueOnce([])
+    fetchJson
+      .mockResolvedValueOnce([]) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -107,7 +113,9 @@ describe('ProjectIssuesPage', () => {
   })
 
   it('handles null response from API', async () => {
-    fetchJson.mockResolvedValueOnce(null)
+    fetchJson
+      .mockResolvedValueOnce(null) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -121,7 +129,12 @@ describe('ProjectIssuesPage', () => {
   })
 
   it('handles fetch error', async () => {
-    fetchJson.mockRejectedValueOnce(new Error('Failed to load issues'))
+    fetchJson.mockImplementation((url) => {
+      if (url.includes('/issues') && !url.includes('/frequency')) {
+        return Promise.reject(new Error('Failed to load issues'))
+      }
+      return Promise.resolve({ frequency: {}, total: 0 })
+    })
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -131,7 +144,12 @@ describe('ProjectIssuesPage', () => {
   })
 
   it('handles fetch error without message', async () => {
-    fetchJson.mockRejectedValueOnce(new Error())
+    fetchJson.mockImplementation((url) => {
+      if (url.includes('/issues') && !url.includes('/frequency')) {
+        return Promise.reject(new Error())
+      }
+      return Promise.resolve({ frequency: {}, total: 0 })
+    })
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -153,7 +171,9 @@ describe('ProjectIssuesPage', () => {
       },
     ]
 
-    fetchJson.mockResolvedValueOnce(mockIssues)
+    fetchJson
+      .mockResolvedValueOnce(mockIssues) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 5 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -171,7 +191,9 @@ describe('ProjectIssuesPage', () => {
 
   it('navigates back to dashboard', async () => {
     const user = userEvent.setup()
-    fetchJson.mockResolvedValueOnce([])
+    fetchJson
+      .mockResolvedValueOnce([]) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -187,8 +209,25 @@ describe('ProjectIssuesPage', () => {
     })
   })
 
+  it('handles frequency fetch failure silently', async () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    fetchJson
+      .mockResolvedValueOnce([]) // issues succeed
+      .mockRejectedValueOnce(new Error('frequency failed')) // frequency fails
+
+    render(<ProjectIssuesPage projectId="123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to load event frequency:', expect.any(Error))
+    })
+    consoleSpy.mockRestore()
+  })
+
   it('refetches when projectId changes', async () => {
-    fetchJson.mockResolvedValue([])
+    fetchJson.mockImplementation((url) =>
+      url.includes('/frequency') ? Promise.resolve({ frequency: {}, total: 0 }) : Promise.resolve([])
+    )
     const { rerender } = render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
@@ -196,7 +235,9 @@ describe('ProjectIssuesPage', () => {
     })
 
     vi.clearAllMocks()
-    fetchJson.mockResolvedValue([])
+    fetchJson.mockImplementation((url) =>
+      url.includes('/frequency') ? Promise.resolve({ frequency: {}, total: 0 }) : Promise.resolve([])
+    )
     rerender(<ProjectIssuesPage projectId="456" />)
 
     await waitFor(() => {
@@ -205,7 +246,12 @@ describe('ProjectIssuesPage', () => {
   })
 
   it('clears error when projectId changes', async () => {
-    fetchJson.mockRejectedValueOnce(new Error('Failed to load'))
+    fetchJson.mockImplementation((url) => {
+      if (url.includes('/projects/123/issues') && !url.includes('/frequency')) {
+        return Promise.reject(new Error('Failed to load'))
+      }
+      return Promise.resolve(url.includes('/frequency') ? { frequency: {}, total: 0 } : [])
+    })
 
     const { rerender } = render(<ProjectIssuesPage projectId="123" />)
 
@@ -214,7 +260,9 @@ describe('ProjectIssuesPage', () => {
     })
 
     vi.clearAllMocks()
-    fetchJson.mockResolvedValue([])
+    fetchJson.mockImplementation((url) =>
+      url.includes('/frequency') ? Promise.resolve({ frequency: {}, total: 0 }) : Promise.resolve([])
+    )
     rerender(<ProjectIssuesPage projectId="456" />)
 
     await waitFor(() => {

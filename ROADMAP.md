@@ -8,7 +8,7 @@ _Features that are planned but not yet started._
 
 ### Authentication & Security
 
-1. **Email verification for newly sign-up users**
+1. **Email verification for newly sign-up users** ✅
    - Verify email addresses during user registration
    - Send verification email with confirmation link
    - Prevent unverified accounts from accessing the platform
@@ -28,7 +28,7 @@ _Features that are planned but not yet started._
 
 ### Notifications
 
-4. **Email alerts for errors**
+4. **Email alerts for errors** ✅
    - Configure email notifications for error events
    - Set up alerting rules and thresholds
    - Send email notifications when errors occur

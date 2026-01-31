@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { EmailAlertSettings } from './EmailAlertSettings'
 
-export function ProjectSettingsModal({ projectId }) {
+export function ProjectSettingsModal({ projectId, me }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -80,7 +80,7 @@ export function ProjectSettingsModal({ projectId }) {
                 ×
               </button>
             </div>
-            <EmailAlertSettings projectId={projectId} compact />
+            <EmailAlertSettings projectId={projectId} me={me} compact />
           </div>
         </div>
       )}
