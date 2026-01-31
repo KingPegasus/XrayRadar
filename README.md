@@ -4,12 +4,12 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 ## Test Coverage
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-100%25-brightgreen?style=flat-square)
-![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98.93%25-brightgreen?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-99.13%25-brightgreen?style=flat-square)
 
 **Current Coverage:**
-- **Backend (Python)**: 100% - All tests passing ✓
-- **Frontend (React)**: 98.93% - All tests passing ✓
+- **Backend (Python)**: 99% - All tests passing ✓
+- **Frontend (React)**: 99.13% - All tests passing ✓
 
 > Coverage is automatically calculated in CI. To check locally:
 > - **Backend**: From the `xrayradar-server` root directory, run:
@@ -58,14 +58,16 @@ cd xrayradar-web && npm ci && npm run build && cd ..
 3) Run API:
 
 ```bash
-uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
+uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
 ```
+
+Using `uv run` ensures the project virtualenv (from `uv sync`) is used, so all dependencies—including `resend` for email alerts—are available.
 
 If you prefer, you can also run with:
 
 ```bash
 export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
-PYTHONPATH=src uvicorn xrayradar_server.main:app --reload --port 8001
+uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001
 ```
 
 ### Run locally with Docker
@@ -129,6 +131,7 @@ alembic -c alembic.ini upgrade head
 **Available migrations:**
 - `0001_init` - Initial schema (projects, tokens, events, token_project_access, users)
 - `0002_user_projects_fingerprints` - User-owned projects, token requests, event fingerprints
+- `0003_project_alert_settings` - Project alert settings, additional recipients, alert cooldown
 
 ### Render.com
 
@@ -174,6 +177,14 @@ Cookie security note:
 
 - In production, serve the site over HTTPS and keep secure cookies enabled.
 - For local HTTP testing only, set `XRAYRADAR_COOKIE_SECURE=false` to avoid OAuth state-cookie issues.
+
+**Email alerts (optional):**
+
+- `RESEND_API_KEY` — Resend API key for sending alert emails. If unset, email alerts are disabled (no send, no error).
+- `RESEND_FROM_EMAIL` — From address for alert emails (e.g. `alerts@xrayradar.com`); must be a verified sending domain in Resend.
+- `XRAYRADAR_BASE_URL` — Base URL for links in alert emails (e.g. `https://xrayaradar.com`). Defaults to `http://localhost:8001` if unset.
+
+Leaving `RESEND_API_KEY` unset disables email alerts; event ingest continues to work normally.
 
 This avoids needing `psql` locally.
 

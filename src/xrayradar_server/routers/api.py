@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,7 +9,14 @@ from ..db import get_db
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
 from ..fingerprinting import compute_fingerprint
 from ..models import Event, Project, Token
+from ..notifications import get_alert_recipients, send_alert_emails, should_send_alert
 from ..schemas import EventOut, ProjectCreate, ProjectOut
+from ..usage import (
+    get_user_event_count,
+    get_user_event_limit,
+    get_user_from_project,
+    is_near_limit,
+)
 
 router = APIRouter()
 
@@ -31,6 +38,7 @@ def create_project(
 def store_event(
     project_id: int,
     event: dict,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     x_xrayradar_token: str | None = Header(
         default=None, alias="X-Xrayradar-Token"),
@@ -44,6 +52,30 @@ def store_event(
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Unknown project")
+
+    # Check event storage limits for the project owner
+    user = get_user_from_project(db, project)
+    warning_message = None
+    if user is not None:
+        # Get current count before storing this event
+        current_count = get_user_event_count(db, user.id)
+        limit = get_user_event_limit(user)
+        
+        # Check if storing this event would exceed the limit
+        if limit is not None and (current_count + 1) > limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Event storage limit exceeded. Current: {current_count}, Limit: {limit}. "
+                f"Please upgrade your plan to store more events.",
+            )
+        
+        # Check if approaching limit (after storing this event)
+        if limit is not None and is_near_limit(current_count + 1, limit):
+            percentage = int(((current_count + 1) / limit) * 100)
+            warning_message = (
+                f"Warning: You've used {percentage}% of your event storage limit "
+                f"({current_count + 1}/{limit}). Consider upgrading your plan."
+            )
 
     timestamp = event.get("timestamp")
     level = event.get("level") or "error"
@@ -79,7 +111,24 @@ def store_event(
     db.commit()
     db.refresh(row)
 
-    return {"id": str(row.id)}
+    # Email alerts: non-blocking, only for error level
+    if level == "error":
+        recipients = get_alert_recipients(db, project)
+        if recipients and should_send_alert(db, project_id, fp, str(level)):
+            background_tasks.add_task(
+                send_alert_emails,
+                recipients=recipients,
+                project_name=project.name,
+                event_message=str(message)[:500],
+                event_id=row.id,
+                project_id=project_id,
+                fingerprint=fp,
+            )
+
+    response = {"id": str(row.id)}
+    if warning_message:
+        response["warning"] = warning_message
+    return response
 
 
 @router.get("/api/{project_id}/events", response_model=list[EventOut])

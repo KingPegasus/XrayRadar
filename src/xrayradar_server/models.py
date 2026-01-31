@@ -1,8 +1,7 @@
 from datetime import datetime, timezone
-import os
 import uuid
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,8 +14,15 @@ def _utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-def _is_sqlite() -> bool:
-    return os.getenv("XRAYRADAR_DATABASE_URL", "").startswith("sqlite:")
+class JSONOrJSONB(TypeDecorator):
+    """JSON for SQLite, JSONB for PostgreSQL. Resolved at compile time so tests work with either dialect."""
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(JSON())
 
 
 class GUID(TypeDecorator):
@@ -55,6 +61,12 @@ class Project(Base):
     )
 
     owner: Mapped["User | None"] = relationship("User", back_populates="projects")
+    alert_settings: Mapped["ProjectAlertSettings | None"] = relationship(
+        "ProjectAlertSettings", back_populates="project", uselist=False, cascade="all, delete-orphan"
+    )
+    alert_recipients: Mapped[list["ProjectAlertRecipient"]] = relationship(
+        "ProjectAlertRecipient", back_populates="project", cascade="all, delete-orphan"
+    )
 
 
 class Event(Base):
@@ -81,7 +93,7 @@ class Event(Base):
     )
 
     payload: Mapped[dict] = mapped_column(
-        JSON if _is_sqlite() else JSONB, nullable=False)
+        JSONOrJSONB(), nullable=False)
 
     project: Mapped[Project] = relationship(Project)
 
@@ -149,6 +161,13 @@ class User(Base):
     plan: Mapped[str] = mapped_column(
         String(32), nullable=False, default="Free")
 
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    verification_token: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=False), nullable=False, default=_utcnow_naive
     )
@@ -164,6 +183,9 @@ class User(Base):
     )
     token_requests: Mapped[list["TokenRequest"]] = relationship(
         "TokenRequest", back_populates="user", cascade="all, delete-orphan"
+    )
+    deletion_requests: Mapped[list["DeletionRequest"]] = relationship(
+        "DeletionRequest", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -189,3 +211,72 @@ class TokenRequest(Base):
 
     user: Mapped[User] = relationship("User", back_populates="token_requests")
     fulfilled_token: Mapped[Token | None] = relationship("Token")
+
+
+class ProjectAlertSettings(Base):
+    __tablename__ = "project_alert_settings"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    level_filter: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="error"
+    )
+    cooldown_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    project: Mapped[Project] = relationship(
+        "Project", back_populates="alert_settings"
+    )
+
+
+class ProjectAlertRecipient(Base):
+    __tablename__ = "project_alert_recipients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+
+    project: Mapped[Project] = relationship(
+        "Project", back_populates="alert_recipients"
+    )
+
+    __table_args__ = (UniqueConstraint("project_id", "email", name="uq_project_alert_recipients_project_email"),)
+
+
+class AlertCooldown(Base):
+    __tablename__ = "alert_cooldown"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, primary_key=True
+    )
+    fingerprint: Mapped[str] = mapped_column(
+        String(64), nullable=False, primary_key=True
+    )
+    last_notified_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False
+    )
+
+
+class DeletionRequest(Base):
+    __tablename__ = "deletion_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=False, index=True
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+    fulfilled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    cancelled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+
+    user: Mapped[User] = relationship("User", back_populates="deletion_requests")

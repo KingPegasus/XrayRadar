@@ -34,9 +34,9 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
               </>
             ) : (
               <>
-                <Link className="button" to="/login">
+                <a className="button" href="/login">
                   Sign in
-                </Link>
+                </a>
                 <a className="button buttonPrimary" href="#pricing">
                   Get started
                 </a>
@@ -130,6 +130,7 @@ except Exception as e:
                   <li><Check /> Early access account</li>
                   <li><Check /> Token-based auth</li>
                   <li><Check /> Minimal ingestion API + storage</li>
+                  <li><Check /> Email alerts (10 min cooldown)</li>
                 </ul>
                 <div style={{ marginTop: 16 }}>
                   <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Free')}>
@@ -143,9 +144,10 @@ except Exception as e:
                 <div className="price">$1<span style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>/mo</span></div>
                 <div className="small" style={{ color: 'var(--muted)' }}>Early access paid plan (no automated billing yet)</div>
                 <ul className="list">
-                  <li><Check /> 50,000 errors stored</li>
+                  <li><Check /> 50,000 events stored</li>
                   <li><Check /> Everything in Free</li>
                   <li><Check /> Priority ingestion (best effort)</li>
+                  <li><Check /> Email alerts (1 min cooldown)</li>
                 </ul>
                 <div style={{ marginTop: 16 }}>
                   <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Basic')}>
@@ -175,7 +177,7 @@ except Exception as e:
               <div className="card">
                 <h3 className="cardTitle">Where do I find my token after creating it?</h3>
                 <p className="cardText">
-                  For security, the token value is shown only once at creation. Copy it and store it in your secrets manager.
+                  Client tokens can be viewed anytime in your tokens page.
                 </p>
               </div>
               <div className="card">

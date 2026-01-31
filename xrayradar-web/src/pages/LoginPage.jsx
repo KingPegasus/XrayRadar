@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { readErrorMessage, fetchMe } from '../utils/api'
-import { Link } from '../components/Link'
 
 export function LoginPage({ onLoggedIn }) {
   const [email, setEmail] = useState('')
@@ -90,9 +89,9 @@ export function LoginPage({ onLoggedIn }) {
               <button className="button buttonPrimary" type="submit" disabled={submitting}>
                 {submitting ? 'Signing in…' : 'Sign in'}
               </button>
-              <Link className="button" to="/">
+              <a className="button" href="/">
                 Back
-              </Link>
+              </a>
             </div>
           </form>
         </div>

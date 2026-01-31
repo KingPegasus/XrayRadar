@@ -8,17 +8,21 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import require_admin
-from ..models import Event, Project, Token, TokenProjectAccess, TokenRequest, User
+from ..models import DeletionRequest, Event, Project, Token, TokenProjectAccess, TokenRequest, User
 from ..schemas import (
+    AdminDeletionRequestOut,
     AdminEventListItemOut,
     AdminEventOut,
     AdminTokenRequestOut,
+    AdminUserOut,
+    AdminUserPlanUpdate,
     ProjectOut,
     TokenCreate,
     TokenCreateOut,
     TokenOut,
     TokenProjectAccessOut,
 )
+from ..usage import get_user_event_count
 
 router = APIRouter()
 
@@ -350,3 +354,117 @@ def admin_fulfill_token_request(
         revoked_at=row.revoked_at,
         token=row.token,
     )
+
+
+@router.get("/api/admin/users", response_model=list[AdminUserOut])
+def admin_list_users(db: Session = Depends(get_db), _: Token = Depends(require_admin)):
+    """List all users with their plan and event count."""
+    q = select(User).order_by(User.id.asc())
+    rows = db.execute(q).scalars().all()
+    out = []
+    for u in rows:
+        event_count = get_user_event_count(db, u.id)
+        out.append(
+            AdminUserOut(
+                id=u.id,
+                email=u.email,
+                plan=u.plan,
+                created_at=u.created_at,
+                event_count=event_count,
+            )
+        )
+    return out
+
+
+@router.patch("/api/admin/users/{user_id}/plan", response_model=AdminUserOut)
+def admin_update_user_plan(
+    user_id: int,
+    payload: AdminUserPlanUpdate,
+    db: Session = Depends(get_db),
+    _: Token = Depends(require_admin),
+):
+    """Update a user's plan (Free, Basic, Pro)."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    valid_plans = {"Free", "Basic", "Pro"}
+    if payload.plan not in valid_plans:
+        raise HTTPException(status_code=400, detail=f"Invalid plan. Must be one of: {', '.join(sorted(valid_plans))}")
+    user.plan = payload.plan
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    event_count = get_user_event_count(db, user.id)
+    return AdminUserOut(
+        id=user.id,
+        email=user.email,
+        plan=user.plan,
+        created_at=user.created_at,
+        event_count=event_count,
+    )
+
+
+@router.get("/api/admin/deletion-requests", response_model=list[AdminDeletionRequestOut])
+def admin_list_deletion_requests(db: Session = Depends(get_db), _: Token = Depends(require_admin)):
+    """List all pending deletion requests."""
+    q = (
+        select(DeletionRequest)
+        .where(DeletionRequest.fulfilled_at.is_(None))
+        .where(DeletionRequest.cancelled_at.is_(None))
+        .order_by(DeletionRequest.created_at.desc())
+    )
+    rows = db.execute(q).scalars().all()
+    # Fetch user emails
+    user_ids = {r.user_id for r in rows}
+    users = {}
+    if user_ids:
+        uq = select(User).where(User.id.in_(sorted(user_ids)))
+        users = {u.id: u for u in db.execute(uq).scalars().all()}
+    out = []
+    for r in rows:
+        u = users.get(r.user_id)
+        out.append(
+            AdminDeletionRequestOut(
+                id=r.id,
+                user_id=r.user_id,
+                user_email=(u.email if u else ""),
+                reason=r.reason,
+                created_at=r.created_at,
+                fulfilled_at=r.fulfilled_at,
+                cancelled_at=r.cancelled_at,
+            )
+        )
+    return out
+
+
+@router.post("/api/admin/deletion-requests/{request_id}/fulfill")
+def admin_fulfill_deletion_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    _: Token = Depends(require_admin),
+):
+    """Fulfill a deletion request: delete all user data (events, projects, tokens, user)."""
+    req = db.get(DeletionRequest, request_id)
+    if req is None:
+        raise HTTPException(status_code=404, detail="Deletion request not found")
+    if req.fulfilled_at is not None:
+        raise HTTPException(status_code=400, detail="Deletion request already fulfilled")
+    if req.cancelled_at is not None:
+        raise HTTPException(status_code=400, detail="Deletion request was cancelled")
+
+    user = db.get(User, req.user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Delete all events for user's projects
+    project_ids = [p.id for p in user.projects]
+    if project_ids:
+        db.execute(
+            Event.__table__.delete().where(Event.project_id.in_(project_ids))
+        )
+
+    # Delete user (cascades to projects, tokens, token_requests, deletion_requests)
+    db.delete(user)
+    db.commit()
+
+    return {"ok": True, "message": f"User {user.email} and all associated data deleted"}

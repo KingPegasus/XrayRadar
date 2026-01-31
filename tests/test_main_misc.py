@@ -1,6 +1,7 @@
 import importlib
 import sys
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
 from fastapi import Response
@@ -714,6 +715,122 @@ def test_store_event_invalid_timestamp_falls_back(app_and_client):
     )
     assert r.status_code == 200
     assert "id" in r.json()
+
+
+def test_store_event_timestamp_not_string_uses_now(app_and_client):
+    """When timestamp is not a string (e.g. number), use current time."""
+    _, client = app_and_client
+    r = client.post(
+        "/api/1/store/",
+        json={"message": "hi", "timestamp": 1234567890},
+        headers={"X-Xrayradar-Token": "admin"},
+    )
+    assert r.status_code == 200
+    assert "id" in r.json()
+
+
+@pytest.fixture()
+def app_and_client_owned_project(database_url, monkeypatch, request):
+    """Fixture with a project that has an owner (for testing limit/warning in store_event)."""
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+
+    import xrayradar_server.db as dbmod
+
+    importlib.reload(dbmod)
+    sys.modules.pop("xrayradar_server.models", None)
+    import xrayradar_server.models as models
+    dbmod.init_db()
+
+    db = dbmod.SessionLocal()
+    try:
+        db.query(models.TokenProjectAccess).delete()
+        db.query(models.Event).delete()
+        db.query(models.TokenRequest).delete()
+        db.query(models.Token).delete()
+        db.query(models.Project).delete()
+        db.query(models.User).delete()
+        db.commit()
+
+        db.add(models.Token(id=1, name="admin", token="admin", is_admin=True))
+        user = models.User(
+            email="owner@ingest.test",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        db.add(models.Project(id=1, name="p1", owner_user_id=user.id))
+        db.commit()
+    finally:
+        db.close()
+
+    import xrayradar_server.main as mainmod
+    importlib.reload(mainmod)
+    client = TestClient(mainmod.app)
+    client.__enter__()
+    request.addfinalizer(lambda: client.__exit__(None, None, None))
+    return mainmod, client
+
+
+def test_store_event_limit_exceeded_403(app_and_client_owned_project):
+    """When project owner is at event limit, store returns 403."""
+    _, client = app_and_client_owned_project
+    with patch("xrayradar_server.usage.TIER_EVENT_LIMITS", {"Free": 0}):
+        r = client.post(
+            "/api/1/store/",
+            json={"message": "hi"},
+            headers={"X-Xrayradar-Token": "admin"},
+        )
+    assert r.status_code == 403
+    assert "limit" in r.json().get("detail", "").lower()
+
+
+def test_store_event_level_not_error_skips_alerts(app_and_client_owned_project):
+    """When level is not 'error', store does not trigger email alerts (covers branch)."""
+    _, client = app_and_client_owned_project
+    r = client.post(
+        "/api/1/store/",
+        json={"message": "info msg", "level": "info"},
+        headers={"X-Xrayradar-Token": "admin"},
+    )
+    assert r.status_code == 200
+    assert "id" in r.json()
+    assert "warning" not in r.json()
+
+
+def test_store_event_near_limit_returns_warning(app_and_client_owned_project):
+    """When project owner is near limit, store returns 200 with warning in response."""
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    _, client = app_and_client_owned_project
+    db = dbmod.SessionLocal()
+    try:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for _ in range(3):
+            e = models.Event(
+                project_id=1,
+                timestamp=now,
+                level="error",
+                message="m",
+                payload={},
+            )
+            db.add(e)
+        db.commit()
+    finally:
+        db.close()
+
+    with patch("xrayradar_server.usage.TIER_EVENT_LIMITS", {"Free": 5}):
+        with patch("xrayradar_server.usage.TIER_WARNING_THRESHOLD", 0.8):
+            r = client.post(
+                "/api/1/store/",
+                json={"message": "hi"},
+                headers={"X-Xrayradar-Token": "admin"},
+            )
+    assert r.status_code == 200
+    assert "id" in r.json()
+    assert "warning" in r.json()
 
 
 def test_admin_revoke_token_not_found(app_and_client, monkeypatch):

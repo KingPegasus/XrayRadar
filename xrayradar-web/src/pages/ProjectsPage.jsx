@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
 import { fetchJson } from '../utils/api'
 import { navigate } from '../utils/navigation'
+import { UsageWidget } from '../components/UsageWidget'
 
 export function ProjectsPage({ me }) {
   const [projects, setProjects] = useState([])
+  const [usage, setUsage] = useState(null)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -11,7 +13,12 @@ export function ProjectsPage({ me }) {
   const load = useCallback(async () => {
     setError('')
     try {
-      setProjects(await fetchJson('/api/user/projects'))
+      const [projectsData, usageData] = await Promise.all([
+        fetchJson('/api/user/projects'),
+        fetchJson('/api/user/usage'),
+      ])
+      setProjects(Array.isArray(projectsData) ? projectsData : [])
+      setUsage(usageData)
     } catch (e) {
       setError(e.message || 'Failed to load projects')
     }
@@ -54,6 +61,13 @@ export function ProjectsPage({ me }) {
           Signed in as <code>{me?.email}</code>
         </div>
 
+        <UsageWidget usage={usage} />
+
+        {!me?.email_verified && (
+          <div className="small" style={{ marginTop: 14, color: '#fbbf24' }}>
+            Verify your email to create projects.
+          </div>
+        )}
         <form onSubmit={create} style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             className="fieldInput"
@@ -61,8 +75,9 @@ export function ProjectsPage({ me }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="New project name"
+            disabled={!me?.email_verified}
           />
-          <button className="button buttonPrimary" type="submit" disabled={busy}>
+          <button className="button buttonPrimary" type="submit" disabled={busy || !me?.email_verified}>
             Create project
           </button>
         </form>
@@ -74,7 +89,7 @@ export function ProjectsPage({ me }) {
         ) : null}
 
         <div style={{ marginTop: 14 }} className="grid3">
-          {projects.map((p) => (
+          {(projects || []).map((p) => (
             <div key={p.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/dashboard/projects/${p.id}`)}>
               <div className="cardTitle">{p.name}</div>
               <div className="cardText" style={{ marginTop: 6 }}>

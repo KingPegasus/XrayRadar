@@ -52,6 +52,18 @@ class AdminEventOut(AdminEventListItemOut):
     payload: dict[str, Any]
 
 
+class AdminUserOut(BaseModel):
+    id: int
+    email: str
+    plan: str
+    created_at: datetime
+    event_count: int = 0
+
+
+class AdminUserPlanUpdate(BaseModel):
+    plan: str = Field(min_length=1, max_length=32)
+
+
 class TokenCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     email: Optional[str] = Field(default=None, max_length=320)
@@ -99,6 +111,7 @@ class UserOut(BaseModel):
     id: int
     email: str
     plan: str
+    email_verified: bool = False
     created_at: datetime
 
 
@@ -153,3 +166,44 @@ class AdminTokenRequestOut(BaseModel):
     created_at: datetime
     fulfilled_at: Optional[datetime] = None
     fulfilled_token_id: Optional[int] = None
+
+
+class UsageOut(BaseModel):
+    current_count: int
+    limit: Optional[int] = None
+    plan: str
+    is_exceeded: bool
+    is_near_limit: bool
+    percentage_used: Optional[float] = None
+
+
+class AlertSettingsOut(BaseModel):
+    enabled: bool
+    level_filter: str
+    cooldown_minutes: Optional[int] = None
+    min_cooldown_minutes: Optional[int] = None  # plan-based minimum (Free=10, Basic/Pro=1)
+    additional_emails: list[str] = []
+
+
+class AlertSettingsUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    level_filter: Optional[str] = None
+    cooldown_minutes: Optional[int] = None
+    additional_emails: Optional[list[str]] = None
+
+
+class DeletionRequestCreate(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=2000)
+
+
+class DeletionRequestOut(BaseModel):
+    id: int
+    user_id: int
+    reason: Optional[str] = None
+    created_at: datetime
+    fulfilled_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+
+
+class AdminDeletionRequestOut(DeletionRequestOut):
+    user_email: str

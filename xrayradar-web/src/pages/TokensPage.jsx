@@ -23,10 +23,11 @@ export function TokensPage({ me }) {
   const loadTokens = useCallback(async () => {
     try {
       const ts = await fetchJson('/api/user/tokens')
-      setTokens(ts)
+      const tokenList = Array.isArray(ts) ? ts : []
+      setTokens(tokenList)
       // Load project access for each token
       const tp = {}
-      for (const t of ts) {
+      for (const t of tokenList) {
         if (!t.revoked_at) {
           try {
             const access = await fetchJson(`/api/user/tokens/${t.id}/projects`)
@@ -105,6 +106,11 @@ export function TokensPage({ me }) {
           </div>
         ) : null}
 
+        {!me?.email_verified && (
+          <div className="small" style={{ marginTop: 14, color: '#fbbf24' }}>
+            Verify your email to request tokens or grant project access.
+          </div>
+        )}
         <div style={{ marginTop: 20 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>Request a new token</h3>
           <form onSubmit={createRequest} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -115,7 +121,7 @@ export function TokensPage({ me }) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g., Production API"
-                disabled={busy}
+                disabled={busy || !me?.email_verified}
               />
             </div>
             <div>
@@ -126,11 +132,11 @@ export function TokensPage({ me }) {
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Additional context for the admin..."
                 rows={3}
-                disabled={busy}
+                disabled={busy || !me?.email_verified}
                 style={{ resize: 'vertical', fontFamily: 'inherit' }}
               />
             </div>
-            <button className="button buttonPrimary" type="submit" disabled={busy} style={{ alignSelf: 'flex-start' }}>
+            <button className="button buttonPrimary" type="submit" disabled={busy || !me?.email_verified} style={{ alignSelf: 'flex-start' }}>
               {busy ? 'Requesting...' : 'Request token'}
             </button>
           </form>
@@ -141,7 +147,7 @@ export function TokensPage({ me }) {
           <div className="small" style={{ color: 'var(--muted)', marginBottom: 14 }}>
             Tokens are not automatically linked to projects. Grant access to your projects below to use the token with them.
           </div>
-          {tokens.length === 0 ? (
+          {(!Array.isArray(tokens) || tokens.length === 0) ? (
             <div className="small" style={{ color: 'var(--muted)' }}>No tokens yet.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -187,6 +193,7 @@ export function TokensPage({ me }) {
                                   className="button"
                                   type="button"
                                   onClick={() => setExpandedToken(isExpanded ? null : t.id)}
+                                  disabled={!me?.email_verified}
                                   style={{ fontSize: 13, padding: '6px 12px' }}
                                 >
                                   {isExpanded ? 'Hide' : 'Manage'} project access
@@ -211,6 +218,7 @@ export function TokensPage({ me }) {
                                                 className="button"
                                                 type="button"
                                                 onClick={() => grantAccess(t.id, p.id)}
+                                                disabled={!me?.email_verified}
                                                 style={{ fontSize: 12, padding: '4px 10px' }}
                                               >
                                                 Grant access

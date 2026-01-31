@@ -47,6 +47,7 @@ ENV/
 
 # Local database/data
 *.sqlite3
+*.db
 
 
 # Codacy

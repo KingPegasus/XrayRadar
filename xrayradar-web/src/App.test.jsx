@@ -277,6 +277,43 @@ describe('App', () => {
     })
   })
 
+  it('renders VerifyEmailPage when path is /verify-email', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/verify-email',
+        href: '/verify-email',
+        search: '?token=test-token-123',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    fetch.mockImplementation((url) => {
+      if (url.startsWith('/auth/verify-email')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ message: 'Email verified successfully!' }),
+        })
+      }
+      if (url === '/api/me') {
+        return Promise.resolve({ ok: false, status: 401 })
+      }
+      return Promise.reject(new Error('Unexpected fetch'))
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Verifying your email/i)).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('Email Verified!')).toBeInTheDocument()
+    }, { timeout: 3000 })
+  })
+
   it('closes signup modal', async () => {
     const user = userEvent.setup()
     fetch.mockResolvedValueOnce({

@@ -14,7 +14,9 @@ describe('IssueDetailPage', () => {
   })
 
   it('renders issue detail page', async () => {
-    api.fetchJson.mockResolvedValueOnce([])
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
     await waitFor(() => {
       expect(screen.getByText('Issue')).toBeInTheDocument()
@@ -38,7 +40,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 2',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -48,7 +52,9 @@ describe('IssueDetailPage', () => {
   })
 
   it('displays error when loading fails', async () => {
-    api.fetchJson.mockRejectedValueOnce(new Error('Failed to load'))
+    api.fetchJson
+      .mockRejectedValueOnce(new Error('Failed to load')) // events fails
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency succeeds
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -65,7 +71,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 1',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -83,7 +91,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 1',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -98,7 +108,9 @@ describe('IssueDetailPage', () => {
 
   it('navigates back to project', async () => {
     const user = userEvent.setup()
-    api.fetchJson.mockResolvedValueOnce([])
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -114,8 +126,10 @@ describe('IssueDetailPage', () => {
   it('refreshes events on refresh button click', async () => {
     const user = userEvent.setup()
     api.fetchJson
-      .mockResolvedValueOnce([]) // Initial load
-      .mockResolvedValueOnce([]) // Refresh call
+      .mockResolvedValueOnce([]) // Initial load events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // Initial frequency
+      .mockResolvedValueOnce([]) // Refresh events call
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // Refresh frequency call
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -126,26 +140,47 @@ describe('IssueDetailPage', () => {
     await user.click(refreshButton)
 
     await waitFor(() => {
-      expect(api.fetchJson).toHaveBeenCalledTimes(2) // Initial load + refresh
+      expect(api.fetchJson).toHaveBeenCalledTimes(4) // 2 initial + 2 refresh
     })
   })
 
   it('does not show first/last seen when events are empty', async () => {
-    api.fetchJson.mockResolvedValueOnce([])
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
       expect(screen.getByText(/Fingerprint:/i)).toBeInTheDocument()
     })
 
-    // Should not show first seen, last seen, or total when events are empty
+    // Should not show First seen / Last seen / Total in the issue header (events.length > 0 block)
+    // Note: EventFrequencyChart may show "Total: 0 events" - that's from the chart, not the header
     expect(screen.queryByText(/First seen/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Last seen/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/Total:/i)).not.toBeInTheDocument()
+    // Header shows "Total: N event(s)" only when events exist; chart shows "Total: 0 events" when empty
+    expect(screen.queryByText(/Total: 0 event/i)).toBeInTheDocument() // from chart
+  })
+
+  it('handles frequency fetch failure silently', async () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events succeed
+      .mockRejectedValueOnce(new Error('frequency failed')) // frequency fails
+
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Fingerprint:/i)).toBeInTheDocument()
+      expect(consoleSpy).toHaveBeenCalledWith('Failed to load event frequency:', expect.any(Error))
+    })
+    consoleSpy.mockRestore()
   })
 
   it('handles error in load callback', async () => {
-    api.fetchJson.mockRejectedValueOnce(new Error('Network error'))
+    api.fetchJson
+      .mockRejectedValueOnce(new Error('Network error')) // events fails
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency succeeds
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -168,7 +203,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 2',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -181,7 +218,9 @@ describe('IssueDetailPage', () => {
   })
 
   it('handles error in load callback with no message', async () => {
-    api.fetchJson.mockRejectedValueOnce(new Error())
+    api.fetchJson
+      .mockRejectedValueOnce(new Error()) // events fails with no message
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -204,7 +243,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 2',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -225,7 +266,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 1',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -251,7 +294,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 2',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -264,7 +309,9 @@ describe('IssueDetailPage', () => {
   })
 
   it('handles null response from API', async () => {
-    api.fetchJson.mockResolvedValueOnce(null)
+    api.fetchJson
+      .mockResolvedValueOnce(null) // events is null
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -289,7 +336,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 2',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -314,7 +363,9 @@ describe('IssueDetailPage', () => {
         message: 'Error 2',
       },
     ]
-    api.fetchJson.mockResolvedValueOnce(events)
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {

@@ -57,6 +57,7 @@ def compute_fingerprint(event: dict[str, Any]) -> str:
     base = "|".join([exc_type, exc_value or msg, frame_sig]).strip("|").strip()
     if not base:
         base = msg or "unknown"
+    
     return _hash(base)
 
 

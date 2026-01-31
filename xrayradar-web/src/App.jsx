@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { usePathname } from './hooks/usePathname'
 import { navigate } from './utils/navigation'
 import { fetchMe } from './utils/api'
 import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { DashboardLayout } from './components/DashboardLayout'
 import { DashboardRouter } from './routes/DashboardRouter'
 import { SignupModal } from './components/SignupModal'
@@ -37,6 +38,12 @@ export default function App() {
 
   if (path === '/login') {
     return <LoginPage onLoggedIn={(m) => setMe(m)} />
+  }
+
+  const refreshMe = useCallback(() => fetchMe().then((m) => setMe(m)), [])
+
+  if (path === '/verify-email') {
+    return <VerifyEmailPage onVerified={refreshMe} />
   }
 
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {

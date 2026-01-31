@@ -1,17 +1,56 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { fetchJson } from '../utils/api'
 import { navigate } from '../utils/navigation'
+import { EventFrequencyChart } from '../components/EventFrequencyChart'
+import { ProjectSettingsModal } from '../components/ProjectSettingsModal'
 
-export function ProjectIssuesPage({ projectId }) {
+export function ProjectIssuesPage({ projectId, me }) {
   const [issues, setIssues] = useState([])
   const [error, setError] = useState('')
+
+  const [eventFrequencyData, setEventFrequencyData] = useState(null)
 
   useEffect(() => {
     setError('')
     fetchJson(`/api/user/projects/${projectId}/issues`)
       .then((rows) => setIssues(rows || []))
       .catch((e) => setError(e.message || 'Failed to load issues'))
+    
+    // Fetch aggregated frequency data (handles unlimited events efficiently)
+    fetchJson(`/api/user/projects/${projectId}/events/frequency`)
+      .then((data) => setEventFrequencyData(data))
+      .catch((e) => {
+        // Silently fail for frequency chart - it's optional
+        console.warn('Failed to load event frequency:', e)
+      })
   }, [projectId])
+
+  // Calculate event frequency by day for chart (last 30 days)
+  const eventFrequency = useMemo(() => {
+    // Generate array of last 30 days
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const last30Days = []
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateKey = date.toISOString().split('T')[0]
+      last30Days.push(dateKey)
+    }
+    
+    // Use aggregated frequency data from backend, or initialize to 0
+    const freq = {}
+    last30Days.forEach(dateKey => {
+      freq[dateKey] = eventFrequencyData?.frequency?.[dateKey] || 0
+    })
+    
+    // Convert to sorted array (already sorted by date)
+    const sorted = last30Days.map(dateKey => [dateKey, freq[dateKey] || 0])
+    const counts = Object.values(freq)
+    const maxCount = counts.length > 0 ? Math.max(...counts) : 1
+    
+    return { data: sorted, maxCount, total: eventFrequencyData?.total || 0 }
+  }, [eventFrequencyData])
 
   return (
     <div className="container" style={{ padding: '46px 0' }}>
@@ -23,7 +62,8 @@ export function ProjectIssuesPage({ projectId }) {
               Issues are grouped by fingerprint.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <ProjectSettingsModal projectId={projectId} me={me} />
             <button className="button" type="button" onClick={() => navigate('/dashboard')}>
               Back
             </button>
@@ -35,6 +75,8 @@ export function ProjectIssuesPage({ projectId }) {
             {error}
           </div>
         ) : null}
+
+        <EventFrequencyChart eventFrequency={eventFrequency} />
 
         <div style={{ marginTop: 14 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

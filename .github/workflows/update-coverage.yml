@@ -190,11 +190,7 @@ jobs:
         id: skip-main
         run: |
           BRANCH="${{ steps.branch-info.outputs.branch }}"
-          # Don't skip on main branch if it's a manual dispatch (workflow_dispatch)
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "Manual dispatch: allowing commit even on main branch"
-            echo "skip=false" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH" == "main" ] || [ "$BRANCH" == "master" ]; then
+          if [ "$BRANCH" == "main" ] || [ "$BRANCH" == "master" ]; then
             echo "Skipping README update on main branch"
             echo "skip=true" >> $GITHUB_OUTPUT
           else

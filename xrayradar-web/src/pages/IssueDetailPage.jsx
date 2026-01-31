@@ -1,31 +1,57 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { fetchJson } from '../utils/api'
 import { navigate } from '../utils/navigation'
+import { EventFrequencyChart } from '../components/EventFrequencyChart'
 
 export function IssueDetailPage({ projectId, fingerprint }) {
   const [events, setEvents] = useState([])
+  const [eventFrequencyData, setEventFrequencyData] = useState(null)
   const [error, setError] = useState('')
 
   const load = useCallback(() => {
     setError('')
+    // Fetch events list for display
     fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/events`)
       .then((rows) => setEvents(rows || []))
       .catch((e) => setError(e.message || 'Failed to load events'))
+    
+    // Fetch aggregated frequency data (handles unlimited events efficiently)
+    fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/events/frequency`)
+      .then((data) => setEventFrequencyData(data))
+      .catch((e) => {
+        // Silently fail for frequency chart - it's optional
+        console.warn('Failed to load event frequency:', e)
+      })
   }, [projectId, fingerprint])
 
   useEffect(() => load(), [load])
 
-  // Calculate event frequency by day for chart
+  // Calculate event frequency by day for chart (last 30 days)
   const eventFrequency = useMemo(() => {
+    // Generate array of last 30 days
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const last30Days = []
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateKey = date.toISOString().split('T')[0]
+      last30Days.push(dateKey)
+    }
+    
+    // Use aggregated frequency data from backend, or initialize to 0
     const freq = {}
-    events.forEach((e) => {
-      const date = new Date(e.timestamp).toLocaleDateString()
-      freq[date] = (freq[date] || 0) + 1
+    last30Days.forEach(dateKey => {
+      freq[dateKey] = eventFrequencyData?.frequency?.[dateKey] || 0
     })
-    const sorted = Object.entries(freq).sort((a, b) => new Date(a[0]) - new Date(b[0]))
-    const maxCount = Math.max(...Object.values(freq), 1)
-    return { data: sorted, maxCount }
-  }, [events])
+    
+    // Convert to sorted array (already sorted by date)
+    const sorted = last30Days.map(dateKey => [dateKey, freq[dateKey] || 0])
+    const counts = Object.values(freq)
+    const maxCount = counts.length > 0 ? Math.max(...counts) : 1
+    
+    return { data: sorted, maxCount, total: eventFrequencyData?.total || 0 }
+  }, [eventFrequencyData])
 
   return (
     <div className="container" style={{ padding: '46px 0' }}>
@@ -63,40 +89,7 @@ export function IssueDetailPage({ projectId, fingerprint }) {
           </div>
         ) : null}
 
-        {/* Event Frequency Chart */}
-        {eventFrequency.data.length > 0 && (
-          <div style={{ marginTop: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#cbd5e1' }}>Event Frequency</div>
-            <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: 16, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120 }}>
-                {eventFrequency.data.map(([date, count], idx) => {
-                  const height = (count / eventFrequency.maxCount) * 100
-                  return (
-                    <div key={idx} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                      <div
-                        style={{
-                          width: '100%',
-                          background: 'linear-gradient(to top, #2563eb, #3b82f6)',
-                          height: `${height}%`,
-                          minHeight: count > 0 ? '4px' : '0',
-                          borderRadius: '4px 4px 0 0',
-                          transition: 'all 0.2s',
-                        }}
-                        title={`${date}: ${count} event${count !== 1 ? 's' : ''}`}
-                      />
-                      <div style={{ fontSize: 10, color: '#94a3b8', writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}>
-                        {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
-                Total: {events.length} event{events.length !== 1 ? 's' : ''} across {eventFrequency.data.length} day{eventFrequency.data.length !== 1 ? 's' : ''}
-              </div>
-            </div>
-          </div>
-        )}
+        <EventFrequencyChart eventFrequency={eventFrequency} />
 
         <div style={{ marginTop: 14 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>

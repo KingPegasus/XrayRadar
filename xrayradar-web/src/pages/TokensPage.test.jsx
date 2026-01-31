@@ -7,7 +7,7 @@ import * as api from '../utils/api'
 vi.mock('../utils/api')
 
 describe('TokensPage', () => {
-  const me = { email: 'test@example.com' }
+  const me = { email: 'test@example.com', email_verified: true }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -165,10 +165,12 @@ describe('TokensPage', () => {
   })
 
   it('displays error when loading fails', async () => {
-    api.fetchJson
-      .mockRejectedValueOnce(new Error('Failed to load')) // projects fails
-      .mockResolvedValueOnce([]) // tokens (might succeed)
-      .mockResolvedValueOnce([]) // requests (might succeed)
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') {
+        return Promise.reject(new Error('Failed to load'))
+      }
+      return Promise.resolve([]) // tokens and requests succeed
+    })
 
     render(<TokensPage me={me} />)
 
@@ -377,6 +379,74 @@ describe('TokensPage', () => {
     }, { timeout: 5000 })
   })
 
+  it('handles create token request error with no message', async () => {
+    const user = userEvent.setup()
+    let callCount = 0
+    api.fetchJson.mockImplementation((url, opts) => {
+      callCount++
+      if (callCount <= 3 && (url === '/api/user/projects' || url === '/api/user/tokens' || url === '/api/user/token-requests')) {
+        return Promise.resolve([])
+      }
+      if (opts?.method === 'POST' && url === '/api/user/token-requests') {
+        return Promise.reject(new Error()) // No message
+      }
+      if (callCount > 4 && url === '/api/user/token-requests' && !opts) {
+        return Promise.resolve([])
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/e.g., Production API/i)).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText(/e.g., Production API/i), 'New Token')
+    await user.click(screen.getByRole('button', { name: /Request token/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to create token request/i)).toBeInTheDocument()
+    }, { timeout: 5000 })
+  })
+
+  it('shows token with project access badges', async () => {
+    const user = userEvent.setup()
+    const tokens = [{ id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null }]
+    const projects = [{ id: 1, name: 'Project 1' }]
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') return Promise.resolve([{ project_id: 1 }])
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => expect(screen.getByText('Token 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/Project access: 1 project\(s\)/i)).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Manage project access/i }))
+    await waitFor(() => {
+      expect(screen.getByText('Project 1')).toBeInTheDocument()
+      expect(screen.getByText(/Has access/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows request without note', async () => {
+    const requests = [{ id: 1, name: 'Request 1', created_at: '2024-01-01T00:00:00Z', fulfilled_at: null }]
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(requests)
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Request 1')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Test note/i)).not.toBeInTheDocument()
+  })
+
   it('handles note textarea onChange', async () => {
     const user = userEvent.setup()
     api.fetchJson
@@ -477,6 +547,42 @@ describe('TokensPage', () => {
     // Should not have a badge for project 1 since it's not in the projects list
     // This verifies that line 176's null branch is executed when proj is undefined
     expect(projectNameBadges.length).toBe(0)
+  })
+
+  it('shows verify email banner when not verified', async () => {
+    api.fetchJson
+      .mockResolvedValueOnce([]) // projects
+      .mockResolvedValueOnce([]) // tokens
+      .mockResolvedValueOnce([]) // requests
+
+    render(<TokensPage me={{ email: 'test@example.com', email_verified: false }} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Verify your email to request tokens or grant project access/i)).toBeInTheDocument()
+    })
+  })
+
+  it('displays token value when fulfilled', async () => {
+    const tokens = [
+      {
+        id: 1,
+        name: 'My Token',
+        created_at: '2024-01-01T00:00:00Z',
+        revoked_at: null,
+        token: 'secret-abc-123',
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([]) // projects
+      .mockResolvedValueOnce(tokens) // tokens
+      .mockResolvedValueOnce([]) // token projects
+      .mockResolvedValueOnce([]) // requests
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('secret-abc-123')).toBeInTheDocument()
+    })
   })
 
   it('collapses expanded token when clicking Hide button', async () => {
