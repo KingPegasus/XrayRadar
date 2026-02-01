@@ -51,19 +51,17 @@ export function ResetPasswordPage() {
 
   if (success) {
     return (
-      <main style={{ padding: '72px 0 46px' }}>
-        <div className="container" style={{ width: 'min(680px, calc(100% - 48px))' }}>
-          <div className="panel" style={{ padding: 18 }}>
-            <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Password reset</div>
-            <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
-              Your password has been updated. You can now sign in with your new password.
-            </div>
-            <div style={{ marginTop: 14 }}>
-              <button
-                type="button"
-                className="button buttonPrimary"
-                onClick={() => navigate('/login')}
-              >
+      <main className="page" style={{ paddingTop: 48, paddingBottom: 48 }}>
+        <div className="container pageNarrow">
+          <div className="pageCard">
+            <header className="pageHeader">
+              <h1 className="pageTitle">Password reset</h1>
+              <p className="pageSubtitle">
+                Your password has been updated. You can now sign in with your new password.
+              </p>
+            </header>
+            <div className="pageActions">
+              <button type="button" className="button buttonPrimary" onClick={() => navigate('/login')}>
                 Sign in
               </button>
             </div>
@@ -75,14 +73,16 @@ export function ResetPasswordPage() {
 
   if (!token) {
     return (
-      <main style={{ padding: '72px 0 46px' }}>
-        <div className="container" style={{ width: 'min(680px, calc(100% - 48px))' }}>
-          <div className="panel" style={{ padding: 18 }}>
-            <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Invalid link</div>
-            <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
-              This reset link is missing a token. Please request a new link from the forgot password page.
-            </div>
-            <div style={{ marginTop: 14 }}>
+      <main className="page" style={{ paddingTop: 48, paddingBottom: 48 }}>
+        <div className="container pageNarrow">
+          <div className="pageCard">
+            <header className="pageHeader">
+              <h1 className="pageTitle">Invalid link</h1>
+              <p className="pageSubtitle">
+                This reset link is missing a token. Please request a new link from the forgot password page.
+              </p>
+            </header>
+            <div className="pageActions">
               <a className="button buttonPrimary" href="/forgot-password">Request new link</a>
             </div>
           </div>
@@ -92,42 +92,49 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <main style={{ padding: '72px 0 46px' }}>
-      <div className="container" style={{ width: 'min(680px, calc(100% - 48px))' }}>
-        <div className="panel" style={{ padding: 18 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Set new password</div>
-          <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
-            Enter your new password below. It must be at least 8 characters.
-          </div>
+    <main className="page" style={{ paddingTop: 48, paddingBottom: 48 }}>
+      <div className="container pageNarrow">
+        <div className="pageCard">
+          <header className="pageHeader">
+            <h1 className="pageTitle">Set new password</h1>
+            <p className="pageSubtitle">
+              Enter your new password below. It must be at least 8 characters.
+            </p>
+          </header>
 
-          <form onSubmit={submit} style={{ marginTop: 14 }}>
-            <label className="fieldLabel">New password</label>
-            <input
-              className="fieldInput"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-
-            <label className="fieldLabel" style={{ marginTop: 10 }}>Confirm password</label>
-            <input
-              className="fieldInput"
-              type="password"
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
+          <form onSubmit={submit} className="pageForm">
+            <div>
+              <label className="fieldLabel">New password</label>
+              <input
+                className="fieldInput"
+                style={{ marginTop: 6 }}
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+            </div>
+            <div>
+              <label className="fieldLabel">Confirm password</label>
+              <input
+                className="fieldInput"
+                style={{ marginTop: 6 }}
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+            </div>
 
             {error ? (
-              <div className="fieldError" role="alert" style={{ marginTop: 10 }}>
+              <div className="fieldError" role="alert">
                 {error}
               </div>
             ) : null}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <div className="pageActions">
               <button className="button buttonPrimary" type="submit" disabled={submitting}>
                 {submitting ? 'Resetting…' : 'Reset password'}
               </button>

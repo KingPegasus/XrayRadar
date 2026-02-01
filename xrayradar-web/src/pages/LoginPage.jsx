@@ -36,7 +36,6 @@ export function LoginPage({ onLoggedIn }) {
       const me = await fetchMe()
       if (me) {
         onLoggedIn(me)
-        // Use hard navigation to ensure auth state is properly checked
         window.location.href = '/dashboard'
       } else {
         setError('Failed to load user info after login')
@@ -49,48 +48,53 @@ export function LoginPage({ onLoggedIn }) {
   }
 
   return (
-    <main style={{ padding: '72px 0 46px' }}>
-      <div className="container" style={{ width: 'min(680px, calc(100% - 48px))' }}>
-        <div className="panel" style={{ padding: 18 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Sign in</div>
-          <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
-            Use your email + password to access your dashboard.
-          </div>
+    <main className="page" style={{ paddingTop: 48, paddingBottom: 48 }}>
+      <div className="container pageNarrow">
+        <div className="pageCard">
+          <header className="pageHeader">
+            <h1 className="pageTitle">Sign in</h1>
+            <p className="pageSubtitle">
+              Use your email + password to access your dashboard.
+            </p>
+          </header>
 
-          <form onSubmit={submit} style={{ marginTop: 14 }}>
-            <label className="fieldLabel">Email</label>
-            <input
-              className="fieldInput"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              autoComplete="email"
-            />
-
-            <label className="fieldLabel" style={{ marginTop: 10 }}>
-              Password
-            </label>
-            <input
-              className="fieldInput"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              type="password"
-              autoComplete="current-password"
-            />
-            <div style={{ marginTop: 6, fontSize: 14 }}>
-              <a href="/forgot-password" style={{ color: 'var(--muted)', textDecoration: 'none' }}>
-                Forgot password?
-              </a>
+          <form onSubmit={submit} className="pageForm">
+            <div>
+              <label className="fieldLabel">Email</label>
+              <input
+                className="fieldInput"
+                style={{ marginTop: 6 }}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <label className="fieldLabel">Password</label>
+              <input
+                className="fieldInput"
+                style={{ marginTop: 6 }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                type="password"
+                autoComplete="current-password"
+              />
+              <div style={{ marginTop: 8, fontSize: 13 }}>
+                <a href="/forgot-password" style={{ color: 'var(--muted)', textDecoration: 'none' }}>
+                  Forgot password?
+                </a>
+              </div>
             </div>
 
             {error ? (
-              <div className="fieldError" role="alert" style={{ marginTop: 10 }}>
+              <div className="fieldError" role="alert">
                 {error}
               </div>
             ) : null}
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <div className="pageActions">
               <button className="button buttonPrimary" type="submit" disabled={submitting}>
                 {submitting ? 'Signing in…' : 'Sign in'}
               </button>

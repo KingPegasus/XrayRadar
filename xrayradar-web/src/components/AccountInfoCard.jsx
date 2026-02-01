@@ -1,11 +1,11 @@
 export function AccountInfoCard({ me }) {
   return (
-    <div style={{ marginTop: 20 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#cbd5e1' }}>Account</div>
-      <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <section className="pageSection">
+      <h2 className="pageSectionTitle">Account</h2>
+      <div className="pageCard">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 13 }}>Email</span>
+            <span className="pageCardText" style={{ margin: 0 }}>Email</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 13 }}>{me?.email || '—'}</span>
               {me?.email_verified ? (
@@ -20,7 +20,7 @@ export function AccountInfoCard({ me }) {
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 13 }}>Plan</span>
+            <span className="pageCardText" style={{ margin: 0 }}>Plan</span>
             <span
               className="badge"
               style={{
@@ -31,13 +31,13 @@ export function AccountInfoCard({ me }) {
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 13 }}>Member since</span>
-            <span style={{ fontSize: 13 }}>
+            <span className="pageCardText" style={{ margin: 0 }}>Member since</span>
+            <span className="pageCardText" style={{ margin: 0 }}>
               {me?.created_at ? new Date(me.created_at).toLocaleDateString() : '—'}
             </span>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   )
 }

@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-01-27
+
+### Added
+
+- **Breadcrumbs feature** — Enhanced error context with event trails leading to exceptions
+  - `BreadcrumbIn` schema for validation (timestamp, type, category, message, level, data)
+  - Breadcrumb normalization in event ingestion: limit 100, truncate messages to 1024 chars, default type/level
+  - Event storage in `payload.breadcrumbs` (JSONB)
+  - Architecture docs: `docs/architecture/breadcrumbs.md`
+  - `scripts/send_console_breadcrumb.py` — Send test events with console-type breadcrumbs
+- **BreadcrumbTimeline component** — Frontend timeline for breadcrumbs in event detail view
+  - Chronological display with sort toggle (oldest/newest first)
+  - Type icons (http, ui, navigation, error, console, etc.)
+  - Level color-coding (debug, info, warning, error)
+  - Relative timestamps ("5s before error")
+  - Expandable data sections
+- **Protected API docs** — `/docs` and `/redoc` require admin session; OpenAPI schema admin-only
+- **User API refactor** — Modular router structure
+  - `account`, `alerts`, `dashboard`, `issues`, `projects`, `tokens` routers
+  - `user_owned_project_ids_subq` helper for authorization
+  - Dashboard statistics schemas (totals, trends, top errors)
+- **IssueBreakdown component** — Breakdown data display on issue detail page
+
+### Changed
+
+- Raw Event Data: Copy button stays fixed at top; JSON content scrolls in scrollable container
+- EventDetailView: Breadcrumb section layout; improved JSON copy UX
+- User API: Split monolithic `user_api.py` into focused modules
+- Frontend: Updated coverage thresholds in vite.config.js; improved styling and component rendering
+- `scripts/send_real_error.py`: Breadcrumb payload structure updates
+
+---
+
 ## [0.6.0] - 2026-02-01
 
 ### Added
@@ -133,6 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.7.0]: https://github.com/your-org/xrayradar-server/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/your-org/xrayradar-server/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/your-org/xrayradar-server/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/your-org/xrayradar-server/compare/v0.3.0...v0.4.0

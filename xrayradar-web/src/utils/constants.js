@@ -4,12 +4,20 @@ export const FEATURES = [
     text: 'Drop-in error capture for your apps. Keep the payload clean and predictable, and ship without heavy dependencies.',
   },
   {
+    title: 'Auto-capture middleware',
+    text: 'Built-in middleware for Django, FastAPI, and Flask. Automatically captures unhandled exceptions with request context and breadcrumbs.',
+  },
+  {
     title: 'Simple DSN + Token auth',
     text: 'Point your app at a project DSN and authenticate using a token header. No embedded credentials in DSNs.',
   },
   {
     title: 'Minimal server + ingestion API',
     text: 'Store events, keep payloads searchable, and debug quickly. Built to stay simple and reliable.',
+  },
+  {
+    title: 'Breadcrumb tracking',
+    text: 'Capture the trail of events leading to errors. HTTP requests are auto-captured, plus add custom breadcrumbs for full context.',
   },
   {
     title: 'Email alerts',

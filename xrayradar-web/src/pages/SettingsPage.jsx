@@ -23,18 +23,18 @@ export function SettingsPage({ me }) {
   }, [])
 
   return (
-    <div className="container" style={{ padding: '46px 0' }}>
-      <div className="panel" style={{ padding: 18 }}>
-        <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Account Settings</div>
-        <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
+    <div className="container page">
+      <header className="pageHeader">
+        <h1 className="pageTitle">Account Settings</h1>
+        <p className="pageSubtitle">
           Manage your account and view usage
-        </div>
+        </p>
+      </header>
 
-        <AccountInfoCard me={me} />
-        <UsageDetailsCard usage={usage} loading={loading} error={error} />
-        <PlanDetailsCard me={me} />
-        <DeleteAccountCard me={me} />
-      </div>
+      <AccountInfoCard me={me} />
+      <UsageDetailsCard usage={usage} loading={loading} error={error} />
+      <PlanDetailsCard me={me} />
+      <DeleteAccountCard me={me} />
     </div>
   )
 }

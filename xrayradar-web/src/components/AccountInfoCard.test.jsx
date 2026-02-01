@@ -29,4 +29,10 @@ describe('AccountInfoCard', () => {
     expect(screen.getByText('x@y.com')).toBeInTheDocument()
     expect(screen.getByText('Free')).toBeInTheDocument()
   })
+
+  it('renders dash when me is null', () => {
+    render(<AccountInfoCard me={null} />)
+    const dashes = screen.getAllByText('—')
+    expect(dashes.length).toBeGreaterThanOrEqual(1)
+  })
 })

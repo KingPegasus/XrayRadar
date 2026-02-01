@@ -7,6 +7,8 @@ This folder documents the architecture of XrayRadar features. Each document desc
 | Document | Description |
 |----------|-------------|
 | [Event ingest](event-ingest.md) | Event storage API, fingerprinting, and persistence |
+| [Dashboard stats](dashboard-stats.md) | Dashboard error statistics: totals, trends, top errors, 30-day frequency chart |
+| [Breadcrumbs](breadcrumbs.md) | Breadcrumb trail capture, storage, and timeline display |
 | [Email alerts](email-alerts.md) | Email notifications for errors via Resend (project owner + additional recipients) |
 | [Usage limiting](usage-limiting.md) | Event storage limits per plan tier (Free / Basic / Pro) |
 | [Event frequency](event-frequency.md) | 30-day event frequency charts (project and issue views) |

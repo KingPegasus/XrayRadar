@@ -340,6 +340,7 @@ describe('App', () => {
       configurable: true,
     })
 
+    const meUser = { id: 1, email: 'verified@example.com' }
     fetch.mockImplementation((url) => {
       if (url.startsWith('/auth/verify-email')) {
         return Promise.resolve({
@@ -348,7 +349,7 @@ describe('App', () => {
         })
       }
       if (url === '/api/me') {
-        return Promise.resolve({ ok: false, status: 401 })
+        return Promise.resolve({ ok: true, json: async () => meUser })
       }
       return Promise.reject(new Error('Unexpected fetch'))
     })

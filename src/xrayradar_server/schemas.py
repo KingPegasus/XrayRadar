@@ -14,6 +14,17 @@ class ProjectOut(BaseModel):
     name: str
 
 
+class BreadcrumbIn(BaseModel):
+    """A single breadcrumb entry capturing an event leading up to an error."""
+
+    timestamp: Optional[datetime] = None
+    type: str = "default"  # default, http, navigation, ui, console, error, query, user
+    category: Optional[str] = None
+    message: Optional[str] = None
+    level: str = "info"  # debug, info, warning, error
+    data: Optional[dict[str, Any]] = None
+
+
 class EventIn(BaseModel):
     event_id: Optional[str] = None
     timestamp: Optional[datetime] = None
@@ -21,7 +32,7 @@ class EventIn(BaseModel):
     message: str
     contexts: Optional[dict[str, Any]] = None
     exception: Optional[dict[str, Any]] = None
-    breadcrumbs: Optional[list[dict[str, Any]]] = None
+    breadcrumbs: Optional[list[BreadcrumbIn]] = None
     fingerprint: Optional[list[str]] = None
     modules: Optional[dict[str, Any]] = None
     sdk: Optional[dict[str, Any]] = None
@@ -216,3 +227,39 @@ class DeletionRequestOut(BaseModel):
 
 class AdminDeletionRequestOut(DeletionRequestOut):
     user_email: str
+
+
+class DashboardTotalsOut(BaseModel):
+    last_24h: int = 0
+    last_7d: int = 0
+    last_30d: int = 0
+
+
+class DashboardUniqueIssuesOut(BaseModel):
+    last_24h: int = 0
+    last_7d: int = 0
+    last_30d: int = 0
+
+
+class DashboardTrendOut(BaseModel):
+    current: int = 0
+    previous: int = 0
+    percent_change: float = 0.0
+    direction: str = "same"  # "up" | "down" | "same"
+
+
+class TopErrorOut(BaseModel):
+    fingerprint: str
+    message: str
+    count: int
+    project_id: int
+    project_name: str
+
+
+class DashboardStatsOut(BaseModel):
+    totals: DashboardTotalsOut
+    unique_issues: DashboardUniqueIssuesOut
+    trend_7d: DashboardTrendOut
+    trend_30d: DashboardTrendOut
+    top_5_errors: list[TopErrorOut]
+    trend_daily: dict[str, int] = {}  # YYYY-MM-DD -> count for chart

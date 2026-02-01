@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { fireEvent } from '@testing-library/react'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
 import * as api from '../utils/api'
 
@@ -50,11 +51,21 @@ describe('ProjectSettingsModal', () => {
     await user.click(screen.getByRole('button', { name: /Project settings/i }))
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
 
-    // Click the dialog backdrop (outer div) - dispatch click on the dialog element
     const dialog = screen.getByRole('dialog')
-    dialog.click()
+    fireEvent.click(dialog, { target: dialog, currentTarget: dialog })
     await waitFor(() => {
       expect(screen.queryByText('Project settings')).not.toBeInTheDocument()
     })
+  })
+
+  it('keeps modal open when clicking inner content (not backdrop)', async () => {
+    const user = userEvent.setup()
+    render(<ProjectSettingsModal projectId={1} me={me} />)
+
+    await user.click(screen.getByRole('button', { name: /Project settings/i }))
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+
+    await user.click(screen.getByText('Project settings'))
+    expect(screen.getByText('Project settings')).toBeInTheDocument()
   })
 })

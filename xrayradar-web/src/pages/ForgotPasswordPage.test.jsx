@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ForgotPasswordPage } from './ForgotPasswordPage'
 
@@ -179,6 +179,30 @@ describe('ForgotPasswordPage', () => {
 
     await new Promise(resolve => setTimeout(resolve, 150))
 
+    expect(callCount).toBe(1)
+  })
+
+  it('prevents form submission when already submitting (covers line 12)', async () => {
+    const user = userEvent.setup()
+    let callCount = 0
+    fetch.mockImplementation(() => {
+      callCount++
+      return new Promise(resolve => setTimeout(() => resolve({ ok: true }), 100))
+    })
+
+    render(<ForgotPasswordPage />)
+
+    await user.type(screen.getByPlaceholderText(/you@company.com/i), 'user@example.com')
+    const form = screen.getByRole('button', { name: /Send reset link/i }).closest('form')
+    
+    // Submit via form event (triggers e.preventDefault, then checks submitting state)
+    fireEvent.submit(form)
+    // Try to submit again immediately while first is pending
+    fireEvent.submit(form)
+
+    await new Promise(resolve => setTimeout(resolve, 150))
+
+    // Should only call fetch once due to "if (submitting) return" check
     expect(callCount).toBe(1)
   })
 })

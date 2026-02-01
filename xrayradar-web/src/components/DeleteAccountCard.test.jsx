@@ -80,6 +80,21 @@ describe('DeleteAccountCard', () => {
     })
   })
 
+  it('shows pending request without reason', async () => {
+    api.fetchJson.mockResolvedValue({
+      created_at: '2024-01-02T00:00:00Z',
+      reason: null,
+    })
+
+    render(<DeleteAccountCard me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Account Deletion Requested/i)).toBeInTheDocument()
+      expect(screen.getByText(/Requested on:/i)).toBeInTheDocument()
+      expect(screen.queryByText(/Reason:/i)).not.toBeInTheDocument()
+    })
+  })
+
   it('cancels deletion request', async () => {
     const user = userEvent.setup()
     api.fetchJson
@@ -129,6 +144,24 @@ describe('DeleteAccountCard', () => {
     })
   })
 
+  it('shows fallback error when request deletion fails with no message', async () => {
+    const user = userEvent.setup()
+    api.fetchJson
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error())
+
+    render(<DeleteAccountCard me={me} />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Delete My Account/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Delete My Account/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Request Account Deletion/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Request Account Deletion/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to request deletion/i)).toBeInTheDocument()
+    })
+  })
+
   it('shows error when cancel request fails', async () => {
     const user = userEvent.setup()
     api.fetchJson
@@ -142,6 +175,22 @@ describe('DeleteAccountCard', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Cancel failed/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows fallback error when cancel request fails with no message', async () => {
+    const user = userEvent.setup()
+    api.fetchJson
+      .mockResolvedValueOnce({ created_at: '2024-01-01T00:00:00Z' })
+      .mockRejectedValueOnce(new Error())
+
+    render(<DeleteAccountCard me={me} />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Cancel Request/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Cancel Request/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to cancel request/i)).toBeInTheDocument()
     })
   })
 

@@ -20,6 +20,50 @@ from ..usage import (
 
 router = APIRouter()
 
+# Breadcrumb limits
+MAX_BREADCRUMBS = 100
+MAX_BREADCRUMB_MESSAGE_LENGTH = 1024
+
+
+def normalize_breadcrumbs(event: dict) -> dict:
+    """Normalize breadcrumbs in event payload: limit count, truncate messages."""
+    breadcrumbs = event.get("breadcrumbs")
+    if not breadcrumbs or not isinstance(breadcrumbs, list):
+        return event
+
+    # Limit to most recent MAX_BREADCRUMBS
+    if len(breadcrumbs) > MAX_BREADCRUMBS:
+        breadcrumbs = breadcrumbs[-MAX_BREADCRUMBS:]
+
+    normalized = []
+    for bc in breadcrumbs:
+        if not isinstance(bc, dict):
+            continue
+
+        normalized_bc = dict(bc)
+
+        # Truncate message if too long
+        if "message" in normalized_bc and isinstance(normalized_bc["message"], str):
+            if len(normalized_bc["message"]) > MAX_BREADCRUMB_MESSAGE_LENGTH:
+                normalized_bc["message"] = (
+                    normalized_bc["message"][:MAX_BREADCRUMB_MESSAGE_LENGTH - 3] + "..."
+                )
+
+        # Ensure type has a default
+        if "type" not in normalized_bc or not normalized_bc["type"]:
+            normalized_bc["type"] = "default"
+
+        # Ensure level has a default
+        if "level" not in normalized_bc or not normalized_bc["level"]:
+            normalized_bc["level"] = "info"
+
+        normalized.append(normalized_bc)
+
+    # Return a copy of the event with normalized breadcrumbs
+    normalized_event = dict(event)
+    normalized_event["breadcrumbs"] = normalized
+    return normalized_event
+
 
 @router.post("/api/projects", response_model=ProjectOut)
 def create_project(
@@ -95,6 +139,9 @@ def store_event(
     server_name = (event.get("contexts") or {}).get("server_name")
     fp = compute_fingerprint(event) if isinstance(event, dict) else None
 
+    # Normalize breadcrumbs before storing
+    normalized_event = normalize_breadcrumbs(event)
+
     row = Event(
         project_id=project_id,
         timestamp=ts,
@@ -104,7 +151,7 @@ def store_event(
         release=rel,
         server_name=server_name,
         fingerprint=fp,
-        payload=event,
+        payload=normalized_event,
     )
 
     db.add(row)

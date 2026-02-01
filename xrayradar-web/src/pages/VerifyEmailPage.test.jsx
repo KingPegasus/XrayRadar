@@ -71,6 +71,50 @@ describe('VerifyEmailPage', () => {
     })
   })
 
+  it('shows Verification failed when res not ok and no detail', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { search: '?token=x', pathname: '/verify-email' },
+      writable: true,
+      configurable: true,
+    })
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    })
+    global.fetch = fetchMock
+
+    render(<VerifyEmailPage />)
+
+    await waitFor(
+      () => {
+        expect(screen.getByText('Verification failed.')).toBeInTheDocument()
+      },
+      { timeout: 2000 }
+    )
+  })
+
+  it('shows default success message when res ok but no message', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { search: '?token=valid', pathname: '/verify-email' },
+      writable: true,
+      configurable: true,
+    })
+
+    global.fetch = vi.fn()
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    })
+
+    render(<VerifyEmailPage onVerified={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Email Verified!/i)).toBeInTheDocument()
+      expect(screen.getByText(/Email verified successfully!/i)).toBeInTheDocument()
+    })
+  })
+
   it('navigates to dashboard on Go to Dashboard click after success', async () => {
     Object.defineProperty(window, 'location', {
       value: { search: '?token=valid', pathname: '/verify-email' },

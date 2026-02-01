@@ -55,6 +55,22 @@ describe('EmailVerificationBanner', () => {
     })
   })
 
+  it('shows fallback error when resend fails with no detail', async () => {
+    const user = userEvent.setup()
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({}),
+    })
+
+    render(<EmailVerificationBanner me={{ email: 'a@b.com', email_verified: false }} />)
+
+    await user.click(screen.getByRole('button', { name: /Resend email/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to resend/i)).toBeInTheDocument()
+    })
+  })
+
   it('shows network error on fetch failure', async () => {
     const user = userEvent.setup()
     global.fetch = vi.fn().mockRejectedValue(new Error('Network error'))

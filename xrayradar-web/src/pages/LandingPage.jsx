@@ -71,26 +71,28 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
             </div>
 
             <div className="panel heroCard">
-              <div className="kbd">Quick setup</div>
-              <pre className="code" style={{ marginTop: 12 }}>{`# Install
-pip install xrayradar
+              <div className="kbd">Quick setup — FastAPI</div>
+              <pre className="code" style={{ marginTop: 12 }}>{`pip install xrayradar
 
-# Env
-XRAYRADAR_DSN=https://xrayradar.com/1
-XRAYRADAR_AUTH_TOKEN=<token>
+# main.py
+from fastapi import FastAPI
+from xrayradar import ErrorTracker
+from xrayradar.integrations.fastapi import FastAPIIntegration
 
-# Capture
-from xrayradar import init, capture_exception
+app = FastAPI()
+tracker = ErrorTracker(
+    dsn="https://xrayradar.com/api/1/store/",
+    auth_token="<token>"
+)
+FastAPIIntegration.init_app(app, tracker)
 
-client = init(dsn=XRAYRADAR_DSN, auth_token=XRAYRADAR_AUTH_TOKEN)
-try:
-    1 / 0
-except Exception as e:
-    capture_exception(e)`}</pre>
-              <div style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)' }}>
+# That's it! Exceptions are auto-captured
+# with request context and breadcrumbs.`}</pre>
+              <div style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 <a href="https://pypi.org/project/xrayradar/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
                   View on PyPI →
                 </a>
+                <span style={{ opacity: 0.7 }}>Also works with Django and Flask</span>
               </div>
             </div>
           </div>

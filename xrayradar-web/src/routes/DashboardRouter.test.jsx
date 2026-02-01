@@ -37,8 +37,13 @@ vi.mock('../pages/DashboardHome', () => ({
 describe('DashboardRouter', () => {
   const me = { email: 'test@example.com' }
 
-  it('renders ProjectsPage for /dashboard', () => {
+  it('renders DashboardHome (overview) for /dashboard', () => {
     render(<DashboardRouter path="/dashboard" me={me} />)
+    expect(screen.getByText(/DashboardHome:/i)).toBeInTheDocument()
+  })
+
+  it('renders ProjectsPage for /dashboard/projects', () => {
+    render(<DashboardRouter path="/dashboard/projects" me={me} />)
     expect(screen.getByText(/ProjectsPage:/i)).toBeInTheDocument()
   })
 

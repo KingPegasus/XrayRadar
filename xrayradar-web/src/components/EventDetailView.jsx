@@ -1,5 +1,20 @@
+import { useState, useCallback } from 'react'
+import { BreadcrumbTimeline } from './BreadcrumbTimeline'
+
 export function EventDetailView({ event }) {
+  const [copied, setCopied] = useState(false)
   const payload = event.payload || {}
+
+  const copyPayload = useCallback(() => {
+    const json = JSON.stringify(payload, null, 2)
+    navigator.clipboard.writeText(json).then(
+      () => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      },
+      () => setCopied(false)
+    )
+  }, [payload])
   const exception = payload.exception
   const breadcrumbs = payload.breadcrumbs || []
   const contexts = payload.contexts || {}
@@ -120,24 +135,10 @@ export function EventDetailView({ event }) {
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
         <Section title="Breadcrumbs">
-          <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: 12, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', maxHeight: '300px', overflowY: 'auto' }}>
-            {breadcrumbs.map((crumb, idx) => (
-              <div
-                key={idx}
-                style={{
-                  padding: '6px 0',
-                  borderBottom: idx < breadcrumbs.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
-                  fontSize: 12,
-                }}
-              >
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span style={{ color: '#94a3b8', minWidth: 80 }}>{crumb.timestamp ? new Date(crumb.timestamp).toLocaleTimeString() : '—'}</span>
-                  <span style={{ color: '#93c5fd', minWidth: 80 }}>{crumb.type || 'default'}</span>
-                  <span style={{ color: '#e5e7eb', flex: 1 }}>{crumb.message || JSON.stringify(crumb.data || {})}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <BreadcrumbTimeline 
+            breadcrumbs={breadcrumbs} 
+            errorTimestamp={event.timestamp}
+          />
         </Section>
       )}
 
@@ -218,12 +219,25 @@ export function EventDetailView({ event }) {
         </Section>
       )}
 
-      {/* Raw Payload (collapsible) */}
+      {/* Raw Payload (collapsible): Copy button stays at top; JSON scrolls below */}
       <Section title="Raw Event Data">
-        <details>
-          <summary style={{ cursor: 'pointer', color: '#93c5fd', fontSize: 12, marginBottom: 8 }}>Show raw JSON payload</summary>
-          <CodeBlock>{JSON.stringify(payload, null, 2)}</CodeBlock>
-        </details>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+          <details style={{ flex: '1 1 auto', minWidth: 0 }}>
+            <summary style={{ cursor: 'pointer', color: '#93c5fd', fontSize: 12 }}>Show raw JSON payload</summary>
+            <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 8 }}>
+              <CodeBlock>{JSON.stringify(payload, null, 2)}</CodeBlock>
+            </div>
+          </details>
+          <button
+            type="button"
+            className="button"
+            onClick={copyPayload}
+            style={{ flexShrink: 0 }}
+            aria-label="Copy JSON payload"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
       </Section>
     </div>
   )

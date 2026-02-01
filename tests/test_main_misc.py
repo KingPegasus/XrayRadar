@@ -1209,3 +1209,69 @@ def test_admin_fulfill_token_request(app_and_client, monkeypatch):
         assert req.fulfilled_token_id is not None
     finally:
         db.close()
+
+def test_docs_requires_admin_session(app_and_client):
+    """Test that /docs endpoint requires admin authentication."""
+    _, client = app_and_client
+    r = client.get("/docs")
+    assert r.status_code == 403
+    assert "Admin authentication required" in r.json()["detail"]
+
+
+def test_redoc_requires_admin_session(app_and_client):
+    """Test that /redoc endpoint requires admin authentication."""
+    _, client = app_and_client
+    r = client.get("/redoc")
+    assert r.status_code == 403
+    assert "Admin authentication required" in r.json()["detail"]
+
+
+def test_docs_with_admin_session(app_and_client, monkeypatch):
+    """Test that /docs endpoint is accessible to admins."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/docs")
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+    assert "swagger" in r.text.lower()
+
+
+def test_redoc_with_admin_session(app_and_client, monkeypatch):
+    """Test that /redoc endpoint is accessible to admins."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/redoc")
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+    assert "redoc" in r.text.lower()
+
+
+def test_openapi_json_requires_admin_session(app_and_client):
+    """Test that /openapi.json returns 403 without admin authentication."""
+    _, client = app_and_client
+    r = client.get("/openapi.json")
+    assert r.status_code == 403
+    assert "Admin authentication required" in r.json()["detail"]
+
+
+def test_openapi_json_with_admin_session(app_and_client, monkeypatch):
+    """Test that /openapi.json returns schema for admins."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/openapi.json")
+    assert r.status_code == 200
+    assert "application/json" in r.headers.get("content-type", "")
+    data = r.json()
+    assert "openapi" in data
+    assert "paths" in data
+    assert "info" in data
+

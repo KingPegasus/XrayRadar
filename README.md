@@ -4,12 +4,12 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 ## Test Coverage
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-100%25-brightgreen?style=flat-square)
-![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-99.06%25-brightgreen?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98.74%25-brightgreen?style=flat-square)
 
 **Current Coverage:**
-- **Backend (Python)**: 100% - All tests passing ✓
-- **Frontend (React)**: 99.06% - All tests passing ✓
+- **Backend (Python)**: 99% - All tests passing ✓
+- **Frontend (React)**: 98.74% - All tests passing ✓
 
 > Coverage is calculated in CI. To check locally (from repo root):  
 > **Backend:** `uv run pytest --cov=src/xrayradar_server --cov-report=term`  
@@ -251,6 +251,16 @@ python scripts/send_real_error.py \
   --token "<your_token>"
 ```
 
+**3. Console breadcrumbs** (`scripts/send_console_breadcrumb.py`):
+Sends an event with breadcrumbs of type `console` (as produced by the SDK logging integration with `capture_as_breadcrumbs=True`). Use to verify console breadcrumbs in the event detail timeline.
+
+```bash
+python scripts/send_console_breadcrumb.py \
+  --base-url http://127.0.0.1:8001 \
+  --project-id 1 \
+  --token "<your_token>"
+```
+
 ## Authentication
 
 All endpoints require authentication.
@@ -295,6 +305,15 @@ OAuth endpoints:
 Session status endpoint:
 
 - `GET /api/admin/me`
+
+### API Documentation (Protected)
+
+The server provides interactive API documentation that is restricted to admin users only:
+
+- `GET /docs` - Swagger UI (OpenAPI documentation)
+- `GET /redoc` - ReDoc (alternative API documentation)
+
+Both endpoints require admin authentication (GitHub OAuth session or admin token). Unauthenticated access will return a 403 Forbidden error.
 
 
 ## Admin API

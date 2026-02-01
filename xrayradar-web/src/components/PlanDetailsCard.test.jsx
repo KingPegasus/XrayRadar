@@ -10,6 +10,12 @@ describe('PlanDetailsCard', () => {
     expect(screen.getByText(/Contact to Upgrade/i)).toBeInTheDocument()
   })
 
+  it('renders Free plan with no email (mailto fallback)', () => {
+    render(<PlanDetailsCard me={{ plan: 'Free' }} />)
+    const link = screen.getByRole('link', { name: /Contact to Upgrade/i })
+    expect(link).toHaveAttribute('href', expect.stringContaining('body=Hi'))
+  })
+
   it('renders Basic plan details', () => {
     render(<PlanDetailsCard me={{ plan: 'Basic' }} />)
     expect(screen.getByText(/Basic Plan — \$1\/mo/i)).toBeInTheDocument()
@@ -19,5 +25,10 @@ describe('PlanDetailsCard', () => {
   it('renders unknown plan fallback', () => {
     render(<PlanDetailsCard me={{ plan: 'Pro' }} />)
     expect(screen.getByText(/You're on the Pro plan/i)).toBeInTheDocument()
+  })
+
+  it('renders Unknown when me has no plan', () => {
+    render(<PlanDetailsCard me={{ email: 'a@b.com' }} />)
+    expect(screen.getByText(/You're on the Unknown plan/i)).toBeInTheDocument()
   })
 })

@@ -19,7 +19,8 @@ export function DashboardLayout({ me, onLogout, children }) {
             {logoError && <span className="brand-text">XrayRadar</span>}
           </Link>
           <nav className="navLinks" aria-label="Primary">
-            <Link to="/dashboard">Projects</Link>
+            <Link to="/dashboard">Overview</Link>
+            <Link to="/dashboard/projects">Projects</Link>
             <Link to="/dashboard/tokens">Tokens</Link>
             <Link to="/dashboard/settings">Settings</Link>
             {me?.plan && (

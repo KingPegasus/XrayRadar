@@ -7,8 +7,10 @@ import { EventDetailPage } from '../pages/EventDetailPage'
 import { DashboardHome } from '../pages/DashboardHome'
 
 export function DashboardRouter({ path, me }) {
-  // /dashboard
-  if (path === '/dashboard') return <ProjectsPage me={me} />
+  // /dashboard = overview (stats)
+  if (path === '/dashboard') return <DashboardHome me={me} />
+
+  if (path === '/dashboard/projects') return <ProjectsPage me={me} />
 
   if (path === '/dashboard/tokens') return <TokensPage me={me} />
 

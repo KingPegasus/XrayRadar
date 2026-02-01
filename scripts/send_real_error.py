@@ -3,10 +3,14 @@
 Send a real error event with actual exception and stack trace to xrayradar-server.
 
 This script simulates a real application error by:
-- Throwing actual exceptions with proper stack traces
-- Including breadcrumbs (user activity timeline)
-- Including user context
-- Including device/runtime information
+- Raising a real exception and capturing its stack trace (with source context)
+- Adding breadcrumbs (navigation, http, user, validation) with UTC timestamps (Z)
+- Including user context and tags (in contexts and top-level for UI)
+- Including runtime/OS context
+
+Payload shape matches the SDK/server: contexts.user, contexts.tags, breadcrumbs
+with level/type, and all timestamps in UTC with "Z" so relative time in the UI
+is correct regardless of server timezone.
 
 Usage:
   python scripts/send_real_error.py \
@@ -18,10 +22,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import inspect
 import json
 import sys
-import traceback
+import uuid
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -29,6 +32,7 @@ from typing import Any
 
 
 def _utc_iso() -> str:
+    """Return current UTC time as ISO string with Z (so frontend parses as UTC)."""
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
@@ -108,6 +112,7 @@ def simulate_application_error() -> Exception:
         breadcrumbs.append({
             "timestamp": _utc_iso(),
             "type": "user",
+            "level": "info",
             "message": f"Processing data for user {user_id}",
             "category": "user.action",
             "data": {"user_id": user_id},
@@ -122,6 +127,7 @@ def simulate_application_error() -> Exception:
         breadcrumbs.append({
             "timestamp": _utc_iso(),
             "type": "default",
+            "level": "info",
             "message": "Validating user input",
             "category": "validation",
             "data": {"keys": list(data.keys())},
@@ -133,17 +139,18 @@ def simulate_application_error() -> Exception:
             "value": data["missing_key"],  # This will fail!
         }
     
-    # Simulate breadcrumbs leading up to the error
+    # Simulate breadcrumbs leading up to the error (all timestamps UTC with Z)
     breadcrumbs.append({
         "timestamp": _utc_iso(),
         "type": "navigation",
+        "level": "info",
         "message": "User navigated to /api/process",
         "category": "navigation",
     })
-    
     breadcrumbs.append({
         "timestamp": _utc_iso(),
         "type": "http",
+        "level": "info",
         "message": "POST /api/process",
         "category": "http",
         "data": {"method": "POST", "url": "/api/process"},
@@ -164,7 +171,7 @@ def main() -> int:
     p.add_argument("--project-id", type=int, required=True, help="Project id (e.g. 1).")
     p.add_argument("--token", required=True, help="Token value for X-Xrayradar-Token header.")
     p.add_argument("--environment", default="development", help="contexts.environment value.")
-    p.add_argument("--release", default="1.0.0", help="contexts.release value.")
+    p.add_argument("--release", default="1.0.1", help="contexts.release value.")
     args = p.parse_args()
 
     base_url = (args.base_url or "").rstrip("/")
@@ -195,8 +202,20 @@ def main() -> int:
         }]
     }
 
-    # Build full event payload
+    # Build full event payload (matches SDK/server: contexts.*, UTC timestamps with Z)
+    user_ctx = {
+        "id": "123",
+        "username": "testuser",
+        "email": "testuser@example.com",
+        "ip_address": "127.0.0.1",
+    }
+    tags_ctx = {
+        "error_type": type(exc).__name__,
+        "component": "data_processing",
+        "severity": "high",
+    }
     payload = {
+        "event_id": str(uuid.uuid4()),
         "timestamp": _utc_iso(),
         "level": "error",
         "message": f"{type(exc).__name__}: {str(exc)}",
@@ -204,6 +223,8 @@ def main() -> int:
             "environment": args.environment,
             "release": args.release,
             "server_name": "test-server",
+            "user": user_ctx,
+            "tags": tags_ctx,
             "runtime": {
                 "name": "python",
                 "version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
@@ -212,23 +233,14 @@ def main() -> int:
                 "name": sys.platform,
             },
         },
-        "user": {
-            "id": "123",
-            "username": "testuser",
-            "email": "testuser@example.com",
-            "ip_address": "127.0.0.1",
-        },
-        "tags": {
-            "error_type": type(exc).__name__,
-            "component": "data_processing",
-            "severity": "high",
-        },
+        "user": user_ctx,
+        "tags": tags_ctx,
         "exception": exception_payload,
         "breadcrumbs": breadcrumbs,
         "platform": "python",
         "sdk": {
             "name": "xrayradar",
-            "version": "0.2.0",
+            "version": "0.4.0",
         },
     }
 

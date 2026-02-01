@@ -64,4 +64,40 @@ describe('UsageDetailsCard', () => {
     )
     expect(screen.getByText(/You're approaching your event limit/i)).toBeInTheDocument()
   })
+
+  it('shows unlimited when limit is null', () => {
+    render(
+      <UsageDetailsCard
+        usage={{
+          current_count: 100,
+          limit: null,
+          percentage_used: null,
+          is_exceeded: false,
+          is_near_limit: false,
+        }}
+        loading={false}
+        error=""
+      />
+    )
+    expect(screen.getByText(/∞/)).toBeInTheDocument()
+  })
+
+  it('shows bar without percentage when percentage_used is null', () => {
+    render(
+      <UsageDetailsCard
+        usage={{
+          current_count: 50,
+          limit: 100,
+          percentage_used: null,
+          is_exceeded: false,
+          is_near_limit: false,
+        }}
+        loading={false}
+        error=""
+      />
+    )
+    expect(screen.getByText(/50/)).toBeInTheDocument()
+    expect(screen.getByText(/100/)).toBeInTheDocument()
+    expect(screen.queryByText(/% used/)).not.toBeInTheDocument()
+  })
 })

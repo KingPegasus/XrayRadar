@@ -7,7 +7,8 @@ from urllib.parse import urlencode
 import httpx
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from itsdangerous import BadSignature
 
 from .db import init_db
@@ -27,7 +28,7 @@ from .deps import (
 from .routers.web import register_web
 from .routers import admin_api as admin_api_router
 from .routers import api as api_router
-from .routers import user_api as user_api_router
+from .routers import user as user_api_router
 from .routers import user_auth as user_auth_router
 
 
@@ -37,7 +38,15 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="xrayradar-server", lifespan=lifespan)
+app = FastAPI(
+    title="xrayradar-server",
+    version="0.7.0",
+    lifespan=lifespan,
+    docs_url=None,  # Disable default docs
+    redoc_url=None,  # Disable default redoc
+    # Disable default /openapi.json (schema not exposed publicly)
+    openapi_url=None,
+)
 
 
 # Register web static files and root route, but not catch-all yet
@@ -186,6 +195,45 @@ def admin_ui(request: Request) -> HTMLResponse:
         )
     email = get_session_email(request) or ""
     return render_admin_ui(email=email)
+
+
+@app.get("/openapi.json", response_class=JSONResponse, include_in_schema=False)
+def openapi_schema(request: Request) -> JSONResponse:
+    """OpenAPI schema (admin only). Used by /docs and /redoc to render the API reference."""
+    if not _is_session_admin(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Admin authentication required.",
+        )
+    return JSONResponse(app.openapi())
+
+
+@app.get("/docs", response_class=HTMLResponse, include_in_schema=False)
+def custom_swagger_ui(request: Request) -> HTMLResponse:
+    """Protected Swagger UI - only accessible to admins."""
+    if not _is_session_admin(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Admin authentication required.",
+        )
+    return get_swagger_ui_html(
+        openapi_url="/openapi.json",
+        title=app.title + " - Swagger UI",
+    )
+
+
+@app.get("/redoc", response_class=HTMLResponse, include_in_schema=False)
+def custom_redoc(request: Request) -> HTMLResponse:
+    """Protected ReDoc - only accessible to admins."""
+    if not _is_session_admin(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. Admin authentication required.",
+        )
+    return get_redoc_html(
+        openapi_url="/openapi.json",
+        title=app.title + " - ReDoc",
+    )
 
 
 @app.get("/api/admin/me", response_model=dict)
