@@ -2,10 +2,12 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { fetchJson } from '../utils/api'
 import { navigate } from '../utils/navigation'
 import { EventFrequencyChart } from '../components/EventFrequencyChart'
+import { IssueBreakdown } from '../components/IssueBreakdown'
 
 export function IssueDetailPage({ projectId, fingerprint }) {
   const [events, setEvents] = useState([])
   const [eventFrequencyData, setEventFrequencyData] = useState(null)
+  const [breakdown, setBreakdown] = useState(null)
   const [error, setError] = useState('')
 
   const load = useCallback(() => {
@@ -18,6 +20,12 @@ export function IssueDetailPage({ projectId, fingerprint }) {
       .then((data) => setEventFrequencyData(data))
       .catch((e) => {
         console.warn('Failed to load event frequency:', e)
+      })
+
+    fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/breakdown`)
+      .then((data) => setBreakdown(data))
+      .catch((e) => {
+        console.warn('Failed to load breakdown:', e)
       })
   }, [projectId, fingerprint])
 
@@ -62,7 +70,7 @@ export function IssueDetailPage({ projectId, fingerprint }) {
             )}
           </p>
         </div>
-        <div className="pageActions" style={{ marginTop: 0 }}>
+        <div className="pageActions" style={{ marginTop: 0, marginLeft: 'auto' }}>
           <button className="button" type="button" onClick={() => navigate(`/dashboard/projects/${projectId}`)}>
             Back
           </button>
@@ -80,6 +88,13 @@ export function IssueDetailPage({ projectId, fingerprint }) {
 
       <EventFrequencyChart eventFrequency={eventFrequency} />
 
+      {breakdown && (
+        <IssueBreakdown
+          byRelease={breakdown.by_release}
+          byEnvironment={breakdown.by_environment}
+        />
+      )}
+
       <section className="pageSection">
         <h2 className="pageSectionTitle">Events</h2>
         <div className="pageCard" style={{ padding: 0, overflow: 'hidden' }}>
@@ -88,6 +103,8 @@ export function IssueDetailPage({ projectId, fingerprint }) {
               <tr>
                 <th>Time</th>
                 <th>Level</th>
+                <th>Release</th>
+                <th>Environment</th>
                 <th>Message</th>
               </tr>
             </thead>
@@ -100,6 +117,8 @@ export function IssueDetailPage({ projectId, fingerprint }) {
                 >
                   <td>{new Date(e.timestamp).toLocaleString()}</td>
                   <td>{e.level}</td>
+                  <td>{e.release ?? '—'}</td>
+                  <td>{e.environment ?? '—'}</td>
                   <td>{e.message}</td>
                 </tr>
               ))}

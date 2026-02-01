@@ -14,6 +14,17 @@ class ProjectOut(BaseModel):
     name: str
 
 
+class BreadcrumbIn(BaseModel):
+    """A single breadcrumb entry capturing an event leading up to an error."""
+
+    timestamp: Optional[datetime] = None
+    type: str = "default"  # default, http, navigation, ui, console, error, query, user
+    category: Optional[str] = None
+    message: Optional[str] = None
+    level: str = "info"  # debug, info, warning, error
+    data: Optional[dict[str, Any]] = None
+
+
 class EventIn(BaseModel):
     event_id: Optional[str] = None
     timestamp: Optional[datetime] = None
@@ -21,7 +32,7 @@ class EventIn(BaseModel):
     message: str
     contexts: Optional[dict[str, Any]] = None
     exception: Optional[dict[str, Any]] = None
-    breadcrumbs: Optional[list[dict[str, Any]]] = None
+    breadcrumbs: Optional[list[BreadcrumbIn]] = None
     fingerprint: Optional[list[str]] = None
     modules: Optional[dict[str, Any]] = None
     sdk: Optional[dict[str, Any]] = None

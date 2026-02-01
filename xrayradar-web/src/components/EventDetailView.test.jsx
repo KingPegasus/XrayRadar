@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { EventDetailView } from './EventDetailView'
 
 describe('EventDetailView', () => {
@@ -212,6 +212,50 @@ describe('EventDetailView', () => {
     render(<EventDetailView event={event} />)
     const details = screen.getByText(/Show raw JSON payload/i)
     expect(details).toBeInTheDocument()
+  })
+
+  it('shows Copy button for raw JSON payload', () => {
+    const event = {
+      id: '1',
+      message: 'Test error',
+      payload: { foo: 'bar' },
+    }
+    render(<EventDetailView event={event} />)
+    expect(screen.getByRole('button', { name: /Copy JSON payload/i })).toBeInTheDocument()
+    expect(screen.getByText('Copy')).toBeInTheDocument()
+  })
+
+  it('copies payload to clipboard when Copy is clicked', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    const event = {
+      id: '1',
+      message: 'Test error',
+      payload: { foo: 'bar', nested: { a: 1 } },
+    }
+    render(<EventDetailView event={event} />)
+    fireEvent.click(screen.getByRole('button', { name: /Copy JSON payload/i }))
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify(event.payload, null, 2))
+    await waitFor(() => {
+      expect(screen.getByText('Copied!')).toBeInTheDocument()
+    })
+  })
+
+  it('handles clipboard write failure (covers line 15)', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('Clipboard access denied'))
+    Object.assign(navigator, { clipboard: { writeText } })
+    const event = {
+      id: '1',
+      message: 'Test error',
+      payload: { foo: 'bar' },
+    }
+    render(<EventDetailView event={event} />)
+    fireEvent.click(screen.getByRole('button', { name: /Copy JSON payload/i }))
+    expect(writeText).toHaveBeenCalled()
+    // Should revert to "Copy" on failure
+    await waitFor(() => {
+      expect(screen.getByText('Copy')).toBeInTheDocument()
+    })
   })
 
   it('handles empty event', () => {
@@ -638,9 +682,8 @@ describe('EventDetailView', () => {
 
     render(<EventDetailView event={event} />)
     expect(screen.getByText('Breadcrumbs')).toBeInTheDocument()
-    // Should show JSON.stringify({}) when both message and data are missing
-    const breadcrumbsSection = screen.getByText('Breadcrumbs').closest('div')
-    expect(breadcrumbsSection).toHaveTextContent(/{}/)
+    // Should show "(no message)" when both message and data are missing
+    expect(screen.getByText('(no message)')).toBeInTheDocument()
   })
 
   it('handles exception with missing type', () => {

@@ -17,6 +17,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce([]) // events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
     await waitFor(() => {
       expect(screen.getByText('Issue')).toBeInTheDocument()
@@ -43,6 +44,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -55,6 +57,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockRejectedValueOnce(new Error('Failed to load')) // events fails
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency succeeds
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -67,6 +70,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockRejectedValueOnce(new Error('frequency failed')) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
 
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
@@ -74,6 +78,26 @@ describe('IssueDetailPage', () => {
       expect(screen.getByText('Issue')).toBeInTheDocument()
       expect(screen.getByText('E1')).toBeInTheDocument()
     })
+  })
+
+  it('handles breakdown fetch failure gracefully (covers line 28)', async () => {
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const events = [{ id: '1', timestamp: '2024-01-01T00:00:00Z', level: 'error', message: 'E1' }]
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
+      .mockRejectedValueOnce(new Error('breakdown failed')) // breakdown fails
+
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue')).toBeInTheDocument()
+      expect(screen.getByText('E1')).toBeInTheDocument()
+    })
+
+    // Should have logged warning but not crashed
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to load breakdown:', expect.any(Error))
+    consoleSpy.mockRestore()
   })
 
   it('shows event frequency chart when events exist', async () => {
@@ -88,6 +112,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -108,6 +133,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -125,6 +151,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce([]) // events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -142,8 +169,10 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce([]) // Initial load events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // Initial frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // Initial breakdown
       .mockResolvedValueOnce([]) // Refresh events call
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // Refresh frequency call
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // Refresh breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -154,7 +183,7 @@ describe('IssueDetailPage', () => {
     await user.click(refreshButton)
 
     await waitFor(() => {
-      expect(api.fetchJson).toHaveBeenCalledTimes(4) // 2 initial + 2 refresh
+      expect(api.fetchJson).toHaveBeenCalledTimes(6) // 3 initial + 3 refresh
     })
   })
 
@@ -162,6 +191,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce([]) // events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -181,6 +211,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce([]) // events succeed
       .mockRejectedValueOnce(new Error('frequency failed')) // frequency fails
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
 
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
@@ -195,6 +226,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockRejectedValueOnce(new Error('Network error')) // events fails
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency succeeds
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -220,6 +252,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -235,6 +268,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockRejectedValueOnce(new Error()) // events fails with no message
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -260,6 +294,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -283,6 +318,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -311,6 +347,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -326,6 +363,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(null) // events is null
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -353,6 +391,7 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -380,11 +419,32 @@ describe('IssueDetailPage', () => {
     api.fetchJson
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
       expect(screen.getByText(/First seen/i)).toBeInTheDocument()
       expect(screen.getByText(/Last seen/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows affected releases and environments when breakdown has data', async () => {
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({
+        by_release: [{ release: '1.0.0', count: 5 }, { release: '1.0.1', count: 2 }],
+        by_environment: [{ environment: 'production', count: 4 }, { environment: 'staging', count: 3 }],
+      }) // breakdown
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Affected releases (last 30 days)')).toBeInTheDocument()
+      expect(screen.getByText('Environments')).toBeInTheDocument()
+      expect(screen.getByText('1.0.0')).toBeInTheDocument()
+      expect(screen.getByText('1.0.1')).toBeInTheDocument()
+      expect(screen.getByText('production')).toBeInTheDocument()
+      expect(screen.getByText('staging')).toBeInTheDocument()
     })
   })
 })

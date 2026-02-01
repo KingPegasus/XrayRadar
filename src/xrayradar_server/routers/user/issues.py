@@ -151,6 +151,44 @@ def user_get_issue_event_frequency(
     return {"frequency": frequency, "total": total_count}
 
 
+@router.get("/api/user/projects/{project_id}/issues/{fingerprint}/breakdown", response_model=dict)
+def user_get_issue_breakdown(
+    project_id: int,
+    fingerprint: str,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Return event counts by release and by environment for this issue (last 30 days)."""
+    require_owned_project(db, user=user, project_id=project_id)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+
+    # By release
+    q_release = (
+        select(Event.release, func.count(Event.id).label("count"))
+        .where(Event.project_id == project_id)
+        .where(Event.fingerprint == fingerprint)
+        .where(Event.timestamp >= thirty_days_ago)
+        .group_by(Event.release)
+        .order_by(func.count(Event.id).desc())
+    )
+    rows_release = db.execute(q_release).all()
+    by_release = [{"release": r, "count": int(c or 0)} for r, c in rows_release]
+
+    # By environment
+    q_env = (
+        select(Event.environment, func.count(Event.id).label("count"))
+        .where(Event.project_id == project_id)
+        .where(Event.fingerprint == fingerprint)
+        .where(Event.timestamp >= thirty_days_ago)
+        .group_by(Event.environment)
+        .order_by(func.count(Event.id).desc())
+    )
+    rows_env = db.execute(q_env).all()
+    by_environment = [{"environment": e, "count": int(c or 0)} for e, c in rows_env]
+
+    return {"by_release": by_release, "by_environment": by_environment}
+
+
 @router.get("/api/user/projects/{project_id}/issues/{fingerprint}/events", response_model=list[dict])
 def user_list_issue_events(
     project_id: int,

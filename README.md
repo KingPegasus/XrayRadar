@@ -251,6 +251,16 @@ python scripts/send_real_error.py \
   --token "<your_token>"
 ```
 
+**3. Console breadcrumbs** (`scripts/send_console_breadcrumb.py`):
+Sends an event with breadcrumbs of type `console` (as produced by the SDK logging integration with `capture_as_breadcrumbs=True`). Use to verify console breadcrumbs in the event detail timeline.
+
+```bash
+python scripts/send_console_breadcrumb.py \
+  --base-url http://127.0.0.1:8001 \
+  --project-id 1 \
+  --token "<your_token>"
+```
+
 ## Authentication
 
 All endpoints require authentication.

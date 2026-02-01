@@ -1,10 +1,28 @@
 """Tests for user issues and events endpoints."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 from xrayradar_server import models
+from xrayradar_server.routers.user.issues import _date_str
+
+def test_date_str_coverage():
+    """_date_str branches: datetime, hasattr isoformat, else with space/T (covers 94, 96, 99)."""
+    # datetime -> .date().isoformat()
+    assert _date_str(datetime(2025, 1, 15, tzinfo=timezone.utc)) == "2025-01-15"
+    # hasattr isoformat (e.g. date)
+    assert _date_str(date(2025, 1, 16)) == "2025-01-16"
+    # else: str has " " or "T" -> split
+    class WithSpace:
+        def __str__(self):
+            return "2025-01-17 00:00:00"
+    assert _date_str(WithSpace()) == "2025-01-17"
+    class WithT:
+        def __str__(self):
+            return "2025-01-18T00:00:00"
+    assert _date_str(WithT()) == "2025-01-18"
+
 
 def test_user_list_issues_empty(app_and_client_with_user):
     """Test listing issues when project has none"""
@@ -535,4 +553,46 @@ def test_user_get_issue_event_frequency_empty(app_and_client_with_user):
     data = r.json()
     assert data["frequency"] == {}
     assert data["total"] == 0
+
+
+def test_user_get_issue_breakdown(app_and_client_with_user):
+    """GET issue breakdown returns event counts by release and by environment."""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for release, env, count in [("1.0.0", "production", 2), ("1.0.1", "production", 1), ("1.0.0", "staging", 1)]:
+            for _ in range(count):
+                e = models.Event(
+                    project_id=project_id,
+                    timestamp=now,
+                    level="error",
+                    message="Err",
+                    fingerprint="fp-breakdown",
+                    environment=env,
+                    release=release,
+                    payload={},
+                )
+                db.add(e)
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get(f"/api/user/projects/{project_id}/issues/fp-breakdown/breakdown")
+    assert r.status_code == 200
+    data = r.json()
+    assert "by_release" in data
+    assert "by_environment" in data
+    by_release = {x["release"]: x["count"] for x in data["by_release"]}
+    assert by_release.get("1.0.0") == 3
+    assert by_release.get("1.0.1") == 1
+    by_env = {x["environment"]: x["count"] for x in data["by_environment"]}
+    assert by_env.get("production") == 3
+    assert by_env.get("staging") == 1
 
