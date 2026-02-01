@@ -4,12 +4,12 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 ## Test Coverage
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-100%25-brightgreen?style=flat-square)
-![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-99.06%25-brightgreen?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98.74%25-brightgreen?style=flat-square)
 
 **Current Coverage:**
-- **Backend (Python)**: 100% - All tests passing ✓
-- **Frontend (React)**: 99.06% - All tests passing ✓
+- **Backend (Python)**: 99% - All tests passing ✓
+- **Frontend (React)**: 98.74% - All tests passing ✓
 
 > Coverage is calculated in CI. To check locally (from repo root):  
 > **Backend:** `uv run pytest --cov=src/xrayradar_server --cov-report=term`  
