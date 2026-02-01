@@ -20,7 +20,7 @@ class JSONOrJSONB(TypeDecorator):
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
-        if dialect.name == "postgresql":
+        if dialect.name == "postgresql":  # pragma: no cover - tests use SQLite
             return dialect.type_descriptor(JSONB())
         return dialect.type_descriptor(JSON())
 
@@ -166,6 +166,12 @@ class User(Base):
     )
     verification_token: Mapped[str | None] = mapped_column(
         String(64), nullable=True, unique=True, index=True
+    )
+    password_reset_token: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(

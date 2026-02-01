@@ -214,6 +214,45 @@ def test_should_send_alert_cooldown_blocks_second_send(db_session, project_with_
     assert should_send_alert(db_session, project.id, "fp1", "error") is False
 
 
+def test_should_send_alert_cooldown_expired_updates_timestamp(db_session, project_with_owner):
+    """When cooldown row exists but expired, returns True and updates last_notified_at."""
+    from datetime import timedelta, timezone
+    from datetime import datetime as dt
+
+    project, _ = project_with_owner
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=10,  # 10 minute cooldown
+        )
+    )
+    old_time = dt.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=15)
+    db_session.add(
+        models.AlertCooldown(
+            project_id=project.id,
+            fingerprint="fp2",
+            last_notified_at=old_time,
+        )
+    )
+    db_session.commit()
+
+    # Cooldown has expired, should return True and update
+    result = should_send_alert(db_session, project.id, "fp2", "error")
+    assert result is True
+
+    # Verify timestamp was updated
+    row = db_session.execute(
+        select(models.AlertCooldown).where(
+            models.AlertCooldown.project_id == project.id,
+            models.AlertCooldown.fingerprint == "fp2",
+        )
+    ).scalars().first()
+    assert row is not None
+    assert row.last_notified_at > old_time
+
+
 def test_send_alert_emails_no_recipients():
     """send_alert_emails with empty list does nothing."""
     send_alert_emails(

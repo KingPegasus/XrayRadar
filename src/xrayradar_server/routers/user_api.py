@@ -429,15 +429,14 @@ def user_get_project_event_frequency(
     frequency = {}
     for date_obj, count in rows:
         # Convert date to ISO string (YYYY-MM-DD)
-        if isinstance(date_obj, datetime):
+        # Note: SQLite returns strings, PostgreSQL returns date objects
+        if isinstance(date_obj, datetime):  # pragma: no cover - PostgreSQL only
             date_str = date_obj.date().isoformat()
-        elif hasattr(date_obj, 'isoformat'):
+        elif hasattr(date_obj, 'isoformat'):  # pragma: no cover - PostgreSQL date objects
             date_str = date_obj.isoformat()
         else:
-            # Handle string dates or other formats
             date_str = str(date_obj)
-            # If it's a datetime string, extract just the date part
-            if ' ' in date_str or 'T' in date_str:
+            if ' ' in date_str or 'T' in date_str:  # pragma: no cover - defensive
                 date_str = date_str.split()[0].split('T')[0]
         frequency[date_str] = int(count or 0)
     
@@ -490,15 +489,14 @@ def user_get_issue_event_frequency(
     frequency = {}
     for date_obj, count in rows:
         # Convert date to ISO string (YYYY-MM-DD)
-        if isinstance(date_obj, datetime):
+        # Note: SQLite returns strings, PostgreSQL returns date objects
+        if isinstance(date_obj, datetime):  # pragma: no cover - PostgreSQL only
             date_str = date_obj.date().isoformat()
-        elif hasattr(date_obj, 'isoformat'):
+        elif hasattr(date_obj, 'isoformat'):  # pragma: no cover - PostgreSQL date objects
             date_str = date_obj.isoformat()
         else:
-            # Handle string dates or other formats
             date_str = str(date_obj)
-            # If it's a datetime string, extract just the date part
-            if ' ' in date_str or 'T' in date_str:
+            if ' ' in date_str or 'T' in date_str:  # pragma: no cover - defensive
                 date_str = date_str.split()[0].split('T')[0]
         frequency[date_str] = int(count or 0)
     

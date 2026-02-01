@@ -321,3 +321,254 @@ def test_signup_resend_raises_swallowed(app_and_client):
                 )
                 assert r.status_code == 200
                 assert r.json()["email"] == "resendfail@example.com"
+
+
+def test_signup_sends_verification_email_success(app_and_client):
+    """Signup sends verification email when Resend is configured and succeeds."""
+    from unittest.mock import patch, MagicMock
+
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(return_value={"id": "123"})
+    with patch.dict("sys.modules", {"resend": mock_resend}):
+        with patch("xrayradar_server.routers.user_auth.RESEND_API_KEY", "key"):
+            with patch("xrayradar_server.routers.user_auth.RESEND_FROM_EMAIL", "from@x.com"):
+                _, client = app_and_client
+                r = client.post(
+                    "/auth/signup",
+                    json={"email": "verifyemail@example.com", "password": "password123", "plan": "Free"},
+                )
+                assert r.status_code == 200
+                assert r.json()["email"] == "verifyemail@example.com"
+                mock_resend.Emails.send.assert_called_once()
+                call_args = mock_resend.Emails.send.call_args[0][0]
+                assert call_args["to"] == ["verifyemail@example.com"]
+                assert "verify" in call_args["subject"].lower()
+
+
+def test_forgot_password_returns_200_always(app_and_client):
+    """forgot_password always returns 200 to avoid email enumeration."""
+    _, client = app_and_client
+    r = client.post("/auth/forgot-password", json={"email": "nonexistent@example.com"})
+    assert r.status_code == 200
+    assert "ok" in r.json() or "message" in r.json()
+
+    r = client.post("/auth/forgot-password", json={"email": "bad"})
+    assert r.status_code == 200
+
+
+def test_forgot_password_existing_user_sets_token(app_and_client):
+    """forgot_password for existing user sets password_reset_token and expires_at."""
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "reset@example.com", "password": "password123", "plan": "Free"},
+    )
+    assert r.status_code == 200
+
+    r = client.post("/auth/forgot-password", json={"email": "reset@example.com"})
+    assert r.status_code == 200
+
+    db = dbmod.SessionLocal()
+    try:
+        u = db.execute(
+            select(models.User).where(models.User.email == "reset@example.com")
+        ).scalars().first()
+        assert u is not None
+        assert u.password_reset_token is not None
+        assert len(u.password_reset_token) >= 10
+        assert u.password_reset_expires_at is not None
+        assert u.password_reset_expires_at > datetime.now(timezone.utc).replace(tzinfo=None)
+    finally:
+        db.close()
+
+
+def test_reset_password_invalid_token_400(app_and_client):
+    """reset_password returns 400 for invalid or missing token."""
+    _, client = app_and_client
+    r = client.post(
+        "/auth/reset-password",
+        json={"token": "short", "new_password": "newpassword123"},
+    )
+    assert r.status_code == 422  # Pydantic min_length=10
+
+    r = client.post(
+        "/auth/reset-password",
+        json={"token": "x" * 32 + "invalid", "new_password": "newpassword123"},
+    )
+    assert r.status_code == 400
+    assert "invalid" in r.json().get("detail", "").lower() or "expired" in r.json().get("detail", "").lower()
+
+
+def test_reset_password_success(app_and_client):
+    """reset_password with valid token updates password; login with new password works."""
+    from sqlalchemy import select
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "reset2@example.com", "password": "oldpassword123", "plan": "Free"},
+    )
+    assert r.status_code == 200
+
+    r = client.post("/auth/forgot-password", json={"email": "reset2@example.com"})
+    assert r.status_code == 200
+
+    db = dbmod.SessionLocal()
+    try:
+        u = db.execute(
+            select(models.User).where(models.User.email == "reset2@example.com")
+        ).scalars().first()
+        token = u.password_reset_token
+        assert token is not None
+    finally:
+        db.close()
+
+    r = client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "newpassword456"},
+    )
+    assert r.status_code == 200
+    assert "reset" in r.json().get("message", "").lower() or "password" in r.json().get("message", "").lower()
+
+    r = client.post(
+        "/auth/login",
+        json={"email": "reset2@example.com", "password": "oldpassword123"},
+    )
+    assert r.status_code == 401
+
+    r = client.post(
+        "/auth/login",
+        json={"email": "reset2@example.com", "password": "newpassword456"},
+    )
+    assert r.status_code == 200
+    assert r.json()["email"] == "reset2@example.com"
+
+
+def test_reset_password_expired_token(app_and_client):
+    """reset_password returns 400 for expired token and clears the token."""
+    from datetime import datetime, timezone, timedelta
+    from sqlalchemy import select
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "expired@example.com", "password": "password123", "plan": "Free"},
+    )
+    assert r.status_code == 200
+
+    r = client.post("/auth/forgot-password", json={"email": "expired@example.com"})
+    assert r.status_code == 200
+
+    db = dbmod.SessionLocal()
+    try:
+        u = db.execute(
+            select(models.User).where(models.User.email == "expired@example.com")
+        ).scalars().first()
+        token = u.password_reset_token
+        # Set expiry to the past
+        u.password_reset_expires_at = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=2)
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.post(
+        "/auth/reset-password",
+        json={"token": token, "new_password": "newpassword456"},
+    )
+    assert r.status_code == 400
+    assert "expired" in r.json().get("detail", "").lower() or "invalid" in r.json().get("detail", "").lower()
+
+    # Token should be cleared
+    db = dbmod.SessionLocal()
+    try:
+        u = db.execute(
+            select(models.User).where(models.User.email == "expired@example.com")
+        ).scalars().first()
+        assert u.password_reset_token is None
+        assert u.password_reset_expires_at is None
+    finally:
+        db.close()
+
+
+def test_verify_email_token_not_found(app_and_client):
+    """verify_email returns 400 for valid-length token that doesn't exist."""
+    _, client = app_and_client
+    # Valid length but non-existent token
+    r = client.get("/auth/verify-email?token=" + "x" * 43)
+    assert r.status_code == 400
+    assert "invalid" in r.json().get("detail", "").lower() or "expired" in r.json().get("detail", "").lower()
+
+
+def test_forgot_password_sends_email_with_resend(app_and_client):
+    """forgot_password sends email via Resend when configured."""
+    from unittest.mock import patch, MagicMock
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "resetemail@example.com", "password": "password123", "plan": "Free"},
+    )
+    assert r.status_code == 200
+
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(return_value={"id": "123"})
+    with patch.dict("sys.modules", {"resend": mock_resend}):
+        with patch("xrayradar_server.routers.user_auth.RESEND_API_KEY", "key"):
+            with patch("xrayradar_server.routers.user_auth.RESEND_FROM_EMAIL", "from@x.com"):
+                r = client.post("/auth/forgot-password", json={"email": "resetemail@example.com"})
+                assert r.status_code == 200
+                mock_resend.Emails.send.assert_called_once()
+                call_args = mock_resend.Emails.send.call_args[0][0]
+                assert call_args["to"] == ["resetemail@example.com"]
+                assert "reset" in call_args["subject"].lower()
+
+
+def test_forgot_password_resend_error_swallowed(app_and_client):
+    """When Resend raises during forgot_password, error is swallowed."""
+    from unittest.mock import patch, MagicMock
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "resenderror@example.com", "password": "password123", "plan": "Free"},
+    )
+    assert r.status_code == 200
+
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(side_effect=RuntimeError("Resend API error"))
+    with patch.dict("sys.modules", {"resend": mock_resend}):
+        with patch("xrayradar_server.routers.user_auth.RESEND_API_KEY", "key"):
+            with patch("xrayradar_server.routers.user_auth.RESEND_FROM_EMAIL", "from@x.com"):
+                r = client.post("/auth/forgot-password", json={"email": "resenderror@example.com"})
+                assert r.status_code == 200  # Still returns 200, error is logged
+
+
+def test_forgot_password_resend_not_configured(app_and_client, monkeypatch):
+    """forgot_password skips email when Resend not configured."""
+    monkeypatch.setenv("RESEND_API_KEY", "")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "")
+    import xrayradar_server.routers.user_auth as user_auth_mod
+    monkeypatch.setattr(user_auth_mod, "RESEND_API_KEY", "")
+    monkeypatch.setattr(user_auth_mod, "RESEND_FROM_EMAIL", "")
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "noresendreset@example.com", "password": "password123", "plan": "Free"},
+    )
+    assert r.status_code == 200
+
+    r = client.post("/auth/forgot-password", json={"email": "noresendreset@example.com"})
+    assert r.status_code == 200

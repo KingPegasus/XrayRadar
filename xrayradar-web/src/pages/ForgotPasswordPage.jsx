@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { readErrorMessage, fetchMe } from '../utils/api'
+import { readErrorMessage } from '../utils/api'
 
-export function LoginPage({ onLoggedIn }) {
+export function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [sent, setSent] = useState(false)
 
   const submit = async (e) => {
     e.preventDefault()
@@ -15,32 +15,21 @@ export function LoginPage({ onLoggedIn }) {
       setError('Please enter a valid email address.')
       return
     }
-    if (!password) {
-      setError('Password is required.')
-      return
-    }
 
     setError('')
     setSubmitting(true)
     try {
-      const resp = await fetch('/auth/login', {
+      const resp = await fetch('/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email: trimmedEmail, password }),
+        body: JSON.stringify({ email: trimmedEmail }),
       })
       if (!resp.ok) {
         setError(await readErrorMessage(resp))
         return
       }
-      const me = await fetchMe()
-      if (me) {
-        onLoggedIn(me)
-        // Use hard navigation to ensure auth state is properly checked
-        window.location.href = '/dashboard'
-      } else {
-        setError('Failed to load user info after login')
-      }
+      setSent(true)
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -48,13 +37,31 @@ export function LoginPage({ onLoggedIn }) {
     }
   }
 
+  if (sent) {
+    return (
+      <main style={{ padding: '72px 0 46px' }}>
+        <div className="container" style={{ width: 'min(680px, calc(100% - 48px))' }}>
+          <div className="panel" style={{ padding: 18 }}>
+            <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Check your email</div>
+            <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
+              If an account exists for that email, we sent a link to reset your password. The link expires in 1 hour.
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <a className="button buttonPrimary" href="/login">Back to sign in</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main style={{ padding: '72px 0 46px' }}>
       <div className="container" style={{ width: 'min(680px, calc(100% - 48px))' }}>
         <div className="panel" style={{ padding: 18 }}>
-          <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Sign in</div>
+          <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Forgot password</div>
           <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
-            Use your email + password to access your dashboard.
+            Enter your email and we’ll send you a link to reset your password.
           </div>
 
           <form onSubmit={submit} style={{ marginTop: 14 }}>
@@ -67,23 +74,6 @@ export function LoginPage({ onLoggedIn }) {
               autoComplete="email"
             />
 
-            <label className="fieldLabel" style={{ marginTop: 10 }}>
-              Password
-            </label>
-            <input
-              className="fieldInput"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              type="password"
-              autoComplete="current-password"
-            />
-            <div style={{ marginTop: 6, fontSize: 14 }}>
-              <a href="/forgot-password" style={{ color: 'var(--muted)', textDecoration: 'none' }}>
-                Forgot password?
-              </a>
-            </div>
-
             {error ? (
               <div className="fieldError" role="alert" style={{ marginTop: 10 }}>
                 {error}
@@ -92,11 +82,9 @@ export function LoginPage({ onLoggedIn }) {
 
             <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
               <button className="button buttonPrimary" type="submit" disabled={submitting}>
-                {submitting ? 'Signing in…' : 'Sign in'}
+                {submitting ? 'Sending…' : 'Send reset link'}
               </button>
-              <a className="button" href="/">
-                Back
-              </a>
+              <a className="button" href="/login">Back to sign in</a>
             </div>
           </form>
         </div>

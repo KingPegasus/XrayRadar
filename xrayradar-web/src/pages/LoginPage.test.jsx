@@ -285,6 +285,29 @@ describe('LoginPage', () => {
   })
 
 
+  it('returns early when submitting is true on second click', async () => {
+    const user = userEvent.setup()
+    let callCount = 0
+    fetch.mockImplementation((url, opts) => {
+      if (url === '/auth/login' && opts?.method === 'POST') {
+        callCount++
+        return new Promise(r => setTimeout(() => r({ ok: true, status: 200 }), 200))
+      }
+      return Promise.resolve({ ok: false, status: 401 })
+    })
+
+    render(<LoginPage onLoggedIn={mockOnLoggedIn} />)
+
+    await user.type(screen.getByPlaceholderText(/you@company.com/i), 'test@example.com')
+    await user.type(screen.getByPlaceholderText(/••••••••/i), 'password123')
+    const btn = screen.getByRole('button', { name: /Sign in/i })
+    await user.click(btn)
+    await user.click(btn)
+
+    await new Promise(r => setTimeout(r, 250))
+    expect(callCount).toBe(1)
+  })
+
   it('shows submitting state', async () => {
     const user = userEvent.setup()
 
