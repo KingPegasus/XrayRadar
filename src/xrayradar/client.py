@@ -273,6 +273,7 @@ class ErrorTracker:
         level: Optional[Level] = None,
         data: Optional[Dict[str, Any]] = None,
         timestamp: Optional[datetime] = None,
+        type: Optional[str] = None,
     ) -> None:
         """
         Add a breadcrumb to the context
@@ -283,6 +284,7 @@ class ErrorTracker:
             level: Breadcrumb level
             data: Additional data
             timestamp: Timestamp (defaults to now)
+            type: Breadcrumb type (default, http, navigation, ui, console, error, query, user)
         """
         if not self._enabled:
             return
@@ -293,6 +295,7 @@ class ErrorTracker:
             category=category,
             level=level,
             data=data or {},
+            type=type,
         )
 
         with self._lock:

@@ -1,9 +1,10 @@
 """
 Python logging integration for xrayradar
 
-This integration captures log messages from Python's logging module and sends them
-to XrayRadar as events. It can be configured to capture specific log levels and
-exclude certain loggers.
+This integration can either:
+- Send log messages to XrayRadar as events (default), or
+- Capture log messages as breadcrumbs (capture_as_breadcrumbs=True) so they appear
+  in the breadcrumb timeline when an error is later captured (console-style auto-capture).
 """
 
 import logging
@@ -22,6 +23,7 @@ class LoggingIntegration:
         level: int = logging.WARNING,
         logger: Optional[str] = None,
         exclude_loggers: Optional[Set[str]] = None,
+        capture_as_breadcrumbs: bool = False,
     ):
         """
         Initialize logging integration
@@ -31,11 +33,14 @@ class LoggingIntegration:
             level: Minimum log level to capture (default: logging.WARNING)
             logger: Specific logger name prefix to capture (None = all loggers)
             exclude_loggers: Set of logger names to exclude from capture
+            capture_as_breadcrumbs: If True, add log records as breadcrumbs (type=console)
+                instead of sending them as events. Use for console-style auto-capture.
         """
         self.client = client
         self.level = level
         self.logger = logger
         self.exclude_loggers = exclude_loggers or set()
+        self.capture_as_breadcrumbs = capture_as_breadcrumbs
         self._handler: Optional[LoggingHandler] = None
 
     def setup(self, client: Optional[ErrorTracker] = None) -> None:
@@ -55,6 +60,7 @@ class LoggingIntegration:
             level=self.level,
             logger=self.logger,
             exclude_loggers=self.exclude_loggers,
+            capture_as_breadcrumbs=self.capture_as_breadcrumbs,
         )
         logging.root.addHandler(self._handler)
 
@@ -66,7 +72,7 @@ class LoggingIntegration:
 
 
 class LoggingHandler(logging.Handler):
-    """Custom logging handler that sends log records to XrayRadar"""
+    """Custom logging handler that sends log records to XrayRadar or adds them as breadcrumbs"""
 
     # Map Python logging levels to XrayRadar levels
     LEVEL_MAP = {
@@ -83,6 +89,7 @@ class LoggingHandler(logging.Handler):
         level: int = logging.WARNING,
         logger: Optional[str] = None,
         exclude_loggers: Optional[Set[str]] = None,
+        capture_as_breadcrumbs: bool = False,
     ):
         """
         Initialize logging handler
@@ -92,15 +99,17 @@ class LoggingHandler(logging.Handler):
             level: Minimum log level to capture
             logger: Specific logger name to capture (None = all loggers)
             exclude_loggers: Set of logger names to exclude
+            capture_as_breadcrumbs: If True, add records as breadcrumbs (type=console) instead of events
         """
         super().__init__(level=level)
         self.client = client
         self.logger = logger
         self.exclude_loggers = exclude_loggers or set()
+        self.capture_as_breadcrumbs = capture_as_breadcrumbs
 
     def emit(self, record: logging.LogRecord) -> None:
         """
-        Emit a log record to XrayRadar
+        Emit a log record to XrayRadar (as event or as breadcrumb)
 
         Args:
             record: Log record to emit
@@ -111,7 +120,6 @@ class LoggingHandler(logging.Handler):
                 return
 
             # Skip if specific logger is set and doesn't match
-            # Check if record.name starts with the specified logger name
             if self.logger is not None:
                 if not record.name.startswith(self.logger):
                     return
@@ -122,13 +130,26 @@ class LoggingHandler(logging.Handler):
 
             # Map Python logging level to XrayRadar level
             xrayradar_level = self.LEVEL_MAP.get(record.levelno, Level.ERROR)
-
-            # Build message
             message = self.format(record)
+
+            if self.capture_as_breadcrumbs:
+                # Auto-capture as console breadcrumb (appears in timeline when error is captured)
+                self.client.add_breadcrumb(
+                    message=message,
+                    category=record.name,
+                    level=xrayradar_level,
+                    type="console",
+                    data={
+                        "logger": record.name,
+                        "module": record.module,
+                        "funcName": getattr(record, "funcName", None),
+                        "lineno": getattr(record, "lineno", None),
+                    },
+                )
+                return
 
             # Capture as message (not exception unless it's an exception log)
             if record.exc_info:
-                # If there's exception info, capture as exception
                 exc_type, exc_value, exc_traceback = record.exc_info
                 if exc_value:
                     self.client.capture_exception(
@@ -150,7 +171,6 @@ class LoggingHandler(logging.Handler):
                         lineno=record.lineno,
                     )
             else:
-                # Regular log message
                 self.client.capture_message(
                     message,
                     level=xrayradar_level,
@@ -161,7 +181,6 @@ class LoggingHandler(logging.Handler):
                 )
 
         except Exception:
-            # Don't let logging errors break the application
             self.handleError(record)
 
 
@@ -170,6 +189,7 @@ def setup_logging(
     level: int = logging.WARNING,
     logger: Optional[str] = None,
     exclude_loggers: Optional[Set[str]] = None,
+    capture_as_breadcrumbs: bool = False,
 ) -> LoggingIntegration:
     """
     Setup logging integration
@@ -179,26 +199,26 @@ def setup_logging(
         level: Minimum log level to capture (default: logging.WARNING)
         logger: Specific logger name prefix to capture (None = all loggers)
         exclude_loggers: Set of logger names to exclude from capture
+        capture_as_breadcrumbs: If True, log records are added as breadcrumbs (type=console)
+            instead of being sent as events. Use for console-style auto-capture in the timeline.
 
     Returns:
         LoggingIntegration instance
 
-    Example:
-        >>> import logging
-        >>> from xrayradar import ErrorTracker
-        >>> from xrayradar.integrations.logging import setup_logging
-        >>>
-        >>> tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
+    Example (events):
         >>> integration = setup_logging(client=tracker, level=logging.ERROR)
-        >>>
-        >>> # Now all ERROR and CRITICAL log messages will be sent to XrayRadar
-        >>> logging.error("Something went wrong!")
+        >>> logging.error("Something went wrong!")  # sent as event
+
+    Example (console breadcrumbs):
+        >>> integration = setup_logging(client=tracker, level=logging.INFO, capture_as_breadcrumbs=True)
+        >>> logging.info("User opened settings")  # added as breadcrumb; appears in timeline on error
     """
     integration = LoggingIntegration(
         client=client,
         level=level,
         logger=logger,
         exclude_loggers=exclude_loggers,
+        capture_as_breadcrumbs=capture_as_breadcrumbs,
     )
     integration.setup(client)
     return integration

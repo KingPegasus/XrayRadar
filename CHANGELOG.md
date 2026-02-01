@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-02-01
+
+### Added
+- **Breadcrumbs Support**: Comprehensive breadcrumb tracking for debugging context
+  - `add_breadcrumb()` method with support for message, category, level, type, data, and timestamp
+  - Configurable `max_breadcrumbs` setting (default: 100)
+  - Breadcrumb types: default, http, navigation, ui, console, error, query, user
+  - Automatic breadcrumb clearing at request start in framework middleware
+- **Automatic HTTP Breadcrumbs**: Framework integrations now automatically capture HTTP requests as breadcrumbs
+  - Django middleware captures incoming requests with method, URL, path, and query string
+  - FastAPI middleware captures incoming requests
+  - Flask integration captures incoming requests
+- **Console Breadcrumbs via Logging**: New `capture_as_breadcrumbs` parameter in `LoggingIntegration`
+  - When enabled, Python log messages are captured as "console" type breadcrumbs instead of full events
+  - Log breadcrumbs appear in the error timeline with proper level mapping
+  - `setup_logging()` helper function supports `capture_as_breadcrumbs` parameter
+- Manual breadcrumb examples for server-side user action tracking (UI type)
+- Breadcrumb documentation with automatic capture examples and manual usage patterns
+- Example file: `examples/console_breadcrumb_example.py`
+
+
+### Changed
+- Enhanced `LoggingHandler` to support both event capture and breadcrumb modes
+- Updated all framework middleware to automatically clear and capture breadcrumbs per request
+- Improved documentation with breadcrumb workflow examples and configuration options
+
 ## [0.3.0] - 2026-01-25
 
 ### Added
@@ -64,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PyPI publishing workflow via GitHub Actions with Trusted Publishing / OIDC-ready PyPI environment and automated version management
 
 
+[0.4.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/KingPegasus/XrayRadar/releases/tag/v0.1.0

@@ -49,6 +49,13 @@ class TestLoggingIntegration:
         integration = LoggingIntegration(exclude_loggers=None)
         assert integration.exclude_loggers == set()
 
+    def test_init_with_capture_as_breadcrumbs(self):
+        """Test initialization with capture_as_breadcrumbs=True"""
+        integration = LoggingIntegration(capture_as_breadcrumbs=True)
+        assert integration.capture_as_breadcrumbs is True
+        integration = LoggingIntegration(capture_as_breadcrumbs=False)
+        assert integration.capture_as_breadcrumbs is False
+
     def test_setup_with_client(self):
         """Test setup with provided client"""
         client = ErrorTracker(dsn="https://xrayradar.com/test")
@@ -322,6 +329,37 @@ class TestLoggingHandler:
             assert call_args[1]["module"] == "test_module"
             assert call_args[1]["funcName"] == "test_func"
             assert call_args[1]["lineno"] == 42
+
+    def test_emit_adds_breadcrumb_when_capture_as_breadcrumbs_true(self):
+        """Test emit adds console breadcrumb when capture_as_breadcrumbs=True"""
+        client = ErrorTracker(dsn="https://xrayradar.com/test")
+        handler = LoggingHandler(client=client, capture_as_breadcrumbs=True)
+
+        with patch.object(client, 'add_breadcrumb') as mock_add:
+            record = logging.LogRecord(
+                name="myapp.service",
+                level=logging.INFO,
+                pathname="test.py",
+                lineno=10,
+                msg="User opened settings",
+                args=(),
+                exc_info=None,
+            )
+            record.module = "service"
+            record.funcName = "handle_request"
+
+            handler.emit(record)
+
+            mock_add.assert_called_once()
+            call_kw = mock_add.call_args[1]
+            assert call_kw["message"] == "User opened settings"
+            assert call_kw["type"] == "console"
+            assert call_kw["category"] == "myapp.service"
+            assert call_kw["level"] == Level.INFO
+            assert call_kw["data"]["logger"] == "myapp.service"
+            assert call_kw["data"]["module"] == "service"
+            assert call_kw["data"]["funcName"] == "handle_request"
+            assert call_kw["data"]["lineno"] == 10
 
     def test_emit_captures_exception_with_exc_value(self):
         """Test emit captures exception when exc_info has exception value"""

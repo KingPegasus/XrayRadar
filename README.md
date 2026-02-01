@@ -323,6 +323,125 @@ except Exception as e:
     tracker.capture_exception(e, payment_stage="processing")
 ```
 
+### Breadcrumbs
+
+Breadcrumbs capture a trail of events leading up to an error, providing crucial debugging context. The SDK supports both automatic and manual breadcrumb capture.
+
+#### Automatic Breadcrumbs (Framework Middleware)
+
+When using the framework integrations (Django, FastAPI, Flask), HTTP request breadcrumbs are **automatically captured**:
+
+- Each incoming HTTP request is recorded as a breadcrumb
+- Breadcrumbs are automatically cleared at the start of each request
+- Request details include: method, URL, path, and query string
+
+```python
+# Django - automatic after adding middleware
+MIDDLEWARE = ['xrayradar.integrations.django.ErrorTrackerMiddleware', ...]
+
+# FastAPI - automatic after init_app
+FastAPIIntegration.init_app(app, tracker)
+
+# Flask - automatic after init_app
+FlaskIntegration.init_app(app, tracker)
+```
+
+#### Automatic Console Breadcrumbs (Logging)
+
+Python logging can be captured as **console** breadcrumbs so log messages appear in the timeline when an error is later captured (no separate events per log line):
+
+```python
+import logging
+from xrayradar import ErrorTracker
+from xrayradar.integrations.logging import setup_logging
+
+tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
+setup_logging(client=tracker, level=logging.INFO, capture_as_breadcrumbs=True)
+
+# These become breadcrumbs (type=console), visible in the event timeline on error
+logging.info("User opened settings")
+logging.debug("Cache hit for key x")
+# ... later, if an exception occurs, all of these appear as breadcrumbs
+```
+
+Use `capture_as_breadcrumbs=False` (default) to send log records as **events** instead of breadcrumbs.
+
+#### User Actions / Clicks (Manual)
+
+The Python SDK runs server-side, so it cannot observe DOM clicks directly. Record user actions by adding breadcrumbs when your backend handles the corresponding request:
+
+```python
+# When your API receives a request that represents a user click or action:
+tracker.add_breadcrumb(
+    message="User clicked Submit",
+    type="ui",
+    category="user.action",
+    data={"button_id": "submit", "form": "checkout"}
+)
+```
+
+Use `type="ui"` for user interactions and `type="navigation"` for page/route changes. Real-time DOM/console capture in the browser would require a JavaScript SDK.
+
+#### Manual Breadcrumbs
+
+Add custom breadcrumbs to track specific events:
+
+```python
+from xrayradar import ErrorTracker
+
+tracker = ErrorTracker(dsn="https://xrayradar.com/your_project_id")
+
+# Basic breadcrumb
+tracker.add_breadcrumb(message="User clicked checkout")
+
+# Full breadcrumb with all options
+tracker.add_breadcrumb(
+    message="Payment processed",
+    category="payment",      # Category for filtering
+    level="info",            # debug, info, warning, error
+    type="default",          # default, http, navigation, ui, console, error, query, user
+    data={                   # Additional structured data
+        "amount": 99.99,
+        "currency": "USD",
+        "method": "credit_card"
+    }
+)
+
+# Example: track user journey
+tracker.add_breadcrumb(message="Viewed product page", category="navigation")
+tracker.add_breadcrumb(message="Added item to cart", category="cart")
+tracker.add_breadcrumb(message="Started checkout", category="checkout")
+
+# When exception occurs, all breadcrumbs are attached
+try:
+    process_payment()
+except Exception as e:
+    tracker.capture_exception(e)  # Includes all breadcrumbs above
+```
+
+#### Breadcrumb Configuration
+
+```python
+tracker = ErrorTracker(
+    dsn="https://xrayradar.com/your_project_id",
+    max_breadcrumbs=100  # Default: 100, max breadcrumbs to retain
+)
+
+# Clear breadcrumbs manually if needed
+tracker.clear_breadcrumbs()
+```
+
+#### Breadcrumb Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | str | Description of the event |
+| `category` | str | Category for filtering (e.g., "http", "ui", "navigation") |
+| `level` | str | Severity: "debug", "info", "warning", "error" |
+| `type` | str | Kind of breadcrumb: "default", "http", "navigation", "ui", "console", "error", "query", "user" |
+| `data` | dict | Additional structured data |
+| `timestamp` | datetime | When the event occurred (auto-set if not provided) |
+
 ### Before Send Callback
 
 ```python
@@ -393,7 +512,7 @@ Main client class for error tracking.
 
 - `capture_exception(exception=None, level=Level.ERROR, message=None, **extra_context)`: Capture an exception
 - `capture_message(message, level=Level.ERROR, **extra_context)`: Capture a message
-- `add_breadcrumb(message, category=None, level=None, data=None, timestamp=None)`: Add a breadcrumb
+- `add_breadcrumb(message, category=None, level=None, data=None, timestamp=None, type=None)`: Add a breadcrumb
 - `set_user(**user_data)`: Set user context
 - `set_tag(key, value)`: Set a tag
 - `set_extra(key, value)`: Set extra context data
