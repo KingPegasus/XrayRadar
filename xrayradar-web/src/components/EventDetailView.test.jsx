@@ -56,6 +56,56 @@ describe('EventDetailView', () => {
     expect(stackTraceSection).toHaveTextContent(/test_function/)
   })
 
+  it('uses first frame when no in_app frame (branch coverage)', () => {
+    const event = {
+      id: '1',
+      message: 'Test error',
+      payload: {
+        exception: {
+          values: [{
+            type: 'Error',
+            value: 'Test',
+            stacktrace: {
+              frames: [
+                { filename: 'lib.js', lineno: 1, function: 'external', in_app: false },
+              ],
+            },
+          }],
+        },
+      },
+    }
+
+    render(<EventDetailView event={event} />)
+    expect(screen.getByText('Stack Trace')).toBeInTheDocument()
+    const stackTraceSection = screen.getByText('Stack Trace').closest('div')
+    expect(stackTraceSection).toHaveTextContent(/lib.js:1/)
+    expect(stackTraceSection).toHaveTextContent(/external/)
+  })
+
+  it('renders frame with empty filename/lineno/function (branch coverage)', () => {
+    const event = {
+      id: '1',
+      message: 'Test error',
+      payload: {
+        exception: {
+          values: [{
+            type: 'Error',
+            value: 'Test',
+            stacktrace: {
+              frames: [
+                { filename: '', lineno: null, function: undefined, in_app: true },
+              ],
+            },
+          }],
+        },
+      },
+    }
+
+    render(<EventDetailView event={event} />)
+    expect(screen.getByText('Stack Trace')).toBeInTheDocument()
+    expect(screen.getByText('<unknown>')).toBeInTheDocument()
+  })
+
   it('renders breadcrumbs', () => {
     const event = {
       id: '1',

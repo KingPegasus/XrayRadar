@@ -1,17 +1,17 @@
 export function UsageDetailsCard({ usage, loading, error }) {
   return (
-    <div style={{ marginTop: 20 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#cbd5e1' }}>Usage</div>
+    <section className="pageSection">
+      <h2 className="pageSectionTitle">Usage</h2>
       {loading ? (
-        <div style={{ color: 'var(--muted)', fontSize: 13 }}>Loading usage...</div>
+        <p className="pageEmpty" style={{ margin: 0 }}>Loading usage…</p>
       ) : error ? (
         <div className="fieldError">{error}</div>
       ) : usage ? (
-        <div style={{ background: 'rgba(255, 255, 255, 0.04)', padding: 16, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="pageCard">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
             <div>
-              <span style={{ fontSize: 24, fontWeight: 700 }}>{usage.current_count.toLocaleString()}</span>
-              <span style={{ color: 'var(--muted)', fontSize: 14, marginLeft: 6 }}>
+              <span className="pageCardTitle" style={{ fontSize: 24 }}>{usage.current_count.toLocaleString()}</span>
+              <span className="pageCardText" style={{ marginLeft: 8, display: 'inline' }}>
                 / {usage.limit != null ? usage.limit.toLocaleString() : '∞'} events
               </span>
             </div>
@@ -22,13 +22,13 @@ export function UsageDetailsCard({ usage, loading, error }) {
             )}
           </div>
           {usage.limit != null && (
-            <div style={{ height: 8, background: 'rgba(255, 255, 255, 0.1)', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ height: 10, background: 'rgba(255, 255, 255, 0.08)', borderRadius: 8, overflow: 'hidden', marginTop: 8 }}>
               <div
                 style={{
                   height: '100%',
                   width: `${Math.min(100, usage.percentage_used || 0)}%`,
-                  background: usage.is_exceeded ? '#ef4444' : usage.is_near_limit ? '#f59e0b' : '#4f7cff',
-                  borderRadius: 4,
+                  background: usage.is_exceeded ? '#ef4444' : usage.is_near_limit ? '#f59e0b' : 'var(--brand)',
+                  borderRadius: 8,
                   transition: 'width 0.3s ease',
                 }}
               />
@@ -46,6 +46,6 @@ export function UsageDetailsCard({ usage, loading, error }) {
           )}
         </div>
       ) : null}
-    </div>
+    </section>
   )
 }

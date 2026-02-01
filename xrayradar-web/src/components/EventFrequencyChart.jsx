@@ -1,79 +1,60 @@
-export function EventFrequencyChart({ eventFrequency }) {
+export function EventFrequencyChart({ eventFrequency, showTitle = true }) {
   if (!eventFrequency || !eventFrequency.data || eventFrequency.data.length === 0) {
     return null
   }
 
+  const { data, maxCount, total } = eventFrequency
+  const barAreaHeight = 100
+  const yMax = Math.max(maxCount, 1)
+  const yMid = Math.ceil(yMax / 2)
+  const labelStep = data.length > 14 ? Math.max(1, Math.floor(data.length / 6)) : 1
+
+  const formatDate = (dateStr) => {
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const date = new Date(Date.UTC(y, m - 1, d))
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  }
+
   return (
-    <div style={{ marginTop: 20, marginBottom: 20 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#cbd5e1' }}>Event Frequency</div>
-      <div style={{ background: 'rgba(0, 0, 0, 0.2)', padding: 16, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 120, paddingBottom: '4px' }}>
-            {eventFrequency.data.map(([date, count], idx) => {
-              // Reserve space for date labels (32px) + gap (4px) + padding = 40px
-              const availableHeight = 80 // Reserve space for date labels and spacing
-              const barHeight = eventFrequency.maxCount > 0 
-                ? Math.min((count / eventFrequency.maxCount) * availableHeight, availableHeight)
-                : (count > 0 ? 4 : 0)
+    <div className="freqChart">
+      {showTitle && (
+        <h3 className="freqChartTitle">Event Frequency</h3>
+      )}
+      <div className="freqChartWrap">
+        <div className="freqChartGrid" aria-hidden />
+        <div className="freqChartBody">
+          <div className="freqChartBarsWrap">
+            {data.map(([date, count], idx) => {
+              const barHeight = yMax > 0
+                ? Math.round((count / yMax) * barAreaHeight)
+                : 0
+              const showLabel = idx % labelStep === 0 || idx === data.length - 1
               return (
-                <div key={idx} style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center', 
-                  justifyContent: 'flex-end', 
-                  gap: 4, 
-                  height: '100%',
-                  flex: 1,
-                  minWidth: 0,
-                }}>
+                <div key={`${date}-${idx}`} className="freqChartBarCol">
                   <div
+                    className="freqChartBar"
                     style={{
-                      width: '40%',
-                      background: 'linear-gradient(to top, #2563eb, #3b82f6)',
-                      height: `${barHeight}px`,
-                      maxHeight: `${availableHeight}px`,
-                      minHeight: count > 0 ? '4px' : '0',
-                      borderRadius: '4px 4px 0 0',
-                      transition: 'all 0.2s',
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'center',
-                      boxSizing: 'border-box',
-                      flexShrink: 0,
+                      height: `${Math.max(barHeight, count > 0 ? 4 : 0)}px`,
+                      animationDelay: `${idx * 0.02}s`,
                     }}
-                    title={`${date}: ${count} event${count !== 1 ? 's' : ''}`}
+                    title={`${formatDate(date)}: ${count} event${count !== 1 ? 's' : ''}`}
+                    role="img"
+                    aria-label={`${formatDate(date)}: ${count} events`}
                   >
                     {count > 0 && (
-                      <span style={{ fontSize: 10, color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                        {count}
-                      </span>
+                      <span className="freqChartBarCount">{count}</span>
                     )}
                   </div>
-                  <div style={{ 
-                    fontSize: 10, 
-                    color: '#94a3b8', 
-                    writingMode: 'vertical-rl', 
-                    textOrientation: 'mixed', 
-                    transform: 'rotate(180deg)', 
-                    flexShrink: 0,
-                    height: '32px',
-                    lineHeight: '32px',
-                  }}>
-                    {(() => {
-                      // Parse date string (YYYY-MM-DD) and format it properly to avoid timezone issues
-                      const [year, month, day] = date.split('-').map(Number)
-                      const dateObj = new Date(Date.UTC(year, month - 1, day))
-                      return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
-                    })()}
+                  <div className="freqChartBarLabel">
+                    {showLabel ? formatDate(date) : '\u00A0'}
                   </div>
                 </div>
               )
             })}
           </div>
-        </div>
-        <div style={{ marginTop: 8, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
-          Total: {eventFrequency.total} event{eventFrequency.total !== 1 ? 's' : ''} across {eventFrequency.data.length} day{eventFrequency.data.length !== 1 ? 's' : ''}
+          <div className="freqChartSummary">
+            Total: {total} event{total !== 1 ? 's' : ''} across {data.length} day{data.length !== 1 ? 's' : ''}
+          </div>
         </div>
       </div>
     </div>

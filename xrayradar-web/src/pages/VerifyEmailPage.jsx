@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { navigate } from '../utils/navigation'
 
 export function VerifyEmailPage({ onVerified }) {
-  const [status, setStatus] = useState('verifying') // verifying, success, error
+  const [status, setStatus] = useState('verifying')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -23,7 +23,6 @@ export function VerifyEmailPage({ onVerified }) {
         if (res.ok) {
           setStatus('success')
           setMessage(data.message || 'Email verified successfully!')
-          // Refresh the user state so the banner disappears
           if (onVerified) onVerified()
         } else {
           setStatus('error')
@@ -37,42 +36,40 @@ export function VerifyEmailPage({ onVerified }) {
   }, [onVerified])
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20 }}>
-      <div className="panel" style={{ padding: 32, textAlign: 'center', maxWidth: 400 }}>
-        {status === 'verifying' && (
-          <>
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>Verifying your email...</div>
-            <div className="small" style={{ color: 'var(--muted)' }}>Please wait</div>
-          </>
-        )}
-        {status === 'success' && (
-          <>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>✓</div>
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12, color: '#86efac' }}>Email Verified!</div>
-            <div className="small" style={{ color: 'var(--muted)', marginBottom: 20 }}>{message}</div>
-            <button
-              type="button"
-              className="button buttonPrimary"
-              onClick={() => navigate('/dashboard')}
-            >
-              Go to Dashboard
-            </button>
-          </>
-        )}
-        {status === 'error' && (
-          <>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>✗</div>
-            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12, color: '#fca5a5' }}>Verification Failed</div>
-            <div className="small" style={{ color: 'var(--muted)', marginBottom: 20 }}>{message}</div>
-            <button
-              type="button"
-              className="button"
-              onClick={() => navigate('/dashboard')}
-            >
-              Go to Dashboard
-            </button>
-          </>
-        )}
+    <div className="page" style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div className="container pageNarrow">
+        <div className="pageCard" style={{ textAlign: 'center', padding: 32 }}>
+          {status === 'verifying' && (
+            <>
+              <h1 className="pageTitle" style={{ fontSize: 20 }}>Verifying your email…</h1>
+              <p className="pageEmpty" style={{ marginTop: 8 }}>Please wait</p>
+            </>
+          )}
+          {status === 'success' && (
+            <>
+              <div style={{ fontSize: 48, marginBottom: 16, color: '#10b981' }}>✓</div>
+              <h1 className="pageTitle" style={{ fontSize: 20, color: '#86efac' }}>Email Verified!</h1>
+              <p className="pageSubtitle" style={{ marginTop: 8, marginBottom: 20 }}>{message}</p>
+              <div className="pageActions" style={{ justifyContent: 'center' }}>
+                <button type="button" className="button buttonPrimary" onClick={() => navigate('/dashboard')}>
+                  Go to Dashboard
+                </button>
+              </div>
+            </>
+          )}
+          {status === 'error' && (
+            <>
+              <div style={{ fontSize: 48, marginBottom: 16, color: '#ef4444' }}>✗</div>
+              <h1 className="pageTitle" style={{ fontSize: 20, color: '#fca5a5' }}>Verification Failed</h1>
+              <p className="pageSubtitle" style={{ marginTop: 8, marginBottom: 20 }}>{message}</p>
+              <div className="pageActions" style={{ justifyContent: 'center' }}>
+                <button type="button" className="button" onClick={() => navigate('/dashboard')}>
+                  Go to Dashboard
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -296,6 +296,15 @@ Session status endpoint:
 
 - `GET /api/admin/me`
 
+### API Documentation (Protected)
+
+The server provides interactive API documentation that is restricted to admin users only:
+
+- `GET /docs` - Swagger UI (OpenAPI documentation)
+- `GET /redoc` - ReDoc (alternative API documentation)
+
+Both endpoints require admin authentication (GitHub OAuth session or admin token). Unauthenticated access will return a 403 Forbidden error.
+
 
 ## Admin API
 

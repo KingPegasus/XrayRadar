@@ -62,6 +62,20 @@ describe('IssueDetailPage', () => {
     })
   })
 
+  it('renders events when frequency fetch fails (catch branch)', async () => {
+    const events = [{ id: '1', timestamp: '2024-01-01T00:00:00Z', level: 'error', message: 'E1' }]
+    api.fetchJson
+      .mockResolvedValueOnce(events) // events
+      .mockRejectedValueOnce(new Error('frequency failed')) // frequency
+
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue')).toBeInTheDocument()
+      expect(screen.getByText('E1')).toBeInTheDocument()
+    })
+  })
+
   it('shows event frequency chart when events exist', async () => {
     const events = [
       {

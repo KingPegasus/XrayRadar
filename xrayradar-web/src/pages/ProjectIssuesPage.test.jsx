@@ -158,6 +158,22 @@ describe('ProjectIssuesPage', () => {
     })
   })
 
+  it('renders issues when frequency fetch fails (catch branch)', async () => {
+    const mockIssues = [
+      { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'Issue when frequency fails' },
+    ]
+    fetchJson
+      .mockResolvedValueOnce(mockIssues) // issues
+      .mockRejectedValueOnce(new Error('frequency failed')) // frequency
+
+    render(<ProjectIssuesPage projectId="123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/Issue when frequency fails/i)).toBeInTheDocument()
+  })
+
   it('navigates to issue detail on row click', async () => {
     const user = userEvent.setup()
     const mockIssues = [
@@ -205,7 +221,7 @@ describe('ProjectIssuesPage', () => {
     await user.click(backButton)
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard/projects')
     })
   })
 

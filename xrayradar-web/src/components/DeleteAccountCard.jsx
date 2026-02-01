@@ -57,18 +57,18 @@ export function DeleteAccountCard({ me }) {
   const verified = me?.email_verified
 
   return (
-    <div style={{ marginTop: 20 }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#fca5a5' }}>Danger Zone</div>
-      <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: 16, borderRadius: 8, border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+    <section className="pageSection">
+      <h2 className="pageSectionTitle" style={{ color: '#fca5a5' }}>Danger Zone</h2>
+      <div className="pageCard" style={{ background: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.35)' }}>
         {deletionRequest ? (
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 8, color: '#fca5a5' }}>
+            <div className="pageCardTitle" style={{ marginBottom: 8, color: '#fca5a5' }}>
               Account Deletion Requested
             </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+            <p className="pageCardText" style={{ marginBottom: 12 }}>
               Your account deletion request is pending review. An admin will process it and permanently delete your account and all data.
             </p>
-            <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+            <p className="pageCardText" style={{ fontSize: 12, marginBottom: 12 }}>
               Requested on: {new Date(deletionRequest.created_at).toLocaleDateString()}
               {deletionRequest.reason && (
                 <><br />Reason: {deletionRequest.reason}</>
@@ -86,20 +86,20 @@ export function DeleteAccountCard({ me }) {
           </div>
         ) : !verified ? (
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Delete Account</div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+            <div className="pageCardTitle" style={{ marginBottom: 8 }}>Delete Account</div>
+            <p className="pageCardText" style={{ marginBottom: 12 }}>
               Verify your email to request account deletion.
             </p>
           </div>
         ) : showConfirm ? (
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 8, color: '#fca5a5' }}>
+            <div className="pageCardTitle" style={{ marginBottom: 8, color: '#fca5a5' }}>
               Confirm Account Deletion
             </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+            <p className="pageCardText" style={{ marginBottom: 12 }}>
               This will request permanent deletion of your account and all associated data including:
             </p>
-            <ul style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, paddingLeft: 20 }}>
+            <ul className="pageCardText" style={{ marginBottom: 12, paddingLeft: 20 }}>
               <li>All your projects</li>
               <li>All events stored in your projects</li>
               <li>All your tokens</li>
@@ -143,8 +143,8 @@ export function DeleteAccountCard({ me }) {
           </div>
         ) : (
           <div>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Delete Account</div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
+            <div className="pageCardTitle" style={{ marginBottom: 8 }}>Delete Account</div>
+            <p className="pageCardText" style={{ marginBottom: 12 }}>
               Permanently delete your account and all associated data. This action cannot be undone.
             </p>
             <button
@@ -159,6 +159,6 @@ export function DeleteAccountCard({ me }) {
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }

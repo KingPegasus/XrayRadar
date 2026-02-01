@@ -54,51 +54,62 @@ export function ProjectsPage({ me }) {
   }
 
   return (
-    <div className="container" style={{ padding: '46px 0' }}>
-      <div className="panel" style={{ padding: 18 }}>
-        <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Projects</div>
-        <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
+    <div className="container page">
+      <header className="pageHeader">
+        <h1 className="pageTitle">Projects</h1>
+        <p className="pageSubtitle">
           Signed in as <code>{me?.email}</code>
+        </p>
+      </header>
+
+      <UsageWidget usage={usage} />
+
+      {!me?.email_verified && (
+        <div className="pageAlert">
+          Verify your email to create projects.
         </div>
-
-        <UsageWidget usage={usage} />
-
-        {!me?.email_verified && (
-          <div className="small" style={{ marginTop: 14, color: '#fbbf24' }}>
-            Verify your email to create projects.
+      )}
+      <form onSubmit={create} className="pageForm">
+        <div className="pageFormRow">
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <label className="fieldLabel">New project name</label>
+            <input
+              className="fieldInput"
+              style={{ marginTop: 6 }}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="New project name"
+              disabled={!me?.email_verified}
+            />
           </div>
-        )}
-        <form onSubmit={create} style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input
-            className="fieldInput"
-            style={{ flex: 1, minWidth: 240 }}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="New project name"
-            disabled={!me?.email_verified}
-          />
-          <button className="button buttonPrimary" type="submit" disabled={busy || !me?.email_verified}>
+          <button className="button buttonPrimary" type="submit" disabled={busy || !me?.email_verified} style={{ alignSelf: 'flex-end' }}>
             Create project
           </button>
-        </form>
-
+        </div>
         {error ? (
-          <div className="fieldError" role="alert" style={{ marginTop: 10 }}>
+          <div className="fieldError" role="alert">
             {error}
           </div>
         ) : null}
+      </form>
 
-        <div style={{ marginTop: 14 }} className="grid3">
+      <section className="pageSection">
+        <h2 className="pageSectionTitle">Your projects</h2>
+        <div className="grid3">
           {(projects || []).map((p) => (
-            <div key={p.id} className="card" style={{ cursor: 'pointer' }} onClick={() => navigate(`/dashboard/projects/${p.id}`)}>
-              <div className="cardTitle">{p.name}</div>
-              <div className="cardText" style={{ marginTop: 6 }}>
+            <div
+              key={p.id}
+              className="pageCard pageCardInteractive"
+              onClick={() => navigate(`/dashboard/projects/${p.id}`)}
+            >
+              <div className="pageCardTitle">{p.name}</div>
+              <div className="pageCardText">
                 Project ID: <code>{p.id}</code>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </section>
     </div>
   )
 }

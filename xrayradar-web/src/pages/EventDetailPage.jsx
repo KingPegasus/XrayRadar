@@ -19,9 +19,9 @@ export function EventDetailPage({ projectId, fingerprint, eventId }) {
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: '46px 0' }}>
-        <div className="panel" style={{ padding: 18 }}>
-          <div className="small" style={{ color: 'var(--muted)' }}>Loading event...</div>
+      <div className="container page">
+        <div className="pageCard">
+          <p className="pageEmpty" style={{ margin: 0 }}>Loading event…</p>
         </div>
       </div>
     )
@@ -29,12 +29,14 @@ export function EventDetailPage({ projectId, fingerprint, eventId }) {
 
   if (error) {
     return (
-      <div className="container" style={{ padding: '46px 0' }}>
-        <div className="panel" style={{ padding: 18 }}>
+      <div className="container page">
+        <div className="pageCard">
           <div className="fieldError" role="alert">{error}</div>
-          <button className="button" type="button" onClick={() => navigate(`/dashboard/projects/${projectId}/issues/${fingerprint}`)} style={{ marginTop: 10 }}>
-            Back to Issue
-          </button>
+          <div className="pageActions">
+            <button className="button" type="button" onClick={() => navigate(`/dashboard/projects/${projectId}/issues/${fingerprint}`)}>
+              Back to Issue
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -45,24 +47,22 @@ export function EventDetailPage({ projectId, fingerprint, eventId }) {
   }
 
   return (
-    <div className="container" style={{ padding: '46px 0' }}>
-      <div className="panel" style={{ padding: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
-          <div>
-            <div style={{ fontWeight: 900, letterSpacing: '-0.02em', fontSize: 22 }}>Event Details</div>
-            <div className="small" style={{ color: 'var(--muted)', marginTop: 8 }}>
-              ID: <code>{event.id}</code> • {new Date(event.timestamp).toLocaleString()}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="button" type="button" onClick={() => navigate(`/dashboard/projects/${projectId}/issues/${fingerprint}`)}>
-              Back to Issue
-            </button>
-          </div>
+    <div className="container page">
+      <header className="pageHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="pageTitle">Event Details</h1>
+          <p className="pageSubtitle">
+            ID: <code>{event.id}</code> • {new Date(event.timestamp).toLocaleString()}
+          </p>
         </div>
+        <div className="pageActions" style={{ marginTop: 0 }}>
+          <button className="button" type="button" onClick={() => navigate(`/dashboard/projects/${projectId}/issues/${fingerprint}`)}>
+            Back to Issue
+          </button>
+        </div>
+      </header>
 
-        <EventDetailView event={event} />
-      </div>
+      <EventDetailView event={event} />
     </div>
   )
 }

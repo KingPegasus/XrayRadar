@@ -119,7 +119,7 @@ describe('ProjectsPage', () => {
       expect(screen.getByText('Project 1')).toBeInTheDocument()
     })
 
-    const projectCard = screen.getByText('Project 1').closest('.card')
+    const projectCard = screen.getByText('Project 1').closest('.pageCard')
     await user.click(projectCard)
 
     expect(navigation.navigate).toHaveBeenCalledWith('/dashboard/projects/1')

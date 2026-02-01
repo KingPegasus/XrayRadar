@@ -216,3 +216,39 @@ class DeletionRequestOut(BaseModel):
 
 class AdminDeletionRequestOut(DeletionRequestOut):
     user_email: str
+
+
+class DashboardTotalsOut(BaseModel):
+    last_24h: int = 0
+    last_7d: int = 0
+    last_30d: int = 0
+
+
+class DashboardUniqueIssuesOut(BaseModel):
+    last_24h: int = 0
+    last_7d: int = 0
+    last_30d: int = 0
+
+
+class DashboardTrendOut(BaseModel):
+    current: int = 0
+    previous: int = 0
+    percent_change: float = 0.0
+    direction: str = "same"  # "up" | "down" | "same"
+
+
+class TopErrorOut(BaseModel):
+    fingerprint: str
+    message: str
+    count: int
+    project_id: int
+    project_name: str
+
+
+class DashboardStatsOut(BaseModel):
+    totals: DashboardTotalsOut
+    unique_issues: DashboardUniqueIssuesOut
+    trend_7d: DashboardTrendOut
+    trend_30d: DashboardTrendOut
+    top_5_errors: list[TopErrorOut]
+    trend_daily: dict[str, int] = {}  # YYYY-MM-DD -> count for chart

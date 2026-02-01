@@ -207,6 +207,35 @@ describe('TokensPage', () => {
     }, { timeout: 3000 })
   })
 
+  it('displays error when loadTokens fails', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve([])
+      if (url === '/api/user/tokens') return Promise.reject(new Error('Failed to load tokens'))
+      return Promise.resolve([]) // requests
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load tokens/i)).toBeInTheDocument()
+    }, { timeout: 3000 })
+  })
+
+  it('displays error when loadRequests fails', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve([])
+      if (url === '/api/user/tokens') return Promise.resolve([])
+      if (url === '/api/user/token-requests') return Promise.reject(new Error('Failed to load requests'))
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load requests/i)).toBeInTheDocument()
+    }, { timeout: 3000 })
+  })
+
   it('shows revoked tokens', async () => {
     const tokens = [
       {
