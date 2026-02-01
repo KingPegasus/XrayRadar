@@ -799,6 +799,46 @@ def test_store_event_level_not_error_skips_alerts(app_and_client_owned_project):
     assert "warning" not in r.json()
 
 
+def test_store_event_error_triggers_alert_email(app_and_client_owned_project):
+    """When error event is stored and alerts enabled, background task for email is scheduled."""
+    from unittest.mock import MagicMock, patch as mock_patch
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    _, client = app_and_client_owned_project
+    db = dbmod.SessionLocal()
+    try:
+        # Enable alerts for project 1
+        db.add(
+            models.ProjectAlertSettings(
+                project_id=1,
+                enabled=True,
+                level_filter="error",
+                cooldown_minutes=None,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    # Mock the send_alert_emails function to verify it's called via background task
+    mock_send = MagicMock()
+    with mock_patch("xrayradar_server.routers.api.send_alert_emails", mock_send):
+        r = client.post(
+            "/api/1/store/",
+            json={"message": "test error", "level": "error"},
+            headers={"X-Xrayradar-Token": "admin"},
+        )
+    assert r.status_code == 200
+    assert "id" in r.json()
+    # The background task should have been called
+    mock_send.assert_called_once()
+    call_kwargs = mock_send.call_args[1]
+    assert "owner@ingest.test" in call_kwargs["recipients"]
+    assert call_kwargs["project_name"] == "p1"
+
+
 def test_store_event_near_limit_returns_warning(app_and_client_owned_project):
     """When project owner is near limit, store returns 200 with warning in response."""
     import xrayradar_server.db as dbmod

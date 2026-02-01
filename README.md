@@ -4,22 +4,17 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 ## Test Coverage
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
-![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-99.13%25-brightgreen?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-100%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-99.06%25-brightgreen?style=flat-square)
 
 **Current Coverage:**
-- **Backend (Python)**: 99% - All tests passing ✓
-- **Frontend (React)**: 99.13% - All tests passing ✓
+- **Backend (Python)**: 100% - All tests passing ✓
+- **Frontend (React)**: 99.06% - All tests passing ✓
 
-> Coverage is automatically calculated in CI. To check locally:
-> - **Backend**: From the `xrayradar-server` root directory, run:
->   ```bash
->   uv run pytest --cov=src/xrayradar_server --cov-report=term
->   ```
-> - **Frontend**: From the `xrayradar-server` root directory, run:
->   ```bash
->   cd xrayradar-web && npm run test:coverage
->   ```
+> Coverage is calculated in CI. To check locally (from repo root):  
+> **Backend:** `uv run pytest --cov=src/xrayradar_server --cov-report=term`  
+> **Frontend:** `cd xrayradar-web && npm run test:coverage`  
+> For dev install and coverage XML, see **Test coverage** below.
 
 ## Security
 
@@ -67,7 +62,7 @@ If you prefer, you can also run with:
 
 ```bash
 export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
-uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001
+uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
 ```
 
 ### Run locally with Docker
@@ -110,6 +105,8 @@ If your Compose project name is different, the network name will be different to
 
 This project uses Alembic for schema migrations.
 
+**Prerequisite:** Postgres must be running (e.g. `docker compose up -d`) before running migrations. Otherwise you'll get "Connection refused" on `alembic upgrade head`.
+
 To apply migrations locally:
 
 **If using `uv` (recommended):**
@@ -128,10 +125,6 @@ alembic -c alembic.ini upgrade head
 
 **Note:** Always use `uv run alembic` (not the system `alembic` command) to ensure the correct SQLAlchemy version is used.
 
-**Available migrations:**
-- `0001_init` - Initial schema (projects, tokens, events, token_project_access, users)
-- `0002_user_projects_fingerprints` - User-owned projects, token requests, event fingerprints
-- `0003_project_alert_settings` - Project alert settings, additional recipients, alert cooldown
 
 ### Render.com
 
@@ -165,10 +158,10 @@ If you want the backend to serve the marketing site (non-Docker builds), set:
 
 - `XRAYRADAR_WEB_DIST=xrayradar-web/dist`
 
-Admin UI / GitHub OAuth (recommended in production):
+Admin UI / user sessions (recommended in production):
 
-- `XRAYRADAR_SESSION_SECRET`
-- `XRAYRADAR_ADMIN_EMAILS` (comma-separated allowlist)
+- `XRAYRADAR_SESSION_SECRET` — Used to sign session cookies (admin OAuth and user login/signup). Required for auth.
+- `XRAYRADAR_ADMIN_EMAILS` — Comma-separated allowlist for admin UI (GitHub OAuth).
 - `XRAYRADAR_GITHUB_CLIENT_ID`
 - `XRAYRADAR_GITHUB_CLIENT_SECRET`
 - `XRAYRADAR_GITHUB_REDIRECT_URI` (e.g. `https://<your-domain>/auth/github/callback`)
@@ -178,13 +171,13 @@ Cookie security note:
 - In production, serve the site over HTTPS and keep secure cookies enabled.
 - For local HTTP testing only, set `XRAYRADAR_COOKIE_SECURE=false` to avoid OAuth state-cookie issues.
 
-**Email alerts (optional):**
+**Email (optional):**
 
-- `RESEND_API_KEY` — Resend API key for sending alert emails. If unset, email alerts are disabled (no send, no error).
-- `RESEND_FROM_EMAIL` — From address for alert emails (e.g. `alerts@xrayradar.com`); must be a verified sending domain in Resend.
-- `XRAYRADAR_BASE_URL` — Base URL for links in alert emails (e.g. `https://xrayaradar.com`). Defaults to `http://localhost:8001` if unset.
+- `RESEND_API_KEY` — Resend API key. If unset, no emails are sent (verification, password reset, or alerts); the app continues to work.
+- `RESEND_FROM_EMAIL` — From address for all emails (e.g. `alerts@xrayradar.com`); must be a verified sending domain in Resend.
+- `XRAYRADAR_BASE_URL` — Base URL for links in emails (verification, password reset, alert links). Defaults to `http://localhost:8001` if unset. In production set to e.g. `https://xrayradar.com`.
 
-Leaving `RESEND_API_KEY` unset disables email alerts; event ingest continues to work normally.
+When Resend is not configured, signup and password reset still work; users just won't receive verification or reset emails.
 
 This avoids needing `psql` locally.
 
@@ -355,12 +348,11 @@ Body:
 
 ### Database migration note (existing databases)
 
-If you already have a database created before `tokens.email` was added, you can either run Alembic migrations (recommended) or apply the SQL manually.
-
-Apply migrations:
+If you already have a database created before a schema change, run Alembic migrations (recommended):
 
 ```bash
-alembic -c alembic.ini upgrade head
+export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@db:5432/xrayradar"
+uv run alembic -c alembic.ini upgrade head
 ```
 
 Manual SQL:
@@ -409,17 +401,24 @@ These endpoints support admin session cookies (from GitHub OAuth) or admin token
 
 ## Client signup and login
 
-The marketing site (`/`) includes signup and login functionality:
+The marketing site (`/`) includes signup and login:
 
 - **Signup**: Click "Choose Free" or "Choose Basic" in the Pricing section to open the signup modal
-- **Login**: Click "Sign in" in the top navbar to go to `/login`
+- **Login**: Click "Sign in" in the top navbar → `/login`
+- **Forgot password**: From the login page, use "Forgot password?" → `/forgot-password`. A reset link is sent by email (if Resend is configured).
+- **Reset password**: Users open the link from the email → `/reset-password?token=...` and set a new password. Links expire in 1 hour.
+- **Email verification**: After signup, users can verify their email via the link in the verification email → `/verify-email?token=...`
 
 Endpoints:
 
-- `POST /auth/signup` - Create a new user account
-- `POST /auth/login` - Sign in with email/password
-- `POST /auth/logout` - Sign out
-- `GET /api/me` - Get current user info (requires session cookie)
+- `POST /auth/signup` — Create a new user account
+- `POST /auth/login` — Sign in with email/password
+- `POST /auth/logout` — Sign out
+- `POST /auth/forgot-password` — Request a password reset email (body: `{"email":"..."}`). Always returns 200 to avoid email enumeration.
+- `POST /auth/reset-password` — Set new password with token from email (body: `{"token":"...","new_password":"..."}`)
+- `GET /auth/verify-email?token=...` — Verify email from signup/resend link
+- `POST /auth/resend-verification` — Resend verification email (requires session)
+- `GET /api/me` — Current user info (requires session cookie)
 
 ## Client dashboard
 

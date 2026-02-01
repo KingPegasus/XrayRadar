@@ -5,6 +5,8 @@ import { fetchMe } from './utils/api'
 import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { DashboardLayout } from './components/DashboardLayout'
 import { DashboardRouter } from './routes/DashboardRouter'
 import { SignupModal } from './components/SignupModal'
@@ -38,6 +40,14 @@ export default function App() {
 
   if (path === '/login') {
     return <LoginPage onLoggedIn={(m) => setMe(m)} />
+  }
+
+  if (path === '/forgot-password') {
+    return <ForgotPasswordPage />
+  }
+
+  if (path === '/reset-password') {
+    return <ResetPasswordPage />
   }
 
   const refreshMe = useCallback(() => fetchMe().then((m) => setMe(m)), [])

@@ -1,6 +1,6 @@
 import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from sqlalchemy import select
@@ -11,7 +11,7 @@ from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
 from ..db import get_db
 from ..deps import require_user
 from ..models import User
-from ..schemas import UserLogin, UserOut, UserSignup
+from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin, UserOut, UserSignup
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,38 @@ def _send_verification_email(email: str, token: str) -> None:
         logger.info("Verification email sent to %s", email)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send verification email to %s: %s", email, e)
+
+
+def _send_password_reset_email(email: str, token: str) -> None:
+    """Send password reset email via Resend. No-op if Resend not configured."""
+    if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
+        logger.warning("Resend not configured, skipping password reset email for %s", email)
+        return
+    try:
+        import resend
+        resend.api_key = RESEND_API_KEY
+        reset_link = f"{XRAYRADAR_BASE_URL.rstrip('/')}/reset-password?token={token}"
+        subject = "[XrayRadar] Reset your password"
+        html = f"""
+        <p>You requested a password reset for your XrayRadar account.</p>
+        <p>Click the link below to set a new password:</p>
+        <p><a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background: #4f7cff; color: white; text-decoration: none; border-radius: 6px;">Reset Password</a></p>
+        <p>Or copy and paste this URL into your browser:</p>
+        <p><a href="{reset_link}">{reset_link}</a></p>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request a reset, you can ignore this email.</p>
+        """
+        resend.Emails.send(
+            {
+                "from": RESEND_FROM_EMAIL,
+                "to": [email],
+                "subject": subject,
+                "html": html,
+            }
+        )
+        logger.info("Password reset email sent to %s", email)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Failed to send password reset email to %s: %s", email, e)
 
 
 @router.post("/auth/logout")
@@ -158,6 +190,60 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
         email_verified=row.email_verified,
         created_at=row.created_at,
     )
+
+
+@router.post("/auth/forgot-password")
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Request a password reset. Always returns 200 to avoid email enumeration."""
+    email = (payload.email or "").strip().lower()
+    if not email or "@" not in email:
+        return {"ok": True, "message": "If an account exists, you will receive a reset link."}
+
+    user = db.execute(select(User).where(User.email == email)).scalars().first()
+    if user is None:
+        return {"ok": True, "message": "If an account exists, you will receive a reset link."}
+
+    token = _generate_verification_token()
+    expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+    user.password_reset_token = token
+    user.password_reset_expires_at = expires_at
+    db.commit()
+
+    background_tasks.add_task(_send_password_reset_email, email, token)
+    return {"ok": True, "message": "If an account exists, you will receive a reset link."}
+
+
+@router.post("/auth/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+    """Reset password using the token from the reset email."""
+    token = (payload.token or "").strip()
+    if not token or len(token) < 10:  # pragma: no cover - Pydantic validates min_length=10
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user = db.execute(
+        select(User).where(User.password_reset_token == token)
+    ).scalars().first()
+
+    if user is None:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if user.password_reset_expires_at is None or user.password_reset_expires_at < now:
+        user.password_reset_token = None
+        user.password_reset_expires_at = None
+        db.commit()
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    user.password_hash = hash_password(payload.new_password)
+    user.password_reset_token = None
+    user.password_reset_expires_at = None
+    db.commit()
+
+    return {"ok": True, "message": "Password has been reset. You can sign in with your new password."}
 
 
 @router.get("/auth/verify-email")

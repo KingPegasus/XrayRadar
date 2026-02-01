@@ -277,6 +277,56 @@ describe('App', () => {
     })
   })
 
+  it('renders ForgotPasswordPage when path is /forgot-password', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/forgot-password',
+        href: '/forgot-password',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Forgot password/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/you@company.com/i)).toBeInTheDocument()
+    })
+  })
+
+  it('renders ResetPasswordPage when path is /reset-password', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/reset-password',
+        href: '/reset-password',
+        search: '?token=abc123',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Set new password/i)).toBeInTheDocument()
+    })
+  })
+
   it('renders VerifyEmailPage when path is /verify-email', async () => {
     Object.defineProperty(window, 'location', {
       value: {

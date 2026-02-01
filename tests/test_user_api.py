@@ -1113,6 +1113,58 @@ def test_user_alert_settings_other_project_404(app_and_client_with_user):
     assert r2.status_code == 404
 
 
+def test_user_update_alert_settings_level_filter(app_and_client_with_user):
+    """PATCH alert-settings with level_filter updates it"""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={"enabled": True, "level_filter": "warning"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["level_filter"] == "warning"
+
+    r2 = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r2.status_code == 200
+    assert r2.json()["level_filter"] == "warning"
+
+
+def test_user_update_alert_settings_replace_recipients(app_and_client_with_user):
+    """PATCH alert-settings replaces existing recipients"""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+
+    # First set some recipients
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={"additional_emails": ["old1@x.com", "old2@x.com"]},
+    )
+    assert r.status_code == 200
+    assert set(r.json()["additional_emails"]) == {"old1@x.com", "old2@x.com"}
+
+    # Replace with new recipients (deletes old, inserts new)
+    r2 = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={"additional_emails": ["new@x.com"]},
+    )
+    assert r2.status_code == 200
+    assert r2.json()["additional_emails"] == ["new@x.com"]
+
+    # Verify old ones are gone
+    r3 = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r3.status_code == 200
+    assert "old1@x.com" not in r3.json()["additional_emails"]
+    assert "old2@x.com" not in r3.json()["additional_emails"]
+
+
 def test_user_deletion_request_flow(app_and_client_with_user):
     """Request deletion, get request, cancel request."""
     mainmod, client, user = app_and_client_with_user

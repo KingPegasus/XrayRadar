@@ -70,6 +70,34 @@ describe('TokensPage', () => {
     })
   })
 
+  it('creates token request with note', async () => {
+    const user = userEvent.setup()
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ id: 1, name: 'New Token' })
+      .mockResolvedValueOnce([])
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/e.g., Production API/i)).toBeInTheDocument()
+    })
+
+    await user.type(screen.getByPlaceholderText(/e.g., Production API/i), 'New Token')
+    await user.type(screen.getByPlaceholderText(/Additional context for the admin/i), 'For production')
+    await user.click(screen.getByRole('button', { name: /Request token/i }))
+
+    await waitFor(() => {
+      expect(api.fetchJson).toHaveBeenCalledWith('/api/user/token-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'New Token', note: 'For production' }),
+      })
+    })
+  })
+
   it('creates a token request', async () => {
     const user = userEvent.setup()
     api.fetchJson
@@ -549,6 +577,19 @@ describe('TokensPage', () => {
     expect(projectNameBadges.length).toBe(0)
   })
 
+  it('handles non-array tokens response', async () => {
+    api.fetchJson
+      .mockResolvedValueOnce([]) // projects
+      .mockResolvedValueOnce({ invalid: true }) // tokens returns object, not array
+      .mockResolvedValueOnce([]) // requests
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/No tokens yet/i)).toBeInTheDocument()
+    })
+  })
+
   it('shows verify email banner when not verified', async () => {
     api.fetchJson
       .mockResolvedValueOnce([]) // projects
@@ -583,6 +624,46 @@ describe('TokensPage', () => {
     await waitFor(() => {
       expect(screen.getByText('secret-abc-123')).toBeInTheDocument()
     })
+  })
+
+  it('shows no tokens when tokens is empty array', async () => {
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/No tokens yet/i)).toBeInTheDocument()
+    })
+  })
+
+  it('prevents double token request submission', async () => {
+    const user = userEvent.setup()
+    let requestCount = 0
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects' || url === '/api/user/tokens' || url === '/api/user/token-requests') {
+        if (!opts?.method) return Promise.resolve([])
+      }
+      if (opts?.method === 'POST' && url === '/api/user/token-requests') {
+        requestCount++
+        return new Promise(resolve => setTimeout(() => resolve({ id: 1 }), 100))
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/e.g., Production API/i)).toBeInTheDocument())
+
+    await user.type(screen.getByPlaceholderText(/e.g., Production API/i), 'New Token')
+    const btn = screen.getByRole('button', { name: /Request token/i })
+    await user.click(btn)
+    await user.click(btn)
+
+    await new Promise(r => setTimeout(r, 150))
+    expect(requestCount).toBe(1)
   })
 
   it('collapses expanded token when clicking Hide button', async () => {

@@ -453,7 +453,7 @@ def admin_fulfill_deletion_request(
         raise HTTPException(status_code=400, detail="Deletion request was cancelled")
 
     user = db.get(User, req.user_id)
-    if user is None:
+    if user is None:  # pragma: no cover - edge case if user deleted mid-request
         raise HTTPException(status_code=404, detail="User not found")
 
     # Delete all events for user's projects

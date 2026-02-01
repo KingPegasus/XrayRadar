@@ -111,4 +111,29 @@ describe('VerifyEmailPage', () => {
       expect(screen.getByText(/Network error/i)).toBeInTheDocument()
     })
   })
+
+  it('navigates to dashboard on Go to Dashboard click after error', async () => {
+    Object.defineProperty(window, 'location', {
+      value: { search: '?token=bad-token', pathname: '/verify-email' },
+      writable: true,
+      configurable: true,
+    })
+
+    global.fetch = vi.fn()
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ detail: 'Invalid token' }),
+    })
+
+    const user = userEvent.setup()
+    render(<VerifyEmailPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Verification Failed/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Go to Dashboard/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Go to Dashboard/i }))
+    expect(navigation.navigate).toHaveBeenCalledWith('/dashboard')
+  })
 })

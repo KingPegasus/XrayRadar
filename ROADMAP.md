@@ -13,7 +13,7 @@ _Features that are planned but not yet started._
    - Send verification email with confirmation link
    - Prevent unverified accounts from accessing the platform
 
-2. **Password reset flow**
+2. **Password reset flow** ✅
    - Allow users to reset forgotten passwords
    - Send password reset email with secure token
    - Implement secure password reset endpoint
