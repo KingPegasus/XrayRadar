@@ -179,6 +179,15 @@ Cookie security note:
 
 When Resend is not configured, signup and password reset still work; users just won't receive verification or reset emails.
 
+**Rate limiting (optional):**
+
+Public endpoints are rate limited to reduce abuse and brute force. Limits are configurable via environment variables:
+
+- `XRAYRADAR_RATE_LIMIT_AUTH` — Auth endpoints (signup, login, forgot-password, reset-password, verify-email, resend-verification) per IP. Default: `5/minute`. Format: `N/minute`, `N/hour`, or `N/day`.
+- `XRAYRADAR_RATE_LIMIT_EVENT_INGEST` — Event ingestion (`POST /api/{project_id}/store/`) per API token. Default: `100/minute`.
+
+When a limit is exceeded, the server returns `429 Too Many Requests` with an error message.
+
 This avoids needing `psql` locally.
 
 ## Dependency locking (uv)

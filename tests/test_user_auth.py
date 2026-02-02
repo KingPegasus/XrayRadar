@@ -5,10 +5,60 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+# Unique IP per fixture so rate limiter bucket is isolated from test_rate_limit (2/min).
+_ip_counter = 0
+
+
+def _unique_auth_ip():
+    global _ip_counter
+    _ip_counter += 1
+    return f"10.1.0.{(_ip_counter % 254) + 1}"
+
+
+class _ClientWithIP:
+    """Wraps TestClient and adds X-Forwarded-For to every request so auth tests get their own rate limit bucket."""
+
+    def __init__(self, client: TestClient, ip: str):
+        self._client = client
+        self._headers = {"X-Forwarded-For": ip}
+
+    def _merge_headers(self, kwargs):
+        headers = dict(self._headers)
+        headers.update(kwargs.pop("headers", {}))
+        kwargs["headers"] = headers
+        return kwargs
+
+    def post(self, url, **kwargs):
+        return self._client.post(url, **self._merge_headers(kwargs))
+
+    def get(self, url, **kwargs):
+        return self._client.get(url, **self._merge_headers(kwargs))
+
+    def put(self, url, **kwargs):
+        return self._client.put(url, **self._merge_headers(kwargs))
+
+    def delete(self, url, **kwargs):
+        return self._client.delete(url, **self._merge_headers(kwargs))
+
+    def __getattr__(self, name):
+        return getattr(self._client, name)
+
+
 @pytest.fixture()
 def app_and_client(database_url, monkeypatch, request):
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "1000/minute")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "10000/minute")
+    import xrayradar_server.constants as constants_mod
+    importlib.reload(constants_mod)
+    for mod in (
+        "xrayradar_server.main",
+        "xrayradar_server.routers.user_auth",
+        "xrayradar_server.routers.api",
+        "xrayradar_server.rate_limit",
+    ):
+        sys.modules.pop(mod, None)
 
     import xrayradar_server.db as dbmod
 
@@ -23,9 +73,10 @@ def app_and_client(database_url, monkeypatch, request):
 
     importlib.reload(mainmod)
 
-    client = TestClient(mainmod.app)
-    client.__enter__()
-    request.addfinalizer(lambda: client.__exit__(None, None, None))
+    raw_client = TestClient(mainmod.app)
+    raw_client.__enter__()
+    request.addfinalizer(lambda: raw_client.__exit__(None, None, None))
+    client = _ClientWithIP(raw_client, _unique_auth_ip())
     return mainmod, client
 
 
@@ -324,25 +375,18 @@ def test_signup_resend_raises_swallowed(app_and_client):
 
 
 def test_signup_sends_verification_email_success(app_and_client):
-    """Signup sends verification email when Resend is configured and succeeds."""
-    from unittest.mock import patch, MagicMock
+    """Signup succeeds when Resend is configured (verification email queued in background)."""
+    from unittest.mock import patch
 
-    mock_resend = MagicMock()
-    mock_resend.Emails.send = MagicMock(return_value={"id": "123"})
-    with patch.dict("sys.modules", {"resend": mock_resend}):
-        with patch("xrayradar_server.routers.user_auth.RESEND_API_KEY", "key"):
-            with patch("xrayradar_server.routers.user_auth.RESEND_FROM_EMAIL", "from@x.com"):
-                _, client = app_and_client
-                r = client.post(
-                    "/auth/signup",
-                    json={"email": "verifyemail@example.com", "password": "password123", "plan": "Free"},
-                )
-                assert r.status_code == 200
-                assert r.json()["email"] == "verifyemail@example.com"
-                mock_resend.Emails.send.assert_called_once()
-                call_args = mock_resend.Emails.send.call_args[0][0]
-                assert call_args["to"] == ["verifyemail@example.com"]
-                assert "verify" in call_args["subject"].lower()
+    with patch("xrayradar_server.routers.user_auth.RESEND_API_KEY", "key"):
+        with patch("xrayradar_server.routers.user_auth.RESEND_FROM_EMAIL", "from@x.com"):
+            _, client = app_and_client
+            r = client.post(
+                "/auth/signup",
+                json={"email": "verifyemail@example.com", "password": "password123", "plan": "Free"},
+            )
+            assert r.status_code == 200
+            assert r.json()["email"] == "verifyemail@example.com"
 
 
 def test_forgot_password_returns_200_always(app_and_client):
@@ -512,9 +556,7 @@ def test_verify_email_token_not_found(app_and_client):
 
 
 def test_forgot_password_sends_email_with_resend(app_and_client):
-    """forgot_password sends email via Resend when configured."""
-    from unittest.mock import patch, MagicMock
-
+    """forgot_password returns 200 for existing user (email sent in background when Resend configured)."""
     _, client = app_and_client
     r = client.post(
         "/auth/signup",
@@ -522,17 +564,9 @@ def test_forgot_password_sends_email_with_resend(app_and_client):
     )
     assert r.status_code == 200
 
-    mock_resend = MagicMock()
-    mock_resend.Emails.send = MagicMock(return_value={"id": "123"})
-    with patch.dict("sys.modules", {"resend": mock_resend}):
-        with patch("xrayradar_server.routers.user_auth.RESEND_API_KEY", "key"):
-            with patch("xrayradar_server.routers.user_auth.RESEND_FROM_EMAIL", "from@x.com"):
-                r = client.post("/auth/forgot-password", json={"email": "resetemail@example.com"})
-                assert r.status_code == 200
-                mock_resend.Emails.send.assert_called_once()
-                call_args = mock_resend.Emails.send.call_args[0][0]
-                assert call_args["to"] == ["resetemail@example.com"]
-                assert "reset" in call_args["subject"].lower()
+    r = client.post("/auth/forgot-password", json={"email": "resetemail@example.com"})
+    assert r.status_code == 200
+    # Password reset email is queued in background when RESEND_* are set; we assert the handler succeeds
 
 
 def test_forgot_password_resend_error_swallowed(app_and_client):
@@ -572,3 +606,74 @@ def test_forgot_password_resend_not_configured(app_and_client, monkeypatch):
 
     r = client.post("/auth/forgot-password", json={"email": "noresendreset@example.com"})
     assert r.status_code == 200
+
+
+def test_send_verification_email_resend_configured_success():
+    """_send_verification_email calls resend.Emails.send when RESEND is configured (covers 32-54)."""
+    from unittest.mock import MagicMock, patch
+
+    import xrayradar_server.routers.user_auth as user_auth_mod
+
+    mock_send = MagicMock(return_value={"id": "msg_123"})
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = mock_send
+    with patch.object(user_auth_mod, "RESEND_API_KEY", "key"):
+        with patch.object(user_auth_mod, "RESEND_FROM_EMAIL", "from@test.com"):
+            with patch.dict("sys.modules", {"resend": mock_resend}):
+                importlib.invalidate_caches()
+                user_auth_mod._send_verification_email("user@example.com", "token123")
+    mock_send.assert_called_once()
+    call_kw = mock_send.call_args[0][0]
+    assert call_kw["to"] == ["user@example.com"]
+    assert "verify" in call_kw["subject"].lower()
+    assert "token123" in call_kw["html"]
+
+
+def test_send_verification_email_resend_raises_logs_warning():
+    """_send_verification_email logs and swallows when resend.Emails.send raises (covers 55-56)."""
+    from unittest.mock import MagicMock, patch
+
+    import xrayradar_server.routers.user_auth as user_auth_mod
+
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(side_effect=RuntimeError("API error"))
+    with patch.object(user_auth_mod, "RESEND_API_KEY", "key"):
+        with patch.object(user_auth_mod, "RESEND_FROM_EMAIL", "from@test.com"):
+            with patch.dict("sys.modules", {"resend": mock_resend}):
+                importlib.invalidate_caches()
+                user_auth_mod._send_verification_email("u@example.com", "t")  # no exception
+
+
+def test_send_password_reset_email_resend_configured_success():
+    """_send_password_reset_email calls resend.Emails.send when RESEND is configured (covers 64-86)."""
+    from unittest.mock import MagicMock, patch
+
+    import xrayradar_server.routers.user_auth as user_auth_mod
+
+    mock_send = MagicMock(return_value={"id": "msg_456"})
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = mock_send
+    with patch.object(user_auth_mod, "RESEND_API_KEY", "key"):
+        with patch.object(user_auth_mod, "RESEND_FROM_EMAIL", "from@test.com"):
+            with patch.dict("sys.modules", {"resend": mock_resend}):
+                importlib.invalidate_caches()
+                user_auth_mod._send_password_reset_email("reset@example.com", "token456")
+    mock_send.assert_called_once()
+    call_kw = mock_send.call_args[0][0]
+    assert call_kw["to"] == ["reset@example.com"]
+    assert "reset" in call_kw["subject"].lower()
+
+
+def test_send_password_reset_email_resend_raises_logs_warning():
+    """_send_password_reset_email logs and swallows when resend raises (covers 87-88)."""
+    from unittest.mock import MagicMock, patch
+
+    import xrayradar_server.routers.user_auth as user_auth_mod
+
+    mock_resend = MagicMock()
+    mock_resend.Emails.send = MagicMock(side_effect=Exception("Network error"))
+    with patch.object(user_auth_mod, "RESEND_API_KEY", "key"):
+        with patch.object(user_auth_mod, "RESEND_FROM_EMAIL", "from@test.com"):
+            with patch.dict("sys.modules", {"resend": mock_resend}):
+                importlib.invalidate_caches()
+                user_auth_mod._send_password_reset_email("u@example.com", "t")  # no exception

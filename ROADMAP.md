@@ -18,9 +18,15 @@ _Features that have been implemented._
    - Send password reset email with secure token
    - Implement secure password reset endpoint
 
+3. **Rate limiting** ✅
+   - IP-based rate limiting for auth endpoints (signup, login, forgot-password, reset-password, verify-email, resend-verification)
+   - Token-based rate limiting for event ingestion (`POST /api/{project_id}/store/`)
+   - Configurable via `XRAYRADAR_RATE_LIMIT_AUTH` (default: 5/minute) and `XRAYRADAR_RATE_LIMIT_EVENT_INGEST` (default: 100/minute)
+   - Returns 429 Too Many Requests when limit exceeded (slowapi)
+
 ### Dashboard & Analytics
 
-3. **Dashboard graphs for showing error statistics** ✅
+4. **Dashboard graphs for showing error statistics** ✅
    - Total errors (last 24h / 7d / 30d)
    - Unique issues count
    - Error trend graph (up/down vs previous period)
@@ -28,21 +34,21 @@ _Features that have been implemented._
 
 ### Notifications
 
-4. **Email alerts for errors** ✅
+5. **Email alerts for errors** ✅
    - Configure email notifications for error events
    - Set up alerting rules and thresholds
    - Send email notifications when errors occur
 
 ### Usage & Limits
 
-5. **Usage limiting for events stored per basic or free account** ✅
+6. **Usage limiting for events stored per basic or free account** ✅
    - Implement event storage limits for free/basic tiers
    - Track event count per account (all event levels: error, warning, info, debug)
    - Enforce limits and notify users when approaching limits
 
 ### Context & Debugging
 
-6. **Breadcrumbs** ✅
+7. **Breadcrumbs** ✅
    - Capture trail of events leading to error (SDK buffer → payload → storage)
    - Automatic breadcrumbs: **HTTP/network requests** via Django/FastAPI/Flask middleware (one breadcrumb per request)
    - Custom breadcrumbs via SDK: `add_breadcrumb()`, `clear_breadcrumbs()`, `max_breadcrumbs` config
@@ -109,7 +115,7 @@ _Features that are planned for upcoming releases, organized by priority._
 
 #### Context & Debugging
 
-7. ~~**Breadcrumbs**~~ ✅ _Done — see [Completed](#6-breadcrumbs-)_
+7. ~~**Breadcrumbs**~~ ✅ _Done — see [Completed](#7-breadcrumbs-)_
     - _Remaining optional: JS SDK for automatic clicks/navigation/console in browser._
 
 8. **User context & impact analysis**

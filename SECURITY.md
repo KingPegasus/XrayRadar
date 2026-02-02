@@ -74,9 +74,8 @@ cd xrayradar-web && npm audit
 - **Recommendation**: If API needs to be accessed from different origins, configure CORS appropriately
 
 ### 2. Rate Limiting
-- **Status**: No rate limiting implemented
-- **Impact**: Vulnerable to brute force attacks on login/signup endpoints
-- **Recommendation**: Consider adding rate limiting middleware (e.g., `slowapi`)
+- **Status**: Implemented (slowapi)
+- **Details**: Public endpoints are rate limited. Auth endpoints (signup, login, forgot-password, reset-password, verify-email, resend-verification) are limited per client IP. Event ingestion (`POST /api/{project_id}/store/`) is limited per API token. Limits are configurable via `XRAYRADAR_RATE_LIMIT_AUTH` (default: 5/minute) and `XRAYRADAR_RATE_LIMIT_EVENT_INGEST` (default: 100/minute). When exceeded, the server returns 429 Too Many Requests.
 
 ### 3. Bandit Findings
 The following low-severity findings are expected and safe:
@@ -99,7 +98,7 @@ Before deploying to production:
 - [ ] Configure database with strong credentials
 - [ ] Enable database connection encryption (SSL/TLS)
 - [ ] Set up proper firewall rules
-- [ ] Configure rate limiting for public endpoints
+- [x] Configure rate limiting for public endpoints (defaults: 5/min auth per IP, 100/min event ingest per token)
 - [ ] Set up monitoring and alerting for security events
 - [ ] Regular security audits (run `./scripts/security_audit.sh`)
 

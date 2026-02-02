@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..constants import RATE_LIMIT_EVENT_INGEST
 from ..db import get_db
+from ..rate_limit import get_rate_limit_key_token, limiter
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
 from ..fingerprinting import compute_fingerprint
 from ..models import Event, Project, Token
@@ -79,7 +81,9 @@ def create_project(
 
 
 @router.post("/api/{project_id}/store/", response_model=dict)
+@limiter.limit(RATE_LIMIT_EVENT_INGEST, key_func=get_rate_limit_key_token)
 def store_event(
+    request: Request,
     project_id: int,
     event: dict,
     background_tasks: BackgroundTasks,

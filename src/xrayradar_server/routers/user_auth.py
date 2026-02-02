@@ -7,8 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
-from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
+from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, RATE_LIMIT_AUTH, XRAYRADAR_BASE_URL
 from ..db import get_db
+from ..rate_limit import get_rate_limit_key_auth, limiter
 from ..deps import require_user
 from ..models import User
 from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin, UserOut, UserSignup
@@ -95,7 +96,9 @@ def logout(_: Request, response: Response) -> dict:
 
 
 @router.post("/auth/signup", response_model=UserOut)
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def signup(
+    request: Request,
     payload: UserSignup,
     response: Response,
     background_tasks: BackgroundTasks,
@@ -155,7 +158,13 @@ def signup(
 
 
 @router.post("/auth/login", response_model=UserOut)
-def login(payload: UserLogin, response: Response, db: Session = Depends(get_db)) -> UserOut:
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def login(
+    request: Request,
+    payload: UserLogin,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> UserOut:
     email = (payload.email or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Invalid email")
@@ -193,7 +202,9 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
 
 
 @router.post("/auth/forgot-password")
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -218,7 +229,12 @@ def forgot_password(
 
 
 @router.post("/auth/reset-password")
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def reset_password(
+    request: Request,
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
     """Reset password using the token from the reset email."""
     token = (payload.token or "").strip()
     if not token or len(token) < 10:  # pragma: no cover - Pydantic validates min_length=10
@@ -247,7 +263,12 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 
 
 @router.get("/auth/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)) -> dict:
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def verify_email(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+) -> dict:
     """Verify email using the token from the verification email."""
     if not token or len(token) < 10:
         raise HTTPException(status_code=400, detail="Invalid verification token")
@@ -270,7 +291,9 @@ def verify_email(token: str, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/auth/resend-verification")
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def resend_verification(
+    request: Request,
     background_tasks: BackgroundTasks,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),

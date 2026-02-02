@@ -11,6 +11,17 @@ from starlette.testclient import TestClient
 @pytest.fixture()
 def client_and_db(database_url, monkeypatch, request):
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "1000/minute")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "10000/minute")
+    import xrayradar_server.constants as constants_mod
+    importlib.reload(constants_mod)
+    for mod in (
+        "xrayradar_server.main",
+        "xrayradar_server.routers.user_auth",
+        "xrayradar_server.routers.api",
+        "xrayradar_server.rate_limit",
+    ):
+        sys.modules.pop(mod, None)
 
     import xrayradar_server.db as dbmod
 
@@ -74,11 +85,14 @@ def test_require_user_unauthorized_when_user_row_missing(client_and_db, monkeypa
 
 def test_user_auth_invalid_inputs(client_and_db):
     client, _, _, _ = client_and_db
+    # Use a unique IP so rate limit from test_00_rate_limit (2/min) does not cause 429
+    headers = {"X-Forwarded-For": "10.3.0.1"}
 
     r = client.post(
         "/auth/signup",
         json={"email": "badexample.com",
               "password": "password1", "plan": "Free"},
+        headers=headers,
     )
     assert r.status_code == 400
 
@@ -86,10 +100,11 @@ def test_user_auth_invalid_inputs(client_and_db):
         "/auth/signup",
         json={"email": "a@example.com",
               "password": "password1", "plan": "Invalid"},
+        headers=headers,
     )
     assert r.status_code == 400
 
-    r = client.post("/auth/login", json={"email": "   ", "password": "pw"})
+    r = client.post("/auth/login", json={"email": "   ", "password": "pw"}, headers=headers)
     assert r.status_code == 400
 
 

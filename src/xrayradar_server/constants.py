@@ -28,3 +28,6 @@ MIN_COOLDOWN_MINUTES_BY_PLAN = {
     "Pro": 1,
 }
 
+# Rate limiting (requests per window; format: "N/minute", "N/hour", "N/day")
+RATE_LIMIT_AUTH = os.environ.get("XRAYRADAR_RATE_LIMIT_AUTH", "5/minute")
+RATE_LIMIT_EVENT_INGEST = os.environ.get("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "100/minute")
