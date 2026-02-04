@@ -37,6 +37,8 @@ def app_and_client(database_url, monkeypatch, request):
     try:
         db.query(models.TokenProjectAccess).delete()
         db.query(models.Event).delete()
+        if hasattr(models, "EmailLog"):
+            db.query(models.EmailLog).delete()
         if hasattr(models, "AlertCooldown"):
             db.query(models.AlertCooldown).delete()
         if hasattr(models, "ProjectAlertRecipient"):
@@ -91,11 +93,18 @@ def test_admin_ui_html_structure(app_and_client, monkeypatch):
     assert 'id="logout"' in html
 
     # Check navigation
+    assert 'data-view="dashboard"' in html
     assert 'data-view="tokens"' in html
     assert 'data-view="requests"' in html
     assert 'data-view="users"' in html
     assert 'data-view="deletions"' in html
     assert 'data-view="logs"' in html
+
+    # Check dashboard view
+    assert 'id="view_dashboard"' in html
+    assert 'id="dashboard_err"' in html
+    assert 'id="dashboard_stats"' in html
+    assert "System Statistics" in html
 
     # Check main views
     assert 'id="view_tokens"' in html
@@ -264,13 +273,14 @@ def test_admin_ui_navigation_items(app_and_client, monkeypatch):
     html = r.text
 
     # Check navigation items have required attributes
-    nav_items = ["tokens", "requests", "users", "deletions", "logs"]
+    nav_items = ["dashboard", "tokens", "requests", "users", "deletions", "logs"]
     for view in nav_items:
         assert f'data-view="{view}"' in html
         assert 'role="link"' in html
         assert 'tabindex="0"' in html
 
     # Check navigation labels
+    assert "Dashboard" in html
     assert "Tokens" in html
     assert "Token requests" in html
     assert "Users" in html
@@ -352,3 +362,32 @@ def test_admin_ui_modal_present(app_and_client, monkeypatch):
     assert 'id="logs_copy"' in html
     assert 'id="logs_payload"' in html
     assert 'id="logs_modal_meta"' in html
+
+
+def test_admin_ui_dashboard_view(app_and_client, monkeypatch):
+    """Test that dashboard view is present and is the default view."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/admin")
+    assert r.status_code == 200
+    html = r.text
+
+    # Verify dashboard view HTML is present
+    assert 'id="view_dashboard"' in html
+    assert 'id="dashboard_err"' in html
+    assert 'id="dashboard_stats"' in html
+    assert "System Statistics" in html
+
+    # Verify dashboard navigation item exists
+    assert 'data-view="dashboard"' in html
+    assert "Dashboard" in html
+    assert "System statistics" in html
+
+    # Verify dashboard is not hidden (should be default view)
+    # The view_dashboard should not have the 'hidden' class initially
+    # (it's added/removed by JavaScript, but the HTML should not have it)
+    assert 'id="view_dashboard" class="view"' in html or 'id="view_dashboard"' in html

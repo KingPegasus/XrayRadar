@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
+from .db import SessionLocal
+from .email_log import log_email
 from .models import (
     AlertCooldown,
     Project,
@@ -99,6 +101,8 @@ def send_alert_emails(
         return
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         return
+    
+    db = SessionLocal()
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -116,5 +120,20 @@ def send_alert_emails(
                 "html": html,
             }
         )
+        # Log successful emails (one per recipient)
+        for recipient in recipients:
+            log_email(db, "error_alert", recipient, success=True, project_id=project_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send alert emails: %s", e)
+        # Log failed emails (one per recipient)
+        for recipient in recipients:
+            log_email(
+                db,
+                "error_alert",
+                recipient,
+                success=False,
+                project_id=project_id,
+                error_message=str(e),
+            )
+    finally:
+        db.close()

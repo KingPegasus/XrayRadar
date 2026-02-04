@@ -34,6 +34,8 @@ def app_and_client(database_url, monkeypatch, request):
     db = dbmod.SessionLocal()
     try:
         # Clean up
+        if hasattr(models, "EmailLog"):
+            db.query(models.EmailLog).delete()
         db.query(models.TokenProjectAccess).delete()
         db.query(models.Event).delete()
         db.query(models.TokenRequest).delete()
@@ -1246,3 +1248,141 @@ def test_admin_fulfill_deletion_request_cancelled(app_and_client, monkeypatch):
     r = client.post(f"/api/admin/deletion-requests/{request_id}/fulfill")
     assert r.status_code == 400
     assert "cancelled" in r.json().get("detail", "").lower()
+
+
+# ============================================================================
+# Admin Stats Tests
+# ============================================================================
+
+
+def test_admin_get_stats_requires_auth(app_and_client):
+    """Test that getting stats requires admin authentication."""
+    _, client = app_and_client
+    r = client.get("/api/admin/stats")
+    assert r.status_code == 401
+
+
+def test_admin_get_stats_empty(app_and_client, monkeypatch):
+    """Test getting stats with empty database."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    r = client.get("/api/admin/stats")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["projects_total"] == 1  # Test project from fixture
+    assert data["tokens_total"] == 1  # Admin token from fixture
+    assert data["tokens_active"] == 1
+    assert data["tokens_revoked"] == 0
+    assert data["users_free"] == 0
+    assert data["users_basic"] == 0
+    assert data["users_pro"] == 0
+    assert data["events_total"] == 0
+    assert data["emails_total"] == 0
+    assert data["emails_verification"] == 0
+    assert data["emails_password_reset"] == 0
+    assert data["emails_error_alert"] == 0
+    assert data["emails_failed"] == 0
+
+
+def test_admin_get_stats_with_data(app_and_client, monkeypatch):
+    """Test getting stats with sample data."""
+    _, client = app_and_client
+    monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
+    _set_admin_session(client, secret="secret", email="admin@example.com")
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+    db = dbmod.SessionLocal()
+    try:
+        # Create users with different plans
+        user1 = models.User(email="free@example.com", password_hash="hash", plan="Free")
+        user2 = models.User(email="basic@example.com", password_hash="hash", plan="Basic")
+        user3 = models.User(email="pro@example.com", password_hash="hash", plan="Pro")
+        db.add(user1)
+        db.add(user2)
+        db.add(user3)
+
+        # Create additional projects
+        project2 = models.Project(id=2, name="Project 2")
+        project3 = models.Project(id=3, name="Project 3")
+        db.add(project2)
+        db.add(project3)
+
+        # Create tokens (one active, one revoked)
+        token1 = models.Token(id=2, name="token1", token="token1", is_admin=False)
+        token2 = models.Token(
+            id=3,
+            name="token2",
+            token="token2",
+            is_admin=False,
+            revoked_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        db.add(token1)
+        db.add(token2)
+
+        # Create events
+        for i in range(5):
+            event = models.Event(
+                id=uuid4(),
+                project_id=1,
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+                level="error",
+                message=f"Error {i}",
+                payload={},
+            )
+            db.add(event)
+
+        # Create email logs
+        email1 = models.EmailLog(
+            email_type="verification",
+            recipient_email="user@example.com",
+            user_id=user1.id,
+            success=True,
+        )
+        email2 = models.EmailLog(
+            email_type="password_reset",
+            recipient_email="user@example.com",
+            user_id=user1.id,
+            success=True,
+        )
+        email3 = models.EmailLog(
+            email_type="error_alert",
+            recipient_email="alert@example.com",
+            project_id=1,
+            success=True,
+        )
+        email4 = models.EmailLog(
+            email_type="verification",
+            recipient_email="user2@example.com",
+            success=False,
+            error_message="Failed to send",
+        )
+        db.add(email1)
+        db.add(email2)
+        db.add(email3)
+        db.add(email4)
+
+        db.commit()
+    finally:
+        db.close()
+
+    r = client.get("/api/admin/stats")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["projects_total"] == 3
+    assert data["tokens_total"] == 3  # Admin token + 2 new tokens
+    assert data["tokens_active"] == 2  # Admin token + token1
+    assert data["tokens_revoked"] == 1  # token2
+    assert data["users_free"] == 1
+    assert data["users_basic"] == 1
+    assert data["users_pro"] == 1
+    assert data["events_total"] == 5
+    assert data["emails_total"] == 3  # 3 successful emails
+    assert data["emails_verification"] == 1
+    assert data["emails_password_reset"] == 1
+    assert data["emails_error_alert"] == 1
+    assert data["emails_failed"] == 1

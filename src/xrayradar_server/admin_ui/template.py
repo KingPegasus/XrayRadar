@@ -25,7 +25,14 @@ HTML_TEMPLATE = """<!doctype html>
     <div class="layout">
       <aside>
         <div class="sideInner">
-          <div class="navItem" data-view="tokens" role="link" tabindex="0">
+          <div class="navItem" data-view="dashboard" role="link" tabindex="0">
+            <span class="navDot" aria-hidden="true"></span>
+            <div>
+              <div style="font-weight: 700; font-size: 13px">Dashboard</div>
+              <div class="muted" style="margin-top: 2px">System statistics</div>
+            </div>
+          </div>
+          <div class="navItem" data-view="tokens" role="link" tabindex="0" style="margin-top: 8px">
             <span class="navDot" aria-hidden="true"></span>
             <div>
               <div style="font-weight: 700; font-size: 13px">Tokens</div>
@@ -64,7 +71,15 @@ HTML_TEMPLATE = """<!doctype html>
       </aside>
 
       <div class="content">
-        <div id="view_tokens" class="view">
+        <div id="view_dashboard" class="view">
+          <h1>System Statistics</h1>
+          <div id="dashboard_err" class="error" style="margin-top: 10px"></div>
+          <div id="dashboard_stats" class="dashboard-stats">
+            <!-- Stats cards will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <div id="view_tokens" class="view hidden">
           <div class="grid2">
             <section>
               <h2>Create token</h2>

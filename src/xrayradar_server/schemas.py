@@ -229,6 +229,22 @@ class AdminDeletionRequestOut(DeletionRequestOut):
     user_email: str
 
 
+class AdminStatsOut(BaseModel):
+    projects_total: int = 0
+    tokens_total: int = 0
+    tokens_active: int = 0
+    tokens_revoked: int = 0
+    users_free: int = 0
+    users_basic: int = 0
+    users_pro: int = 0
+    events_total: int = 0
+    emails_total: int = 0
+    emails_verification: int = 0
+    emails_password_reset: int = 0
+    emails_error_alert: int = 0
+    emails_failed: int = 0
+
+
 class DashboardTotalsOut(BaseModel):
     last_24h: int = 0
     last_7d: int = 0

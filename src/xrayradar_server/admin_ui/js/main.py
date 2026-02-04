@@ -4,8 +4,9 @@ from . import api, state, utils
 from .views import VIEWS_JS
 
 MAIN_JS = """function setView(view) {
-  const validViews = ['tokens', 'requests', 'users', 'deletions', 'logs'];
-  state.view = validViews.includes(view) ? view : 'tokens';
+  const validViews = ['dashboard', 'tokens', 'requests', 'users', 'deletions', 'logs'];
+  state.view = validViews.includes(view) ? view : 'dashboard';
+  qs('view_dashboard').classList.toggle('hidden', state.view !== 'dashboard');
   qs('view_tokens').classList.toggle('hidden', state.view !== 'tokens');
   qs('view_requests').classList.toggle('hidden', state.view !== 'requests');
   qs('view_users').classList.toggle('hidden', state.view !== 'users');
@@ -16,6 +17,9 @@ MAIN_JS = """function setView(view) {
     el.classList.toggle('active', el.getAttribute('data-view') === state.view);
   }
 
+  if (state.view === 'dashboard') {
+    refreshDashboard();
+  }
   if (state.view === 'logs') {
     maybeAutoLoadLogs();
   }
@@ -32,11 +36,12 @@ MAIN_JS = """function setView(view) {
 
 function viewFromHash() {
   const h = (window.location.hash || '').replace('#', '').trim().toLowerCase();
+  if (h === 'dashboard') return 'dashboard';
   if (h === 'logs') return 'logs';
   if (h === 'deletions') return 'deletions';
   if (h === 'requests') return 'requests';
   if (h === 'users') return 'users';
-  return 'tokens';
+  return 'dashboard';
 }
 
 async function loadAll() {
@@ -46,6 +51,7 @@ async function loadAll() {
   showErr(qs('req_err'), '');
   showErr(qs('users_err'), '');
   showErr(qs('del_err'), '');
+  showErr(qs('dashboard_err'), '');
 
   state.projects = await api('/api/admin/projects');
   state.tokens = await api('/api/admin/tokens');
@@ -53,6 +59,9 @@ async function loadAll() {
   renderProjects();
   renderLogsProjects();
   renderTokens();
+  if (state.view === 'dashboard') {
+    await refreshDashboard();
+  }
   if (state.view === 'requests') {
     await refreshTokenRequests();
   }
@@ -87,6 +96,9 @@ qs('grant').addEventListener('click', grantSelected);
 qs('revoke_token').addEventListener('click', revokeToken);
 qs('refresh').addEventListener('click', async () => {
   await loadAll();
+  if (state.view === 'dashboard') {
+    await refreshDashboard();
+  }
   if (state.view === 'logs') {
     await logsRefresh();
   }

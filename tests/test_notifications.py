@@ -1,5 +1,6 @@
 """Tests for notifications module (email alerts)"""
 
+import importlib
 import sys
 import uuid
 import pytest
@@ -16,9 +17,13 @@ from xrayradar_server.notifications import (
 
 
 @pytest.fixture
-def db_session(database_url):
+def db_session(database_url, monkeypatch):
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     import xrayradar_server.db as dbmod
-    dbmod.init_db()
+    import importlib
+    import sys
+    importlib.reload(dbmod)
+    dbmod.init_db()  # This creates all tables including EmailLog
     db = dbmod.SessionLocal()
     try:
         yield db
@@ -278,43 +283,94 @@ def test_send_alert_emails_resend_not_configured():
         )
 
 
-def test_send_alert_emails_mock_resend():
-    """send_alert_emails calls Resend when configured; exceptions are caught."""
+def test_send_alert_emails_mock_resend(db_session, project_with_owner, database_url, monkeypatch):
+    """send_alert_emails calls Resend when configured; exceptions are caught and emails are logged."""
+    project, _ = project_with_owner
+    
+    # Ensure database URL is set and reload modules to use the same database
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.notifications as notifications_mod
+    importlib.reload(dbmod)
+    dbmod.init_db()  # Ensure tables exist after reload
+    importlib.reload(notifications_mod)
+    
+    # Clean up email logs
+    db_session.query(models.EmailLog).delete()
+    db_session.commit()
+    
     # Mock resend module so import resend succeeds without the package installed
     mock_resend = MagicMock()
     mock_resend.Emails.send = MagicMock(return_value={"id": "123"})
     with patch.dict("sys.modules", {"resend": mock_resend}):
         with patch("xrayradar_server.notifications.RESEND_API_KEY", "key"):
             with patch("xrayradar_server.notifications.RESEND_FROM_EMAIL", "from@x.com"):
-                send_alert_emails(
-                    recipients=["a@x.com"],
+                notifications_mod.send_alert_emails(
+                    recipients=["a@x.com", "b@x.com"],
                     project_name="P",
                     event_message="msg",
                     event_id=uuid.uuid4(),
-                    project_id=1,
+                    project_id=project.id,
                     fingerprint="fp",
                 )
                 mock_resend.Emails.send.assert_called_once()
                 call_args = mock_resend.Emails.send.call_args[0][0]
-                assert call_args["to"] == ["a@x.com"]
+                assert call_args["to"] == ["a@x.com", "b@x.com"]
                 assert "P" in call_args["subject"]
                 assert "msg" in call_args["html"]
+    
+    # Verify emails were logged (one per recipient)
+    # Refresh db_session to see committed data
+    db_session.expire_all()
+    logs = db_session.query(models.EmailLog).filter(
+        models.EmailLog.email_type == "error_alert",
+        models.EmailLog.project_id == project.id
+    ).all()
+    assert len(logs) == 2, f"Expected 2 logs, got {len(logs)}: {[(l.recipient_email, l.success) for l in logs]}"
+    assert all(log.success is True for log in logs)
+    assert {log.recipient_email for log in logs} == {"a@x.com", "b@x.com"}
 
 
-def test_send_alert_emails_resend_raises_swallowed():
-    """When Resend.Emails.send raises, exception is caught and not propagated."""
+def test_send_alert_emails_resend_raises_swallowed(db_session, project_with_owner, database_url, monkeypatch):
+    """When Resend.Emails.send raises, exception is caught and not propagated, failed emails are logged."""
+    project, _ = project_with_owner
+    
+    # Ensure database URL is set and reload modules to use the same database
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.notifications as notifications_mod
+    importlib.reload(dbmod)
+    dbmod.init_db()  # Ensure tables exist after reload
+    importlib.reload(notifications_mod)
+    
+    # Clean up email logs
+    db_session.query(models.EmailLog).delete()
+    db_session.commit()
+    
     mock_resend = MagicMock()
     mock_resend.Emails.send = MagicMock(side_effect=RuntimeError("Resend API error"))
     with patch.dict("sys.modules", {"resend": mock_resend}):
         with patch("xrayradar_server.notifications.RESEND_API_KEY", "key"):
             with patch("xrayradar_server.notifications.RESEND_FROM_EMAIL", "from@x.com"):
-                send_alert_emails(
-                    recipients=["a@x.com"],
+                notifications_mod.send_alert_emails(
+                    recipients=["a@x.com", "b@x.com"],
                     project_name="P",
                     event_message="msg",
                     event_id=uuid.uuid4(),
-                    project_id=1,
+                    project_id=project.id,
                     fingerprint="fp",
                 )
     # No exception raised
     mock_resend.Emails.send.assert_called_once()
+    
+    # Verify failed emails were logged (one per recipient)
+    # Refresh db_session to see committed data
+    db_session.expire_all()
+    logs = db_session.query(models.EmailLog).filter(
+        models.EmailLog.email_type == "error_alert",
+        models.EmailLog.project_id == project.id
+    ).all()
+    assert len(logs) == 2, f"Expected 2 logs, got {len(logs)}: {[(l.recipient_email, l.success) for l in logs]}"
+    assert all(log.success is False for log in logs)
+    assert all("Resend API error" in log.error_message for log in logs)
+    assert {log.recipient_email for log in logs} == {"a@x.com", "b@x.com"}

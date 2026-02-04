@@ -608,11 +608,39 @@ def test_forgot_password_resend_not_configured(app_and_client, monkeypatch):
     assert r.status_code == 200
 
 
-def test_send_verification_email_resend_configured_success():
-    """_send_verification_email calls resend.Emails.send when RESEND is configured (covers 32-54)."""
+def test_send_verification_email_resend_configured_success(database_url, monkeypatch):
+    """_send_verification_email calls resend.Emails.send when RESEND is configured and logs email."""
     from unittest.mock import MagicMock, patch
 
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    import xrayradar_server.db as dbmod
+    # Dispose old engine if it exists before reloading
+    if hasattr(dbmod, 'engine') and dbmod.engine is not None:
+        dbmod.engine.dispose()
+    import xrayradar_server.models as models
+    importlib.reload(dbmod)
+    dbmod.init_db()
+    
     import xrayradar_server.routers.user_auth as user_auth_mod
+    importlib.reload(user_auth_mod)
+
+    db = dbmod.SessionLocal()
+    try:
+        # Clean up and create test user
+        db.query(models.EmailLog).delete()
+        db.query(models.User).delete()
+        db.commit()
+        
+        user = models.User(
+            email="user@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    finally:
+        db.close()
 
     mock_send = MagicMock(return_value={"id": "msg_123"})
     mock_resend = MagicMock()
@@ -622,18 +650,50 @@ def test_send_verification_email_resend_configured_success():
             with patch.dict("sys.modules", {"resend": mock_resend}):
                 importlib.invalidate_caches()
                 user_auth_mod._send_verification_email("user@example.com", "token123")
+    
     mock_send.assert_called_once()
     call_kw = mock_send.call_args[0][0]
     assert call_kw["to"] == ["user@example.com"]
     assert "verify" in call_kw["subject"].lower()
     assert "token123" in call_kw["html"]
+    
+    # Verify email was logged
+    db = dbmod.SessionLocal()
+    try:
+        logs = db.query(models.EmailLog).filter(
+            models.EmailLog.email_type == "verification",
+            models.EmailLog.recipient_email == "user@example.com"
+        ).all()
+        assert len(logs) == 1
+        assert logs[0].success is True
+        assert logs[0].user_id == user.id
+    finally:
+        db.close()
 
 
-def test_send_verification_email_resend_raises_logs_warning():
-    """_send_verification_email logs and swallows when resend.Emails.send raises (covers 55-56)."""
+def test_send_verification_email_resend_raises_logs_warning(database_url, monkeypatch):
+    """_send_verification_email logs and swallows when resend.Emails.send raises and logs failed email."""
     from unittest.mock import MagicMock, patch
 
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    import xrayradar_server.db as dbmod
+    # Dispose old engine if it exists before reloading
+    if hasattr(dbmod, 'engine') and dbmod.engine is not None:
+        dbmod.engine.dispose()
+    import xrayradar_server.models as models
+    importlib.reload(dbmod)
+    dbmod.init_db()
+    
     import xrayradar_server.routers.user_auth as user_auth_mod
+    importlib.reload(user_auth_mod)
+
+    db = dbmod.SessionLocal()
+    try:
+        # Clean up
+        db.query(models.EmailLog).delete()
+        db.commit()
+    finally:
+        db.close()
 
     mock_resend = MagicMock()
     mock_resend.Emails.send = MagicMock(side_effect=RuntimeError("API error"))
@@ -642,13 +702,54 @@ def test_send_verification_email_resend_raises_logs_warning():
             with patch.dict("sys.modules", {"resend": mock_resend}):
                 importlib.invalidate_caches()
                 user_auth_mod._send_verification_email("u@example.com", "t")  # no exception
+    
+    # Verify failed email was logged
+    db = dbmod.SessionLocal()
+    try:
+        logs = db.query(models.EmailLog).filter(
+            models.EmailLog.email_type == "verification",
+            models.EmailLog.recipient_email == "u@example.com"
+        ).all()
+        assert len(logs) == 1
+        assert logs[0].success is False
+        assert "API error" in logs[0].error_message
+    finally:
+        db.close()
 
 
-def test_send_password_reset_email_resend_configured_success():
-    """_send_password_reset_email calls resend.Emails.send when RESEND is configured (covers 64-86)."""
+def test_send_password_reset_email_resend_configured_success(database_url, monkeypatch):
+    """_send_password_reset_email calls resend.Emails.send when RESEND is configured and logs email."""
     from unittest.mock import MagicMock, patch
 
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    import xrayradar_server.db as dbmod
+    # Dispose old engine if it exists before reloading
+    if hasattr(dbmod, 'engine') and dbmod.engine is not None:
+        dbmod.engine.dispose()
+    import xrayradar_server.models as models
+    importlib.reload(dbmod)
+    dbmod.init_db()
+    
     import xrayradar_server.routers.user_auth as user_auth_mod
+    importlib.reload(user_auth_mod)
+
+    db = dbmod.SessionLocal()
+    try:
+        # Clean up and create test user
+        db.query(models.EmailLog).delete()
+        db.query(models.User).delete()
+        db.commit()
+        
+        user = models.User(
+            email="reset@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    finally:
+        db.close()
 
     mock_send = MagicMock(return_value={"id": "msg_456"})
     mock_resend = MagicMock()
@@ -658,17 +759,49 @@ def test_send_password_reset_email_resend_configured_success():
             with patch.dict("sys.modules", {"resend": mock_resend}):
                 importlib.invalidate_caches()
                 user_auth_mod._send_password_reset_email("reset@example.com", "token456")
+    
     mock_send.assert_called_once()
     call_kw = mock_send.call_args[0][0]
     assert call_kw["to"] == ["reset@example.com"]
     assert "reset" in call_kw["subject"].lower()
+    
+    # Verify email was logged
+    db = dbmod.SessionLocal()
+    try:
+        logs = db.query(models.EmailLog).filter(
+            models.EmailLog.email_type == "password_reset",
+            models.EmailLog.recipient_email == "reset@example.com"
+        ).all()
+        assert len(logs) == 1
+        assert logs[0].success is True
+        assert logs[0].user_id == user.id
+    finally:
+        db.close()
 
 
-def test_send_password_reset_email_resend_raises_logs_warning():
-    """_send_password_reset_email logs and swallows when resend raises (covers 87-88)."""
+def test_send_password_reset_email_resend_raises_logs_warning(database_url, monkeypatch):
+    """_send_password_reset_email logs and swallows when resend raises and logs failed email."""
     from unittest.mock import MagicMock, patch
 
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    import xrayradar_server.db as dbmod
+    # Dispose old engine if it exists before reloading
+    if hasattr(dbmod, 'engine') and dbmod.engine is not None:
+        dbmod.engine.dispose()
+    import xrayradar_server.models as models
+    importlib.reload(dbmod)
+    dbmod.init_db()
+    
     import xrayradar_server.routers.user_auth as user_auth_mod
+    importlib.reload(user_auth_mod)
+
+    db = dbmod.SessionLocal()
+    try:
+        # Clean up
+        db.query(models.EmailLog).delete()
+        db.commit()
+    finally:
+        db.close()
 
     mock_resend = MagicMock()
     mock_resend.Emails.send = MagicMock(side_effect=Exception("Network error"))
@@ -677,3 +810,68 @@ def test_send_password_reset_email_resend_raises_logs_warning():
             with patch.dict("sys.modules", {"resend": mock_resend}):
                 importlib.invalidate_caches()
                 user_auth_mod._send_password_reset_email("u@example.com", "t")  # no exception
+    
+    # Verify failed email was logged
+    db = dbmod.SessionLocal()
+    try:
+        logs = db.query(models.EmailLog).filter(
+            models.EmailLog.email_type == "password_reset",
+            models.EmailLog.recipient_email == "u@example.com"
+        ).all()
+        assert len(logs) == 1
+        assert logs[0].success is False
+        assert "Network error" in logs[0].error_message
+    finally:
+        db.close()
+
+
+def test_get_user_id_by_email_success(database_url, monkeypatch):
+    """Test _get_user_id_by_email returns user ID when user exists."""
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+    import xrayradar_server.routers.user_auth as user_auth_mod
+    
+    dbmod.init_db()
+    
+    db = dbmod.SessionLocal()
+    try:
+        # Clean up and create test user
+        db.query(models.User).delete()
+        db.commit()
+        
+        user = models.User(
+            email="test@example.com",
+            password_hash="hash",
+            plan="Free",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        # Test getting user ID
+        user_id = user_auth_mod._get_user_id_by_email(db, "test@example.com")
+        assert user_id == user.id
+        
+        # Test with non-existent user
+        user_id = user_auth_mod._get_user_id_by_email(db, "nonexistent@example.com")
+        assert user_id is None
+    finally:
+        db.close()
+
+
+def test_get_user_id_by_email_handles_exception(database_url, monkeypatch):
+    """Test _get_user_id_by_email handles database exceptions gracefully."""
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    
+    import xrayradar_server.routers.user_auth as user_auth_mod
+    from unittest.mock import MagicMock
+    
+    # Create a mock db that raises on execute
+    mock_db = MagicMock()
+    mock_db.execute = MagicMock(side_effect=Exception("DB error"))
+    
+    # Should return None on exception
+    user_id = user_auth_mod._get_user_id_by_email(mock_db, "test@example.com")
+    assert user_id is None

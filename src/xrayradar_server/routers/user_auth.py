@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
 from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, RATE_LIMIT_AUTH, XRAYRADAR_BASE_URL
-from ..db import get_db
+from ..db import get_db, SessionLocal
+from ..email_log import log_email
 from ..rate_limit import get_rate_limit_key_auth, limiter
 from ..deps import require_user
 from ..models import User
@@ -24,11 +25,25 @@ def _generate_verification_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _get_user_id_by_email(db: Session, email: str) -> int | None:
+    """Get user ID by email address. Returns None if user not found or on error."""
+    try:
+        user = db.execute(select(User).where(User.email == email)).scalars().first()
+        return user.id if user else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _send_verification_email(email: str, token: str) -> None:
     """Send verification email via Resend. No-op if Resend not configured."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         logger.warning("Resend not configured, skipping verification email for %s", email)
         return
+    
+    # Get user_id for logging
+    db = SessionLocal()
+    user_id = _get_user_id_by_email(db, email)
+    
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -52,8 +67,14 @@ def _send_verification_email(email: str, token: str) -> None:
             }
         )
         logger.info("Verification email sent to %s", email)
+        # Log successful email
+        log_email(db, "verification", email, success=True, user_id=user_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send verification email to %s: %s", email, e)
+        # Log failed email
+        log_email(db, "verification", email, success=False, user_id=user_id, error_message=str(e))
+    finally:
+        db.close()
 
 
 def _send_password_reset_email(email: str, token: str) -> None:
@@ -61,6 +82,11 @@ def _send_password_reset_email(email: str, token: str) -> None:
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         logger.warning("Resend not configured, skipping password reset email for %s", email)
         return
+    
+    # Get user_id for logging
+    db = SessionLocal()
+    user_id = _get_user_id_by_email(db, email)
+    
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -84,8 +110,14 @@ def _send_password_reset_email(email: str, token: str) -> None:
             }
         )
         logger.info("Password reset email sent to %s", email)
+        # Log successful email
+        log_email(db, "password_reset", email, success=True, user_id=user_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send password reset email to %s: %s", email, e)
+        # Log failed email
+        log_email(db, "password_reset", email, success=False, user_id=user_id, error_message=str(e))
+    finally:
+        db.close()
 
 
 @router.post("/auth/logout")
