@@ -20,10 +20,13 @@ from xrayradar_server.notifications import (
 def db_session(database_url, monkeypatch):
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     import xrayradar_server.db as dbmod
-    import importlib
-    import sys
-    importlib.reload(dbmod)
-    dbmod.init_db()  # This creates all tables including EmailLog
+    # Force engine reinit without reloading db (so Base.metadata still matches models)
+    if getattr(dbmod, "_engine", None) is not None:
+        dbmod._engine.dispose()
+    dbmod._engine = None
+    dbmod._SessionLocal = None
+    dbmod._engine_url = None
+    dbmod.init_db()
     db = dbmod.SessionLocal()
     try:
         yield db
@@ -217,6 +220,60 @@ def test_should_send_alert_cooldown_blocks_second_send(db_session, project_with_
     )
     db_session.commit()
     assert should_send_alert(db_session, project.id, "fp1", "error") is False
+
+
+def test_should_send_alert_project_level_cooldown_blocks_other_fingerprint(db_session, project_with_owner):
+    """Project-level cooldown: no email for any issue if project had a send in the last cooldown_minutes."""
+    from datetime import timedelta, timezone
+    from datetime import datetime as dt
+
+    project, _ = project_with_owner
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=10,
+        )
+    )
+    now = dt.now(timezone.utc).replace(tzinfo=None)
+    db_session.add(
+        models.AlertCooldown(
+            project_id=project.id,
+            fingerprint="fp_other",
+            last_notified_at=now - timedelta(minutes=2),
+        )
+    )
+    db_session.commit()
+    # Same project, different fingerprint: still blocked by project-level cooldown
+    assert should_send_alert(db_session, project.id, "fp_new", "error") is False
+
+
+def test_should_send_alert_cooldown_10min_persists_after_restart(db_session, project_with_owner):
+    """With 10 min cooldown set, email is not sent before 10 mins even after server restart (new session)."""
+    import xrayradar_server.db as dbmod
+
+    project, _ = project_with_owner
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=10,
+        )
+    )
+    db_session.commit()
+
+    # First send: allowed, creates AlertCooldown row and commits
+    assert should_send_alert(db_session, project.id, "fp1", "error") is True
+
+    # Simulate server restart: new DB session (as would happen after restart)
+    db2 = dbmod.SessionLocal()
+    try:
+        # Immediately after "restart", same project/fingerprint: must not send (still within 10 min)
+        assert should_send_alert(db2, project.id, "fp1", "error") is False
+    finally:
+        db2.close()
 
 
 def test_should_send_alert_cooldown_expired_updates_timestamp(db_session, project_with_owner):

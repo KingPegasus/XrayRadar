@@ -10,7 +10,7 @@ from ..db import get_db
 from ..rate_limit import get_rate_limit_key_token, limiter
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
 from ..fingerprinting import compute_fingerprint
-from ..models import Event, Project, Token
+from ..models import Event, IssueStatus, Project, Token
 from ..notifications import get_alert_recipients, send_alert_emails, should_send_alert
 from ..schemas import EventOut, ProjectCreate, ProjectOut
 from ..usage import (
@@ -161,6 +161,29 @@ def store_event(
     db.add(row)
     db.commit()
     db.refresh(row)
+
+    # Auto-reopen logic: check if issue was resolved and should be reopened
+    if fp:
+        issue_status = db.get(IssueStatus, (project_id, fp))
+        if issue_status and issue_status.status == "resolved":
+            # If resolved_release is set and new event has release:
+            if issue_status.resolved_release and rel:
+                # Auto-reopen if same or different release (recurrence indicates fix didn't work)
+                issue_status.status = "open"
+                issue_status.reopened = True
+                issue_status.resolved_release = None
+                issue_status.resolved_at = None
+                issue_status.resolved_by_user_id = None
+                db.commit()
+            # If resolved_release is set but new event has no release, stay resolved (conservative)
+            # If resolved_release is null (resolved without release tracking), auto-reopen on any new event
+            elif not issue_status.resolved_release:
+                issue_status.status = "open"
+                issue_status.reopened = True
+                issue_status.resolved_at = None
+                issue_status.resolved_by_user_id = None
+                db.commit()
+        # If status is "ignored", leave as-is (don't auto-reopen)
 
     # Email alerts: non-blocking, only for error level
     if level == "error":

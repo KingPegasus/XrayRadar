@@ -166,6 +166,32 @@ class UserTokenOut(BaseModel):
     revoked_at: Optional[datetime] = None
 
 
+class IssueStatusUpdate(BaseModel):
+    status: str = Field(min_length=1, max_length=32)  # "open", "in_progress", "resolved", "ignored"
+    resolved_release: Optional[str] = Field(default=None, max_length=64)
+    notes: Optional[str] = None
+
+
+class BulkIssueStatusUpdate(BaseModel):
+    fingerprints: list[str]
+    status: str = Field(min_length=1, max_length=32)
+    resolved_release: Optional[str] = Field(default=None, max_length=64)
+    notes: Optional[str] = None
+
+
+class IssueStatusOut(BaseModel):
+    project_id: int
+    fingerprint: str
+    status: str
+    resolved_release: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    resolved_by_user_id: Optional[int] = None
+    notes: Optional[str] = None
+    reopened: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
 class IssueSummaryOut(BaseModel):
     fingerprint: str
     count: int
@@ -175,6 +201,10 @@ class IssueSummaryOut(BaseModel):
     message: str
     environment: Optional[str] = None
     release: Optional[str] = None
+    status: Optional[str] = None
+    resolved_release: Optional[str] = None
+    resolved_at: Optional[datetime] = None
+    reopened: Optional[bool] = None
 
 
 class AdminTokenRequestOut(BaseModel):

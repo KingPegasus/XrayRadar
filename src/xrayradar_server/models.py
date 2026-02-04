@@ -308,3 +308,31 @@ class EmailLog(Base):
 
     project: Mapped[Project | None] = relationship("Project")
     user: Mapped[User | None] = relationship("User")
+
+
+class IssueStatus(Base):
+    __tablename__ = "issue_status"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), primary_key=True
+    )
+    fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open", index=True)
+    resolved_release: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    resolved_by_user_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("users.id"), nullable=True
+    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reopened: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive, onupdate=_utcnow_naive, index=True
+    )
+
+    project: Mapped[Project] = relationship("Project")
+    user: Mapped[User | None] = relationship("User")
