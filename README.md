@@ -40,30 +40,18 @@ docker compose up -d
 2) (Optional) Build the marketing site (served by the backend in production)
 
 ```bash
-cd xrayradar-web
-npm install
-npm run build
-```
-or 
-
-```bash
 cd xrayradar-web && npm ci && npm run build && cd ..
 ```
 
 3) Run API:
 
 ```bash
+export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
 uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
 ```
 
 Using `uv run` ensures the project virtualenv (from `uv sync`) is used, so all dependencies—including `resend` for email alerts—are available.
 
-If you prefer, you can also run with:
-
-```bash
-export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
-uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
-```
 
 ### Run locally with Docker
 
