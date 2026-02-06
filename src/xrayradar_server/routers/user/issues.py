@@ -144,12 +144,17 @@ def user_get_project_event_frequency(
 ):
     require_owned_project(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    # Extract date in UTC: treat naive timestamp as UTC using AT TIME ZONE, then extract date
+    # This ensures latest date (today) is correctly included regardless of DB session timezone
+    # The AT TIME ZONE 'UTC' operator treats the naive timestamp as UTC before extracting date
+    timestamp_as_utc = Event.timestamp.op("AT TIME ZONE")("UTC")
+    date_expr = func.date(timestamp_as_utc).label("date")
     q = (
-        select(func.date(Event.timestamp).label("date"), func.count(Event.id).label("count"))
+        select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(func.date(Event.timestamp))
-        .order_by(func.date(Event.timestamp))
+        .group_by(date_expr)
+        .order_by(date_expr)
     )
     rows = db.execute(q).all()
     frequency = {_date_str(d): int(c or 0) for d, c in rows}
@@ -167,13 +172,18 @@ def user_get_issue_event_frequency(
 ):
     require_owned_project(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    # Extract date in UTC: treat naive timestamp as UTC using AT TIME ZONE, then extract date
+    # This ensures latest date (today) is correctly included regardless of DB session timezone
+    # The AT TIME ZONE 'UTC' operator treats the naive timestamp as UTC before extracting date
+    timestamp_as_utc = Event.timestamp.op("AT TIME ZONE")("UTC")
+    date_expr = func.date(timestamp_as_utc).label("date")
     q = (
-        select(func.date(Event.timestamp).label("date"), func.count(Event.id).label("count"))
+        select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(func.date(Event.timestamp))
-        .order_by(func.date(Event.timestamp))
+        .group_by(date_expr)
+        .order_by(date_expr)
     )
     rows = db.execute(q).all()
     frequency = {_date_str(d): int(c or 0) for d, c in rows}
