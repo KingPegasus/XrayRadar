@@ -365,6 +365,58 @@ describe('App', () => {
     }, { timeout: 3000 })
   })
 
+  it('redirects to login when accessing accept-invite without auth', async () => {
+    const { navigate } = await import('./utils/navigation')
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/accept-invite',
+        href: '/accept-invite',
+        search: '',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/login?next=' + encodeURIComponent('/accept-invite'))
+    }, { timeout: 2000 })
+  })
+
+  it('renders accept-invite page when authenticated', async () => {
+    const mockMe = { id: 1, email: 'user@example.com' }
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockMe,
+    })
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/accept-invite',
+        href: '/accept-invite',
+        search: '?token=invite-token-123',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Accepting invite/i)).toBeInTheDocument()
+    }, { timeout: 2000 })
+  })
+
   it('closes signup modal', async () => {
     const user = userEvent.setup()
     fetch.mockResolvedValueOnce({

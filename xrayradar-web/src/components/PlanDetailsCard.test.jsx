@@ -20,20 +20,20 @@ describe('PlanDetailsCard', () => {
   it('renders Basic plan details', () => {
     render(<PlanDetailsCard me={{ plan: 'Basic' }} />)
     expect(screen.getByText(/Basic Plan — \$3\/mo/i)).toBeInTheDocument()
-    expect(screen.getByText(/Up to 15,000 events total/i)).toBeInTheDocument()
+    expect(screen.getByText(/Up to 15,000 events storage/i)).toBeInTheDocument()
   })
 
   it('renders Teams plan details', () => {
     render(<PlanDetailsCard me={{ plan: 'Teams' }} />)
     expect(screen.getByText(/Teams Plan — \$5\/mo/i)).toBeInTheDocument()
-    expect(screen.getByText(/Up to 25,000 events total/i)).toBeInTheDocument()
+    expect(screen.getByText(/Up to 25,000 events storage/i)).toBeInTheDocument()
     expect(screen.getByText(/invite up to 5 members/i)).toBeInTheDocument()
   })
 
   it('renders Teams Pro plan details', () => {
     render(<PlanDetailsCard me={{ plan: 'Teams Pro' }} />)
     expect(screen.getByText(/Teams Pro Plan — \$7\/mo/i)).toBeInTheDocument()
-    expect(screen.getByText(/Up to 50,000 events total/i)).toBeInTheDocument()
+    expect(screen.getByText(/Up to 50,000 events storage/i)).toBeInTheDocument()
     expect(screen.getByText(/invite up to 10 members/i)).toBeInTheDocument()
   })
 

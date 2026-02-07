@@ -83,7 +83,7 @@ describe('api', () => {
       const data = { key: 'value' }
       fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => data,
+        text: async () => JSON.stringify(data),
       })
 
       const result = await fetchJson('/api/test')
@@ -95,7 +95,7 @@ describe('api', () => {
       const data = { key: 'value' }
       fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => data,
+        text: async () => JSON.stringify(data),
       })
 
       const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } }
@@ -120,7 +120,7 @@ describe('api', () => {
       const responseData = { status: 'resolved', resolved_release: 'v1.0.0', reopened: false }
       fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => responseData,
+        text: async () => JSON.stringify(responseData),
       })
 
       const result = await updateIssueStatus(1, 'fp123', statusData)
@@ -151,7 +151,7 @@ describe('api', () => {
       const responseData = { updated: 3 }
       fetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => responseData,
+        text: async () => JSON.stringify(responseData),
       })
 
       const result = await bulkUpdateIssueStatus(1, fingerprints, statusData)
