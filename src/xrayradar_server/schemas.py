@@ -142,6 +142,35 @@ class UserProjectCreate(BaseModel):
 class UserProjectOut(BaseModel):
     id: int
     name: str
+    is_owner: bool = True
+
+
+class TeamMemberOut(BaseModel):
+    user_id: int
+    email: str
+    project_ids: list[int]
+
+
+class ProjectMemberAdd(BaseModel):
+    user_id: Optional[int] = None
+    email: Optional[str] = Field(default=None, max_length=320)
+
+
+class InviteCreate(BaseModel):
+    email: str = Field(min_length=1, max_length=320)
+    project_ids: list[int] = Field(min_length=1)
+
+
+class InviteOut(BaseModel):
+    id: int
+    email: str
+    project_ids: list[int]
+    expires_at: datetime
+    created_at: datetime
+
+
+class InviteAccept(BaseModel):
+    token: str = Field(min_length=1, max_length=64)
 
 
 class TokenRequestCreate(BaseModel):
@@ -231,7 +260,7 @@ class AlertSettingsOut(BaseModel):
     enabled: bool
     level_filter: str
     cooldown_minutes: Optional[int] = None
-    min_cooldown_minutes: Optional[int] = None  # plan-based minimum (Free=10, Basic/Pro=1)
+    min_cooldown_minutes: Optional[int] = None  # plan-based minimum (Free=no alerts, Basic=10min, Teams/Teams Pro=1min)
     additional_emails: list[str] = []
 
 
@@ -266,12 +295,14 @@ class AdminStatsOut(BaseModel):
     tokens_revoked: int = 0
     users_free: int = 0
     users_basic: int = 0
-    users_pro: int = 0
+    users_teams: int = 0
+    users_teams_pro: int = 0
     events_total: int = 0
     emails_total: int = 0
     emails_verification: int = 0
     emails_password_reset: int = 0
     emails_error_alert: int = 0
+    emails_team_invite: int = 0
     emails_failed: int = 0
 
 

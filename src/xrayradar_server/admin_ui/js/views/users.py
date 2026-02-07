@@ -5,7 +5,8 @@ USERS_JS = """function renderUsers() {
   tbody.innerHTML = '';
   for (const u of state.users) {
     const tr = document.createElement('tr');
-    const planBadgeClass = u.plan === 'Basic' ? 'admin' : (u.plan === 'Pro' ? 'admin' : '');
+    const isPaidPlan = u.plan === 'Basic' || u.plan === 'Teams' || u.plan === 'Teams Pro';
+    const planBadgeClass = isPaidPlan ? 'admin' : '';
     tr.innerHTML = `
       <td>${u.id}</td>
       <td>${escapeHtml(u.email || '')}</td>
@@ -13,10 +14,11 @@ USERS_JS = """function renderUsers() {
       <td>${u.event_count.toLocaleString()}</td>
       <td>${escapeHtml(u.created_at ? u.created_at.split('T')[0] : '')}</td>
       <td>
-        <select class="plan-select" data-user-id="${u.id}" style="width: 80px; padding: 6px">
+        <select class="plan-select" data-user-id="${u.id}" style="width: 100px; padding: 6px">
           <option value="Free" ${u.plan === 'Free' ? 'selected' : ''}>Free</option>
           <option value="Basic" ${u.plan === 'Basic' ? 'selected' : ''}>Basic</option>
-          <option value="Pro" ${u.plan === 'Pro' ? 'selected' : ''}>Pro</option>
+          <option value="Teams" ${u.plan === 'Teams' ? 'selected' : ''}>Teams</option>
+          <option value="Teams Pro" ${u.plan === 'Teams Pro' ? 'selected' : ''}>Teams Pro</option>
         </select>
       </td>
     `;

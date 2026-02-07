@@ -17,7 +17,7 @@ from ...schemas import (
     TokenRequestOut,
     UserTokenOut,
 )
-from ._helpers import require_owned_project, require_user_token
+from ._helpers import require_project_access, require_user_token
 
 router = APIRouter()
 
@@ -81,7 +81,7 @@ def user_grant_project_access(
     user: User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     require_user_token(db, user=user, token_id=token_id)
 
     q = (
@@ -110,7 +110,7 @@ def user_revoke_project_access(
     user: User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     require_user_token(db, user=user, token_id=token_id)
 
     q = (

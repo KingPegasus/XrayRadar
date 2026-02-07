@@ -1,6 +1,15 @@
 """Tests for user alert-settings endpoints."""
 
+import xrayradar_server.db as dbmod
 from xrayradar_server import models
+
+
+def _set_plan(db, user_id, plan):
+    u = db.get(models.User, user_id)
+    if u:
+        u.plan = plan
+        db.add(u)
+        db.commit()
 
 
 def test_user_get_alert_settings_default(app_and_client_with_user):
@@ -20,9 +29,31 @@ def test_user_get_alert_settings_default(app_and_client_with_user):
     assert data["additional_emails"] == []
 
 
+def test_user_free_plan_cannot_enable_alerts_400(app_and_client_with_user):
+    """PATCH alert-settings with enabled=True as Free user returns 400."""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={"enabled": True},
+    )
+    assert r.status_code == 400
+    assert "Free" in r.json().get("detail", "")
+    assert "alerts" in r.json().get("detail", "").lower()
+
+
 def test_user_update_and_get_alert_settings(app_and_client_with_user):
     """PATCH alert-settings and GET returns updated values"""
     mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
 
     r1 = client.post("/api/user/projects", json={"name": "P"})
     assert r1.status_code == 200
@@ -66,6 +97,11 @@ def test_user_update_alert_settings_too_many_recipients_400(app_and_client_with_
 def test_user_update_alert_settings_cooldown_too_low_400(app_and_client_with_user):
     """PATCH alert-settings with cooldown below plan minimum returns 400."""
     mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")  # Basic min = 10 min
+    finally:
+        db.close()
 
     r1 = client.post("/api/user/projects", json={"name": "P"})
     assert r1.status_code == 200
@@ -82,6 +118,11 @@ def test_user_update_alert_settings_cooldown_too_low_400(app_and_client_with_use
 def test_user_update_alert_settings_normalizes_emails(app_and_client_with_user):
     """PATCH alert-settings normalizes, dedupes, and filters invalid emails."""
     mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
 
     r1 = client.post("/api/user/projects", json={"name": "P"})
     assert r1.status_code == 200
@@ -109,23 +150,27 @@ def test_user_update_alert_settings_normalizes_emails(app_and_client_with_user):
 def test_user_get_alert_settings_cooldown_clamped(app_and_client_with_user):
     """GET alert-settings when stored cooldown < min_cooldown returns clamped value."""
     mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
 
     r1 = client.post("/api/user/projects", json={"name": "P"})
     assert r1.status_code == 200
     project_id = r1.json()["id"]
 
-    import xrayradar_server.db as dbmod
-    db = dbmod.SessionLocal()
+    db2 = dbmod.SessionLocal()
     try:
         settings = models.ProjectAlertSettings(
             project_id=project_id,
             enabled=True,
             cooldown_minutes=5,
         )
-        db.add(settings)
-        db.commit()
+        db2.add(settings)
+        db2.commit()
     finally:
-        db.close()
+        db2.close()
 
     r = client.get(f"/api/user/projects/{project_id}/alert-settings")
     assert r.status_code == 200
@@ -163,6 +208,11 @@ def test_user_alert_settings_other_project_404(app_and_client_with_user):
 def test_user_update_alert_settings_level_filter(app_and_client_with_user):
     """PATCH alert-settings with level_filter updates it"""
     mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
 
     r1 = client.post("/api/user/projects", json={"name": "P"})
     assert r1.status_code == 200
@@ -184,6 +234,11 @@ def test_user_update_alert_settings_level_filter(app_and_client_with_user):
 def test_user_update_alert_settings_replace_recipients(app_and_client_with_user):
     """PATCH alert-settings replaces existing recipients"""
     mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
 
     r1 = client.post("/api/user/projects", json={"name": "P"})
     assert r1.status_code == 200

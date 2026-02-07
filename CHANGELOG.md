@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-02-07
+
+### Added
+
+- **Project members and team invites for Teams plan**
+  - Introduced `project_members` and `team_invites` tables to manage team access and invitations for users on the Teams and Teams Pro plans.
+  - Implemented database migrations to create necessary tables and columns.
+  - Updated user models and relationships to support team membership and invites.
+  - Enhanced API endpoints to handle team member management and invite acceptance.
+- **Teams and Teams Pro plans**
+  - Renamed Pro plan to **Teams** ($5/month, 25k events, 5 members).
+  - New **Teams Pro** tier ($7/month, 50k events, 10 members).
+  - Team member limits enforced per plan; `require_teams_plan` dependency for team-only endpoints.
+- **Email alerts by plan**
+  - Free: email alerts disabled (upgrade message in project settings).
+  - Basic: 10-minute cooldown; Teams/Teams Pro: 1-minute cooldown.
+  - Backend constants and notification logic updated; frontend EmailAlertSettings reflects plan limits.
+- **Admin dashboard**
+  - System stats include team invite email count; dashboard shows “Last updated,” clickable cards, and improved layout.
+  - Users tab: plan filter and badges updated to Free / Basic / Teams / Teams Pro.
+
+### Changed
+
+- Migration `0011_rename_pro_plan_to_teams` renames Pro to Teams in the database.
+- Migration `0010_project_members_team_invites`: `alembic_version.version_num` widened to VARCHAR(64) for long revision IDs.
+
+---
+
 ## [0.8.0] - 2026-02-06
 
 ### Added
@@ -196,10 +224,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[0.7.0]: https://github.com/your-org/xrayradar-server/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/your-org/xrayradar-server/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/your-org/xrayradar-server/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/your-org/xrayradar-server/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/your-org/xrayradar-server/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/your-org/xrayradar-server/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/your-org/xrayradar-server/releases/tag/v0.1.0
+[0.9.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.7.0...v0.8.0

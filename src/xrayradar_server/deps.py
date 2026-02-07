@@ -47,6 +47,16 @@ def require_verified_user(user: User = Depends(require_user)) -> User:
     return user
 
 
+def require_pro_user(user: User = Depends(require_user)) -> User:
+    """Require the user to have a Teams or Teams Pro plan (for team/members features)."""
+    if user.plan not in ("Teams", "Teams Pro"):
+        raise HTTPException(
+            status_code=403,
+            detail="Teams plan required for team access.",
+        )
+    return user
+
+
 def get_current_token(
     db: Session = Depends(get_db),
     x_xrayradar_token: str | None = Header(

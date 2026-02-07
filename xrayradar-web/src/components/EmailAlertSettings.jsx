@@ -4,13 +4,15 @@ import { fetchJson } from '../utils/api'
 export function EmailAlertSettings({ projectId, me, compact = false }) {
   const [alertEnabled, setAlertEnabled] = useState(false)
   const [alertCooldown, setAlertCooldown] = useState('')
-  const [minCooldownMinutes, setMinCooldownMinutes] = useState(null) // plan-based min (Free=10, Basic/Pro=1)
+  const [minCooldownMinutes, setMinCooldownMinutes] = useState(null) // null = Free (no alerts) or not loaded
   const [additionalEmails, setAdditionalEmails] = useState([])
   const [newEmail, setNewEmail] = useState('')
   const [alertSaveBusy, setAlertSaveBusy] = useState(false)
   const [alertSaveError, setAlertSaveError] = useState('')
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
 
   useEffect(() => {
+    setSettingsLoaded(false)
     fetchJson(`/api/user/projects/${projectId}/alert-settings`)
       .then((data) => {
         setAlertEnabled(data?.enabled ?? false)
@@ -24,11 +26,50 @@ export function EmailAlertSettings({ projectId, me, compact = false }) {
           setAlertCooldown(String(effective))
         }
         setAdditionalEmails(data?.additional_emails ?? [])
+        setSettingsLoaded(true)
       })
       .catch((e) => {
         console.warn('Failed to load alert settings:', e)
+        setSettingsLoaded(true)
       })
   }, [projectId])
+
+  const isFreePlan = settingsLoaded && minCooldownMinutes === null
+
+  if (!settingsLoaded) {
+    return (
+      <div style={compact ? {} : { marginTop: 20, marginBottom: 20 }}>
+        {!compact && (
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#cbd5e1' }}>Email alerts</div>
+        )}
+        <div style={{ background: compact ? 'transparent' : 'rgba(0, 0, 0, 0.2)', padding: compact ? 0 : 16, borderRadius: compact ? 0 : 8, border: compact ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="small" style={{ color: 'var(--muted)' }}>Loading…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isFreePlan) {
+    return (
+      <div style={compact ? {} : { marginTop: 20, marginBottom: 20 }}>
+        {!compact && (
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10, color: '#cbd5e1' }}>Email alerts</div>
+        )}
+        <div style={{ background: compact ? 'transparent' : 'rgba(0, 0, 0, 0.2)', padding: compact ? 0 : 16, borderRadius: compact ? 0 : 8, border: compact ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
+          <p className="small" style={{ color: 'var(--muted)', marginBottom: 12 }}>
+            Email alerts are not available on the Free plan. Upgrade to Basic, Teams, or Teams Pro to get notified when errors occur.
+          </p>
+          <a
+            href={`mailto:dev@xrayradar.com?subject=Upgrade%20to%20Basic%20Plan&body=Hi,%0A%0AI'd%20like%20to%20upgrade%20my%20XrayRadar%20account.%0A%0AEmail:%20${encodeURIComponent(me?.email || '')}%0A%0AThanks!`}
+            className="button buttonPrimary"
+            style={{ display: 'inline-block' }}
+          >
+            Contact to Upgrade
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={compact ? {} : { marginTop: 20, marginBottom: 20 }}>

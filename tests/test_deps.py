@@ -249,7 +249,7 @@ def test_require_admin_with_session_admin(app_and_client):
         admin_user = models.User(
             email="admin@example.com",
             password_hash="hash",
-            plan="Pro",
+            plan="Teams",
             email_verified=True,
         )
         db.add(admin_user)

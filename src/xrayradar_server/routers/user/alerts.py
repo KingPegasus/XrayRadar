@@ -11,7 +11,7 @@ from ...db import get_db
 from ...models import ProjectAlertRecipient, ProjectAlertSettings, User
 from ...deps import require_user, require_verified_user
 from ...schemas import AlertSettingsOut, AlertSettingsUpdate
-from ._helpers import require_owned_project
+from ._helpers import require_project_access
 
 router = APIRouter()
 
@@ -23,7 +23,16 @@ def user_get_alert_settings(
     db: Session = Depends(get_db),
 ):
     """Get email alert settings for the project (owned by current user)."""
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
+    min_cooldown = MIN_COOLDOWN_MINUTES_BY_PLAN.get(user.plan)
+    if user.plan == "Free":
+        return AlertSettingsOut(
+            enabled=False,
+            level_filter="error",
+            cooldown_minutes=None,
+            min_cooldown_minutes=None,
+            additional_emails=[],
+        )
     min_cooldown = MIN_COOLDOWN_MINUTES_BY_PLAN.get(user.plan, 10)
     settings = db.get(ProjectAlertSettings, project_id)
     if settings is None:
@@ -63,9 +72,17 @@ def user_update_alert_settings(
     db: Session = Depends(get_db),
 ):
     """Update email alert settings and additional recipients (full replace for additional_emails)."""
-    require_owned_project(db, user=user, project_id=project_id)
-    min_cooldown = MIN_COOLDOWN_MINUTES_BY_PLAN.get(user.plan, 10)
-    if payload.cooldown_minutes is not None and payload.cooldown_minutes > 0:
+    require_project_access(db, user=user, project_id=project_id)
+    if user.plan == "Free":
+        if payload.enabled:
+            raise HTTPException(
+                status_code=400,
+                detail="Email alerts are not available on the Free plan. Upgrade to Basic, Teams, or Teams Pro.",
+            )
+        min_cooldown = None
+    else:
+        min_cooldown = MIN_COOLDOWN_MINUTES_BY_PLAN.get(user.plan, 10)
+    if min_cooldown is not None and payload.cooldown_minutes is not None and payload.cooldown_minutes > 0:
         if payload.cooldown_minutes < min_cooldown:
             raise HTTPException(
                 status_code=400,

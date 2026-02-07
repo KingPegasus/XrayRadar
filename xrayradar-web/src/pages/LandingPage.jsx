@@ -129,10 +129,11 @@ FastAPIIntegration.init_app(app, tracker)
                 <div className="price">$0<span style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>/mo</span></div>
                 <div className="small" style={{ color: 'var(--muted)' }}>Best for testing and small apps</div>
                 <ul className="list">
+                  <li><Check /> 1,000 events stored</li>
                   <li><Check /> Early access account</li>
                   <li><Check /> Token-based auth</li>
                   <li><Check /> Minimal ingestion API + storage</li>
-                  <li><Check /> Email alerts (10 min cooldown)</li>
+                  <li><Check /> No email alerts (upgrade for alerts)</li>
                 </ul>
                 <div style={{ marginTop: 16 }}>
                   <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Free')}>
@@ -143,13 +144,12 @@ FastAPIIntegration.init_app(app, tracker)
 
               <div className="card panel" style={{ borderColor: 'rgba(79, 124, 255, 0.38)' }}>
                 <div className="badge">Basic</div>
-                <div className="price">$1<span style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>/mo</span></div>
+                <div className="price">$3<span style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>/mo</span></div>
                 <div className="small" style={{ color: 'var(--muted)' }}>Early access paid plan (no automated billing yet)</div>
                 <ul className="list">
-                  <li><Check /> 50,000 events stored</li>
-                  <li><Check /> Everything in Free</li>
+                  <li><Check /> Up to 15,000 events storage</li>
                   <li><Check /> Priority ingestion (best effort)</li>
-                  <li><Check /> Email alerts (1 min cooldown)</li>
+                  <li><Check /> Email alerts (10 min cooldown)</li>
                 </ul>
                 <div style={{ marginTop: 16 }}>
                   <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Basic')}>
@@ -157,10 +157,44 @@ FastAPIIntegration.init_app(app, tracker)
                   </button>
                 </div>
               </div>
+
+              <div className="card panel" style={{ borderColor: 'rgba(158, 124, 255, 0.38)' }}>
+                <div className="badge">Teams</div>
+                <div className="price">$5<span style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>/mo</span></div>
+                <div className="small" style={{ color: 'var(--muted)' }}>Team access, up to 5 members</div>
+                <ul className="list">
+                  <li><Check /> Up to 25,000 events storage</li>
+                  <li><Check /> Email alerts (1 min cooldown)</li>
+                  <li><Check /> Team access: invite up to 5 members, assign projects</li>
+                  <li><Check /> Revoke access per project or remove from team</li>
+                </ul>
+                <div style={{ marginTop: 16 }}>
+                  <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Teams')}>
+                    Choose Teams
+                  </button>
+                </div>
+              </div>
+
+              <div className="card panel" style={{ borderColor: 'rgba(158, 124, 255, 0.38)' }}>
+                <div className="badge">Teams Pro</div>
+                <div className="price">$7<span style={{ color: 'var(--muted)', fontSize: 14, fontWeight: 600 }}>/mo</span></div>
+                <div className="small" style={{ color: 'var(--muted)' }}>Larger team, up to 10 members</div>
+                <ul className="list">
+                  <li><Check /> Up to 50,000 events storage</li>
+                  <li><Check /> Email alerts (1 min cooldown)</li>
+                  <li><Check /> Team access: invite up to 10 members</li>
+                  <li><Check /> Revoke access per project or remove from team</li>
+                </ul>
+                <div style={{ marginTop: 16 }}>
+                  <button type="button" className="button buttonPrimary" onClick={() => onSignupOpen('Teams Pro')}>
+                    Choose Teams Pro
+                  </button>
+                </div>
+              </div>
             </div>
 
             <p className="sectionDesc" style={{ marginTop: 14 }}>
-              Need more? Team/Enterprise tiers are planned (SAML, audit logs, longer retention).
+              Enterprise (SAML, audit logs, longer retention) is planned.
             </p>
           </div>
         </section>

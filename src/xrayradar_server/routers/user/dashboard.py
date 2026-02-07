@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ...db import get_db
 from ...models import Event, Project, User
 from ...deps import require_user
+from ._helpers import user_accessible_project_ids_subq
 from ...schemas import (
     DashboardStatsOut,
     DashboardTotalsOut,
@@ -34,7 +35,7 @@ def user_get_dashboard_stats(
     t_14d = now - timedelta(days=14)
     t_60d = now - timedelta(days=60)
 
-    user_projects = select(Project.id).where(Project.owner_user_id == user.id)
+    user_projects = user_accessible_project_ids_subq(user.id)
     base = Event.project_id.in_(user_projects) & (Event.level == "error")
 
     def count_events(since):

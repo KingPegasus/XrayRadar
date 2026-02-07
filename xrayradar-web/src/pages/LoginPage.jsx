@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { readErrorMessage, fetchMe } from '../utils/api'
 
-export function LoginPage({ onLoggedIn }) {
+export function LoginPage({ onLoggedIn, returnTo }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -36,7 +36,7 @@ export function LoginPage({ onLoggedIn }) {
       const me = await fetchMe()
       if (me) {
         onLoggedIn(me)
-        window.location.href = '/dashboard'
+        window.location.href = (returnTo && returnTo.startsWith('/')) ? returnTo : '/dashboard'
       } else {
         setError('Failed to load user info after login')
       }

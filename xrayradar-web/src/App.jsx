@@ -7,6 +7,7 @@ import { LandingPage } from './pages/LandingPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { AcceptInvitePage } from './pages/AcceptInvitePage'
 import { DashboardLayout } from './components/DashboardLayout'
 import { DashboardRouter } from './routes/DashboardRouter'
 import { SignupModal } from './components/SignupModal'
@@ -39,7 +40,23 @@ export default function App() {
   }
 
   if (path === '/login') {
-    return <LoginPage onLoggedIn={(m) => setMe(m)} />
+    const returnTo = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('next') : null
+    return <LoginPage onLoggedIn={(m) => setMe(m)} returnTo={returnTo} />
+  }
+
+  if (path === '/accept-invite') {
+    if (!meLoaded) return null
+    const token = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('token') : null
+    if (!me) {
+      const next = '/accept-invite' + (typeof window !== 'undefined' && window.location.search ? window.location.search : '')
+      navigate('/login?next=' + encodeURIComponent(next))
+      return null
+    }
+    return (
+      <DashboardLayout me={me} onLogout={doLogout}>
+        <AcceptInvitePage token={token} onSuccess={() => navigate('/dashboard')} />
+      </DashboardLayout>
+    )
   }
 
   if (path === '/forgot-password') {

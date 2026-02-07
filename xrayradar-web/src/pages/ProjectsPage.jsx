@@ -102,7 +102,14 @@ export function ProjectsPage({ me }) {
               className="pageCard pageCardInteractive"
               onClick={() => navigate(`/dashboard/projects/${p.id}`)}
             >
-              <div className="pageCardTitle">{p.name}</div>
+              <div className="pageCardTitle" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {p.name}
+                {p.is_owner === false && (
+                  <span className="badge" style={{ fontSize: 10, padding: '2px 6px', background: 'rgba(255,255,255,0.1)' }}>
+                    Member
+                  </span>
+                )}
+              </div>
               <div className="pageCardText">
                 Project ID: <code>{p.id}</code>
               </div>

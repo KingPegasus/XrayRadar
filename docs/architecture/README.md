@@ -17,6 +17,7 @@ This folder documents the architecture of XrayRadar features. Each document desc
 | [Auth](auth.md) | User authentication: signup, login, session, email verification, password reset |
 | [Account deletion](account-deletion.md) | User deletion requests and admin fulfillment |
 | [Admin](admin.md) | Admin UI (GitHub OAuth) and admin API (tokens, users, token requests, deletion requests) |
+| [Teams / Teams Pro access](pro-team-access.md) | Teams plans: team members, project assignment, invites, accept-invite flow, multi-team membership |
 
 ## Diagram format
 

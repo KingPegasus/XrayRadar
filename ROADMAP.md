@@ -38,8 +38,9 @@ _Features that have been implemented._
    - Configure email notifications for error events
    - Set up alerting rules and thresholds
    - Send email notifications when errors occur
-   - Cooldown per issue and per project (no email before configured minimum, e.g. 10 min; project-level prevents multiple issues from triggering emails within the same window)
+   - Cooldown per issue and per project (no email before configured minimum; project-level prevents multiple issues from triggering emails within the same window)
    - Cooldown state persisted in DB (survives server restart)
+   - Plan-based: **Free** (alerts disabled; upgrade message in settings), **Basic** (10 min cooldown), **Teams/Teams Pro** (1 min cooldown)
 
 ### Issue Management
 
@@ -56,6 +57,7 @@ _Features that have been implemented._
    - Implement event storage limits for free/basic tiers
    - Track event count per account (all event levels: error, warning, info, debug)
    - Enforce limits and notify users when approaching limits
+   - **Teams** and **Teams Pro** tiers with per-plan event and member limits (25k/5 members and 50k/10 members)
 
 ### SDK & Integrations
 
@@ -75,6 +77,15 @@ _Features that have been implemented._
    - Custom breadcrumbs via SDK: `add_breadcrumb()`, `clear_breadcrumbs()`, `max_breadcrumbs` config
    - Breadcrumb timeline in **event** detail view (BreadcrumbTimeline: type icons, level colors, relative time, expandable data, sort toggle)
    - _Note: Automatic clicks, navigation, and console logs would require a JavaScript SDK (not yet implemented); Python SDK supports manual breadcrumbs for any type._
+
+### Team & Access
+
+10. **Team plans, project members, and invites** ✅ _(v0.9.0)_
+    - **Teams** ($5/mo) and **Teams Pro** ($7/mo) plans with event and member limits (25k/5 and 50k/10)
+    - Project members: add and remove members to/from projects (Teams/Teams Pro only)
+    - Team invites: invite by email; accept/decline flow; multi-team membership supported
+    - Database: `project_members` and `team_invites` tables; migrations and API for member management and invite acceptance
+    - Admin: team invite email stats, Users tab plan filter and badges (Free / Basic / Teams / Teams Pro)
 
 ---
 
@@ -180,11 +191,11 @@ _Features that are planned for upcoming releases, organized by priority._
 
 #### Team Collaboration
 
-13. **Team & organization management**
-    - Multiple users per organization
-    - Role-based access (Owner, Admin, Member, Viewer)
-    - Project-level permissions
-    - Invite users via email
+13. **Team & organization management** _(partially done in v0.9.0)_
+    - ~~Multiple users per project (project members)~~ ✅
+    - ~~Invite users via email (team invites, accept/decline)~~ ✅
+    - ~~Teams/Teams Pro plans with member limits~~ ✅
+    - Remaining: role-based access (Owner, Admin, Member, Viewer), organization-level grouping, project-level permission roles
     - _Competitors: Sentry, Rollbar, Bugsnag_
 
 14. **Comments & notes on issues**
@@ -307,7 +318,7 @@ _Features that are planned for upcoming releases, organized by priority._
 | Custom tags | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Public API | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Webhooks | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Team management | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Team management (plans, members, invites) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Performance monitoring | ❌ | ✅ | ❌ | ✅ | ❌ |
 | Session replay | ❌ | ✅ | ✅ | ❌ | ✅ |
 | AI analysis | ❌ | ✅ | ✅ | ❌ | ❌ |
@@ -325,25 +336,26 @@ Based on competitive analysis and user value:
 2. Issue assignment (#1)
 3. Source maps support (#2)
 
-### Phase 2: Integrations (v0.9.0)
-4. Slack/Discord notifications (#4)
-5. GitHub/GitLab integration (#5)
-6. Custom tags & attributes (#9)
+### Phase 2: Team & Integrations (v0.9.0)
+4. ~~Team & organization management (partial)~~ ✅ — project members, team invites, Teams/Teams Pro plans (#13)
+5. Slack/Discord notifications (#4)
+6. GitHub/GitLab integration (#5)
+7. Custom tags & attributes (#9)
 
 ### Phase 3: Enhanced Context (v0.10.0)
-7. Breadcrumbs (#6) ✅
-8. User context & impact (#7)
-9. Environment & release tracking (#8)
+8. Breadcrumbs (#6) ✅
+9. User context & impact (#7)
+10. Environment & release tracking (#8)
 
 ### Phase 4: Platform Expansion (v0.11.0)
-10. Public REST API (#11)
-11. Outgoing webhooks (#12)
-12. JavaScript/Node.js SDK (#3)
+11. Public REST API (#11)
+12. Outgoing webhooks (#12)
+13. JavaScript/Node.js SDK (#3)
 
 ### Phase 5: Collaboration (v0.12.0)
-13. Team & organization management (#13)
-14. Comments & notes (#14)
-15. Advanced search & filtering (#10)
+14. Team roles & organization (RBAC, project-level roles — remainder of #13)
+15. Comments & notes (#14)
+16. Advanced search & filtering (#10)
 
 ### Phase 6: Advanced (v1.0.0+)
 16. Performance monitoring (#15)

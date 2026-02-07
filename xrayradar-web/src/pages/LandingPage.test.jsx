@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { LandingPage } from './LandingPage'
 
 // Mock Logo component
@@ -32,5 +33,27 @@ describe('LandingPage', () => {
     await waitFor(() => {
       expect(screen.getByText('XrayRadar')).toBeInTheDocument()
     }, { timeout: 2000 })
+  })
+
+  it('renders Teams and Teams Pro pricing cards and Choose buttons', () => {
+    render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
+    expect(screen.getByText('Teams')).toBeInTheDocument()
+    expect(screen.getByText('Teams Pro')).toBeInTheDocument()
+    expect(screen.getByText(/Up to 25,000 events storage/)).toBeInTheDocument()
+    expect(screen.getByText(/Up to 50,000 events storage/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Choose Teams$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Choose Teams Pro/i })).toBeInTheDocument()
+  })
+
+  it('calls onSignupOpen with Teams when Choose Teams is clicked', async () => {
+    render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
+    await userEvent.click(screen.getByRole('button', { name: /Choose Teams$/i }))
+    expect(mockOnSignupOpen).toHaveBeenCalledWith('Teams')
+  })
+
+  it('calls onSignupOpen with Teams Pro when Choose Teams Pro is clicked', async () => {
+    render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
+    await userEvent.click(screen.getByRole('button', { name: /Choose Teams Pro/i }))
+    expect(mockOnSignupOpen).toHaveBeenCalledWith('Teams Pro')
   })
 })

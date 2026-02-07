@@ -32,7 +32,11 @@ def get_project_alert_settings(
 
 
 def get_alert_recipients(db: Session, project: Project) -> list[str]:
-    """Combine owner email and additional recipients, deduplicated."""
+    """Combine owner email and additional recipients, deduplicated. Returns [] for Free plan (no alerts)."""
+    if project.owner_user_id is not None:
+        owner = db.get(User, project.owner_user_id)
+        if owner is not None and owner.plan == "Free":
+            return []
     emails: set[str] = set()
     if project.owner_user_id is not None:
         owner = db.get(User, project.owner_user_id)

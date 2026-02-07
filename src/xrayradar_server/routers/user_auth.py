@@ -141,7 +141,7 @@ def signup(
         raise HTTPException(status_code=400, detail="Invalid email")
 
     plan = (payload.plan or "").strip() or "Free"
-    if plan not in {"Free", "Basic"}:
+    if plan not in {"Free", "Basic", "Teams", "Teams Pro"}:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
     exists = db.execute(select(User).where(
