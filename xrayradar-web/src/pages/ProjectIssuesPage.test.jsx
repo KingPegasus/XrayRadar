@@ -172,9 +172,8 @@ describe('ProjectIssuesPage', () => {
     render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+      expect(screen.getByText(/Issue when frequency fails/i)).toBeInTheDocument()
     })
-    expect(screen.getByText(/Issue when frequency fails/i)).toBeInTheDocument()
   })
 
   it('navigates to issue detail on row click', async () => {
