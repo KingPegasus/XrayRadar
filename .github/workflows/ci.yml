@@ -28,7 +28,8 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          # Disable cache to avoid job failure when GitHub cache service is unavailable (post cleanup)
+          enable-cache: false
 
       - name: Install dependencies
         run: uv sync --extra dev
@@ -62,7 +63,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Install dependencies
         run: |
