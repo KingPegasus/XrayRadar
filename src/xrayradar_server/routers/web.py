@@ -89,11 +89,21 @@ def register_web(app: FastAPI, register_catch_all: bool = True) -> None:
         # This includes /pricing, /some-client-route, etc.
         return True
 
+    # Root static files (favicon, robots, etc.) - serve from dist if present
+    _root_static = ("favicon.ico", "robots.txt", "manifest.json", "apple-touch-icon.png", "og-image.webp")
+
     @app.get("/{path:path}", include_in_schema=False)
     def handle_spa_routes(path: str, request: Request):
+        normalized_path = "/" + path if path and not path.startswith("/") else (path or "/")
+        path_name = normalized_path.lstrip("/")
+
+        if path_name in _root_static:
+            static_file = web_dist_dir / path_name
+            if static_file.is_file():
+                return FileResponse(str(static_file))
+
         if _should_spa_fallback(path):
             if web_index.exists():
                 return FileResponse(str(web_index))
-        
-        # Block WordPress and other blocked paths
+
         raise HTTPException(status_code=404, detail="Not Found")

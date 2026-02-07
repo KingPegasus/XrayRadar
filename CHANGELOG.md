@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-02-08
+
+### Added
+
+- **SDK logos and quick setup snippets on landing page**
+  - Introduced SVG logos for FastAPI, Django, Flask, Node.js, React, and Next.js to enhance the landing page.
+  - Implemented a new `FrameworkLogo` component to render these logos dynamically.
+  - Added quick setup code snippets for each SDK in the `SDK_FRAMEWORKS` utility, improving onboarding experience.
+  - Updated the LandingPage component to include SDK integration details and quick setup instructions.
+  - Enhanced constants for features to reflect SDK support in both Python and JavaScript/TypeScript.
+
+---
+
 ## [0.9.0] - 2026-02-07
 
 ### Added
