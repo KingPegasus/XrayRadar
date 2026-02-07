@@ -1,11 +1,11 @@
 export const FEATURES = [
   {
     title: 'Lightweight SDKs',
-    text: 'Drop-in error capture for your apps. Keep the payload clean and predictable, and ship without heavy dependencies.',
+    text: 'Drop-in error capture for Python and JavaScript/TypeScript. Keep the payload clean and predictable, and ship without heavy dependencies.',
   },
   {
     title: 'Auto-capture middleware',
-    text: 'Built-in middleware for Django, FastAPI, and Flask. Automatically captures unhandled exceptions with request context and breadcrumbs.',
+    text: 'Python: built-in middleware for Django, FastAPI, and Flask. JS: Node, React, Next.js. Automatically captures unhandled exceptions with request context and breadcrumbs.',
   },
   {
     title: 'Simple DSN + Token auth',

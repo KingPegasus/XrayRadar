@@ -3,10 +3,32 @@ import { Link } from '../components/Link'
 import { SectionHeader } from '../components/SectionHeader'
 import { Check } from '../components/Check'
 import { Logo } from '../components/Logo'
+import { FrameworkLogo } from '../components/FrameworkLogo'
 import { FEATURES } from '../utils/constants'
+import {
+  SDK_FRAMEWORKS,
+  QUICK_SETUP_SNIPPETS,
+  PYPI_URL,
+  NPM_URL,
+} from '../utils/sdkFrameworks'
+
+const DEFAULT_LANG = 'python'
+const DEFAULT_FRAMEWORK = { python: 'fastapi', js: 'node' }
 
 export function LandingPage({ me, onSignupOpen, onLogout }) {
   const [logoError, setLogoError] = useState(false)
+  const [quickLang, setQuickLang] = useState(DEFAULT_LANG)
+  const [quickFramework, setQuickFramework] = useState(DEFAULT_FRAMEWORK[DEFAULT_LANG])
+
+  const frameworks = SDK_FRAMEWORKS[quickLang]
+  const snippetKey = `${quickLang}_${quickFramework}`
+  const snippet = QUICK_SETUP_SNIPPETS[snippetKey]
+
+  const setLang = (lang) => {
+    setQuickLang(lang)
+    setQuickFramework(DEFAULT_FRAMEWORK[lang])
+  }
+
   return (
     <>
       <header className="nav">
@@ -21,6 +43,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
           </a>
           <nav className="navLinks" aria-label="Primary">
             <a href="#features">Features</a>
+            <a href="#sdks">SDKs</a>
             <a href="#pricing">Pricing</a>
             <a href="#faq">FAQ</a>
             {me ? (
@@ -71,28 +94,115 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
             </div>
 
             <div className="panel heroCard">
-              <div className="kbd">Quick setup — FastAPI</div>
-              <pre className="code" style={{ marginTop: 12 }}>{`pip install xrayradar
-
-# main.py
-from fastapi import FastAPI
-from xrayradar import ErrorTracker
-from xrayradar.integrations.fastapi import FastAPIIntegration
-
-app = FastAPI()
-tracker = ErrorTracker(
-    dsn="https://xrayradar.com/api/1/store/",
-    auth_token="<token>"
-)
-FastAPIIntegration.init_app(app, tracker)
-
-# That's it! Exceptions are auto-captured
-# with request context and breadcrumbs.`}</pre>
+              <div className="quickSetupTabs" role="tablist" aria-label="Quick setup tech stack">
+                <div className="quickSetupLevel quickSetupLevelLang">
+                  <div className="quickSetupLangTabs">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={quickLang === 'python'}
+                      aria-controls="quick-setup-panel"
+                      id="tab-python"
+                      className={quickLang === 'python' ? 'quickSetupTab quickSetupTabLang quickSetupTabActive' : 'quickSetupTab quickSetupTabLang'}
+                      onClick={() => setLang('python')}
+                    >
+                      Python
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={quickLang === 'js'}
+                      aria-controls="quick-setup-panel"
+                      id="tab-js"
+                      className={quickLang === 'js' ? 'quickSetupTab quickSetupTabLang quickSetupTabActive' : 'quickSetupTab quickSetupTabLang'}
+                      onClick={() => setLang('js')}
+                    >
+                      JavaScript
+                    </button>
+                  </div>
+                </div>
+                <div className="quickSetupLevel quickSetupLevelFramework">
+                  <div className="quickSetupFrameworkTabs" role="tablist">
+                    {frameworks.map((fw) => (
+                      <button
+                        key={fw.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={quickFramework === fw.id}
+                        aria-controls="quick-setup-panel"
+                        id={`tab-${fw.id}`}
+                        className={quickFramework === fw.id ? 'quickSetupTab quickSetupTabFramework quickSetupTabActive' : 'quickSetupTab quickSetupTabFramework'}
+                        onClick={() => setQuickFramework(fw.id)}
+                      >
+                        {fw.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="kbd" style={{ marginTop: 12 }} id="quick-setup-panel" role="tabpanel" aria-labelledby={`tab-${quickFramework}`}>
+                Quick setup — {snippet?.label ?? ''}
+              </div>
+              {snippet && (
+                <pre className="code" style={{ marginTop: 12 }}>{snippet.code}</pre>
+              )}
               <div style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <a href="https://pypi.org/project/xrayradar/" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+                {quickLang === 'python' ? (
+                  <>
+                    <a href={PYPI_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+                      View on PyPI →
+                    </a>
+                    <span style={{ opacity: 0.7 }}>Also works with Graphene Django</span>
+                  </>
+                ) : (
+                  <>
+                    <a href={NPM_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+                      View on npm →
+                    </a>
+                    <span style={{ opacity: 0.7 }}>Also: Remix, Vite</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="section sectionSdk" id="sdks">
+          <div className="container">
+            <SectionHeader
+              title="Integrate with your stack"
+              desc="Official SDKs for Python and JavaScript/TypeScript with first-class framework support."
+            />
+            <div className="sdkGrid">
+              <div className="sdkCard panel">
+                <h3 className="sdkCardTitle">Python</h3>
+                <p className="sdkCardDesc">Official SDK on PyPI — middleware for Django, FastAPI, Flask.</p>
+                <div className="sdkFrameworks" role="list">
+                  {SDK_FRAMEWORKS.python.map((fw) => (
+                    <span key={fw.id} className="sdkFrameworkChip" role="listitem">
+                      <FrameworkLogo logoId={fw.logoId} size={24} alt={fw.name} />
+                      <span className="sdkFrameworkChipName">{fw.name}</span>
+                    </span>
+                  ))}
+                </div>
+                <a href={PYPI_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
                   View on PyPI →
                 </a>
-                <span style={{ opacity: 0.7 }}>Also works with Django and Flask</span>
+              </div>
+              <div className="sdkCard panel">
+                <h3 className="sdkCardTitle">JavaScript / TypeScript</h3>
+                <p className="sdkCardDesc">Packages on npm — Node, browser, React, Next.js, Remix.</p>
+                <div className="sdkFrameworks" role="list">
+                  {SDK_FRAMEWORKS.js.map((fw) => (
+                    <span key={fw.id} className="sdkFrameworkChip" role="listitem">
+                      <FrameworkLogo logoId={fw.logoId} size={24} alt={fw.name} />
+                      <span className="sdkFrameworkChipName">{fw.name}</span>
+                    </span>
+                  ))}
+                </div>
+                <a href={NPM_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
+                  View on npm →
+                </a>
               </div>
             </div>
           </div>
@@ -230,10 +340,12 @@ FastAPIIntegration.init_app(app, tracker)
           <div className="container footerInner">
             <div className="small">© {new Date().getFullYear()} XrayRadar</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div className="small" style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+              <div className="small" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                 <a href="#features">Features</a>
+                <a href="#sdks">SDKs</a>
                 <a href="#pricing">Pricing</a>
                 <a href="https://pypi.org/project/xrayradar/" target="_blank" rel="noopener noreferrer">Python SDK</a>
+                <a href="https://www.npmjs.com/package/@xrayradar/node" target="_blank" rel="noopener noreferrer">JavaScript SDK</a>
                 <a href="mailto:dev@xrayradar.com">Contact</a>
                 <a href="#top">Back to top</a>
               </div>
