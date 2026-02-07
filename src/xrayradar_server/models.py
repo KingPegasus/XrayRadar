@@ -61,12 +61,29 @@ class Project(Base):
     )
 
     owner: Mapped["User | None"] = relationship("User", back_populates="projects")
+    members: Mapped[list["ProjectMember"]] = relationship(
+        "ProjectMember", back_populates="project", cascade="all, delete-orphan"
+    )
     alert_settings: Mapped["ProjectAlertSettings | None"] = relationship(
         "ProjectAlertSettings", back_populates="project", uselist=False, cascade="all, delete-orphan"
     )
     alert_recipients: Mapped[list["ProjectAlertRecipient"]] = relationship(
         "ProjectAlertRecipient", back_populates="project", cascade="all, delete-orphan"
     )
+
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    project: Mapped["Project"] = relationship("Project", back_populates="members")
+    user: Mapped["User"] = relationship("User", back_populates="project_memberships")
 
 
 class Event(Base):
@@ -184,6 +201,9 @@ class User(Base):
     projects: Mapped[list[Project]] = relationship(
         "Project", back_populates="owner", cascade="all, delete-orphan"
     )
+    project_memberships: Mapped[list["ProjectMember"]] = relationship(
+        "ProjectMember", back_populates="user", cascade="all, delete-orphan"
+    )
     tokens: Mapped[list[Token]] = relationship(
         "Token", back_populates="user"
     )
@@ -192,6 +212,9 @@ class User(Base):
     )
     deletion_requests: Mapped[list["DeletionRequest"]] = relationship(
         "DeletionRequest", back_populates="user", cascade="all, delete-orphan"
+    )
+    team_invites_sent: Mapped[list["TeamInvite"]] = relationship(
+        "TeamInvite", back_populates="inviter", cascade="all, delete-orphan"
     )
 
 
@@ -217,6 +240,31 @@ class TokenRequest(Base):
 
     user: Mapped[User] = relationship("User", back_populates="token_requests")
     fulfilled_token: Mapped[Token | None] = relationship("Token")
+
+
+class TeamInvite(Base):
+    __tablename__ = "team_invites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    inviter_user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    project_ids: Mapped[list | None] = mapped_column(
+        JSON(), nullable=True
+    )  # list of project_id ints; migration uses TEXT for compatibility
+
+    inviter: Mapped["User"] = relationship("User", back_populates="team_invites_sent")
 
 
 class ProjectAlertSettings(Base):

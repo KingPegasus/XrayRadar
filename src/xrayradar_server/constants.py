@@ -4,9 +4,10 @@ GITHUB_OAUTH_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"  #
 
 # Event storage limits per plan tier
 TIER_EVENT_LIMITS = {
-    "Free": 5_000,
-    "Basic": 50_000,
-    "Pro": None,  # None means unlimited
+    "Free": 1_000,
+    "Basic": 15_000,
+    "Teams": 25_000,
+    "Teams Pro": 50_000,
 }
 
 # Warning threshold (percentage) - warn users when they reach this % of their limit
@@ -21,11 +22,18 @@ XRAYRADAR_BASE_URL = os.environ.get("XRAYRADAR_BASE_URL", "http://localhost:8001
 # Max additional alert recipients per project (besides owner)
 MAX_ALERT_RECIPIENTS = 20
 
-# Minimum cooldown (minutes) for email alerts by plan tier
+# Minimum cooldown (minutes) for email alerts by plan tier. Free: None = no email alerts.
 MIN_COOLDOWN_MINUTES_BY_PLAN = {
-    "Free": 10,
-    "Basic": 1,
-    "Pro": 1,
+    "Free": None,
+    "Basic": 10,
+    "Teams": 1,
+    "Teams Pro": 1,
+}
+
+# Max team members (invited users) per plan. Free/Basic have no team access (0).
+MAX_TEAM_MEMBERS_BY_PLAN = {
+    "Teams": 5,
+    "Teams Pro": 10,
 }
 
 # Rate limiting (requests per window; format: "N/minute", "N/hour", "N/day")

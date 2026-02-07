@@ -53,7 +53,7 @@ def test_user_get_usage(app_and_client_with_user):
     data = r.json()
     assert "current_count" in data
     assert "limit" in data
-    assert data["plan"] in ("Free", "Basic", "Pro")
+    assert data["plan"] in ("Free", "Basic", "Teams", "Teams Pro")
     assert "is_exceeded" in data
     assert "is_near_limit" in data
     assert data["current_count"] >= 0

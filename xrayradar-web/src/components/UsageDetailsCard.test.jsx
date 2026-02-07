@@ -18,7 +18,7 @@ describe('UsageDetailsCard', () => {
       <UsageDetailsCard
         usage={{
           current_count: 100,
-          limit: 5000,
+          limit: 1000,
           percentage_used: 2,
           is_exceeded: false,
           is_near_limit: false,
@@ -28,15 +28,15 @@ describe('UsageDetailsCard', () => {
       />
     )
     expect(screen.getByText(/100/)).toBeInTheDocument()
-    expect(screen.getByText(/5,000/)).toBeInTheDocument()
+    expect(screen.getByText(/1,000/)).toBeInTheDocument()
   })
 
   it('shows exceeded message', () => {
     render(
       <UsageDetailsCard
         usage={{
-          current_count: 5000,
-          limit: 5000,
+          current_count: 1000,
+          limit: 1000,
           percentage_used: 100,
           is_exceeded: true,
           is_near_limit: false,
@@ -52,8 +52,8 @@ describe('UsageDetailsCard', () => {
     render(
       <UsageDetailsCard
         usage={{
-          current_count: 4500,
-          limit: 5000,
+          current_count: 900,
+          limit: 1000,
           percentage_used: 90,
           is_exceeded: false,
           is_near_limit: true,

@@ -73,10 +73,12 @@ HTML_TEMPLATE = """<!doctype html>
       <div class="content">
         <div id="view_dashboard" class="view">
           <h1>System Statistics</h1>
+          <p class="muted" style="margin-top: 6px;">Overview of projects, tokens, users, events, and emails.</p>
           <div id="dashboard_err" class="error" style="margin-top: 10px"></div>
           <div id="dashboard_stats" class="dashboard-stats">
             <!-- Stats cards will be populated by JavaScript -->
           </div>
+          <p id="dashboard_updated" class="muted" style="margin-top: 16px; font-size: 12px;"></p>
         </div>
 
         <div id="view_tokens" class="view hidden">
@@ -191,7 +193,7 @@ HTML_TEMPLATE = """<!doctype html>
         <div id="view_users" class="view hidden">
           <section>
             <h2>Users</h2>
-            <div class="muted">View and manage user plans. Change a user's plan to Free, Basic, or Pro.</div>
+            <div class="muted">View and manage user plans. Change a user's plan to Free, Basic, Teams, or Teams Pro.</div>
 
             <div id="users_err" class="error" style="margin-top: 10px"></div>
             <div id="users_out" class="ok" style="margin-top: 10px"></div>

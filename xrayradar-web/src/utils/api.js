@@ -21,7 +21,13 @@ export async function fetchMe() {
 export async function fetchJson(url, opts) {
   const resp = await fetch(url, { credentials: 'include', ...(opts || {}) })
   if (!resp.ok) throw new Error(await readErrorMessage(resp))
-  return await resp.json()
+  const text = await resp.text()
+  if (!text || text.trim() === '') return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error('Invalid JSON in response')
+  }
 }
 
 export async function updateIssueStatus(projectId, fingerprint, statusData) {

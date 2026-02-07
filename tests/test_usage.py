@@ -71,21 +71,27 @@ def test_get_user_event_count_with_events(db_session, user_and_project):
 
 
 def test_get_user_event_limit_free():
-    """Free plan has limit."""
+    """Free plan has 1k limit."""
     user = MagicMock(plan="Free")
-    assert get_user_event_limit(user) == 5000
+    assert get_user_event_limit(user) == 1000
 
 
 def test_get_user_event_limit_basic():
-    """Basic plan has limit."""
+    """Basic plan has 15k limit."""
     user = MagicMock(plan="Basic")
+    assert get_user_event_limit(user) == 15000
+
+
+def test_get_user_event_limit_teams():
+    """Teams plan has 25k limit."""
+    user = MagicMock(plan="Teams")
+    assert get_user_event_limit(user) == 25000
+
+
+def test_get_user_event_limit_teams_pro():
+    """Teams Pro plan has 50k limit."""
+    user = MagicMock(plan="Teams Pro")
     assert get_user_event_limit(user) == 50000
-
-
-def test_get_user_event_limit_pro():
-    """Pro plan is unlimited."""
-    user = MagicMock(plan="Pro")
-    assert get_user_event_limit(user) is None
 
 
 def test_get_user_event_limit_unknown_tier():
@@ -95,9 +101,9 @@ def test_get_user_event_limit_unknown_tier():
 
 
 def test_check_user_event_limit_unlimited(db_session, user_and_project):
-    """When limit is None, is_exceeded is False."""
+    """When limit is None (unknown plan), is_exceeded is False."""
     user, _ = user_and_project
-    user.plan = "Pro"
+    user.plan = "Enterprise"  # Unknown tier -> None limit
     current, limit, is_exceeded = check_user_event_limit(db_session, user, raise_on_exceed=True)
     assert current == 0
     assert limit is None
@@ -109,7 +115,7 @@ def test_check_user_event_limit_under_limit(db_session, user_and_project):
     user, _ = user_and_project
     current, limit, is_exceeded = check_user_event_limit(db_session, user, raise_on_exceed=True)
     assert current == 0
-    assert limit == 5000
+    assert limit == 1000
     assert is_exceeded is False
 
 

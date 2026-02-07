@@ -7,19 +7,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...db import get_db
-from ...models import Project, User
+from ...models import Project, ProjectMember, User
 from ...deps import require_user, require_verified_user
 from ...schemas import UsageOut, UserProjectCreate, UserProjectOut
 from ...usage import check_user_event_limit, is_near_limit
+from ._helpers import user_accessible_project_ids_subq
 
 router = APIRouter()
 
 
 @router.get("/api/user/projects", response_model=list[UserProjectOut])
 def user_list_projects(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    q = select(Project).where(Project.owner_user_id == user.id).order_by(Project.id.asc())
+    accessible = user_accessible_project_ids_subq(user.id)
+    q = select(Project).where(Project.id.in_(accessible)).order_by(Project.id.asc())
     rows = db.execute(q).scalars().all()
-    return [UserProjectOut(id=p.id, name=p.name) for p in rows]
+    return [
+        UserProjectOut(id=p.id, name=p.name, is_owner=(p.owner_user_id == user.id))
+        for p in rows
+    ]
 
 
 @router.post("/api/user/projects", response_model=UserProjectOut)
@@ -32,7 +37,7 @@ def user_create_project(
     db.add(row)
     db.commit()
     db.refresh(row)
-    return UserProjectOut(id=row.id, name=row.name)
+    return UserProjectOut(id=row.id, name=row.name, is_owner=True)
 
 
 @router.get("/api/user/usage", response_model=UsageOut)

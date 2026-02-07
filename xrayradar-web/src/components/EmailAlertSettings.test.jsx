@@ -30,7 +30,9 @@ describe('EmailAlertSettings', () => {
 
   it('adds email and saves', async () => {
     const user = userEvent.setup()
-    api.fetchJson.mockResolvedValue({})
+    api.fetchJson
+      .mockResolvedValueOnce({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+      .mockResolvedValueOnce({})
 
     render(<EmailAlertSettings projectId={1} me={me} />)
 
@@ -166,8 +168,21 @@ describe('EmailAlertSettings', () => {
     })
   })
 
-  it('renders compact mode when compact=true', async () => {
+  it('shows upgrade message for Free plan (min_cooldown_minutes null)', async () => {
     api.fetchJson.mockResolvedValue({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: null })
+
+    render(<EmailAlertSettings projectId={1} me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Email alerts are not available on the Free plan/i)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Contact to Upgrade/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Email alerts for errors/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Save alert settings/i })).not.toBeInTheDocument()
+  })
+
+  it('renders compact mode when compact=true (Basic plan)', async () => {
+    api.fetchJson.mockResolvedValue({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
 
     render(<EmailAlertSettings projectId={1} me={me} compact />)
 

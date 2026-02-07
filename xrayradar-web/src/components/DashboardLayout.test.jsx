@@ -59,13 +59,33 @@ describe('DashboardLayout', () => {
   })
 
   it('shows plan badge with non-Basic plan (different style)', async () => {
-    const me = { email: 'test@example.com', plan: 'Pro' }
+    const me = { email: 'test@example.com', plan: 'Teams' }
     render(
       <DashboardLayout me={me} onLogout={vi.fn()}>
         <div>Content</div>
       </DashboardLayout>
     )
-    expect(screen.getByText('Pro')).toBeInTheDocument()
+    expect(screen.getByText('Teams')).toBeInTheDocument()
+  })
+
+  it('shows Team link when plan is Teams', () => {
+    const me = { email: 'test@example.com', plan: 'Teams' }
+    render(
+      <DashboardLayout me={me} onLogout={vi.fn()}>
+        <div>Content</div>
+      </DashboardLayout>
+    )
+    expect(screen.getByRole('link', { name: /Team/i })).toBeInTheDocument()
+  })
+
+  it('does not show Team link when plan is not Teams', () => {
+    const me = { email: 'test@example.com', plan: 'Free' }
+    render(
+      <DashboardLayout me={me} onLogout={vi.fn()}>
+        <div>Content</div>
+      </DashboardLayout>
+    )
+    expect(screen.queryByRole('link', { name: /Team/i })).not.toBeInTheDocument()
   })
 
   it('calls onLogout when sign out is clicked', async () => {

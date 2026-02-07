@@ -66,6 +66,8 @@ a { color: #93c5fd; }
 .dashboard-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 24px; }
 .dashboard-card { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 20px; transition: all 0.2s ease; }
 .dashboard-card:hover { border-color: #4b5563; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); transform: translateY(-2px); }
+.dashboard-card.clickable { cursor: pointer; }
+.dashboard-card.clickable .dashboard-card-title { color: #60a5fa; }
 .dashboard-card-title { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #374151; }
 .dashboard-stat-item { margin-bottom: 16px; }
 .dashboard-stat-item:last-child { margin-bottom: 0; }

@@ -121,9 +121,22 @@ def test_signup_invalid_plan_400(app_and_client):
     _, client = app_and_client
     r = client.post(
         "/auth/signup",
-        json={"email": "u@example.com", "password": "password123", "plan": "Pro"},
+        json={"email": "u@example.com", "password": "password123", "plan": "Enterprise"},
     )
     assert r.status_code == 400
+
+
+def test_signup_pro_plan_200(app_and_client):
+    """Signup with Teams plan returns 200 and user has plan Teams."""
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "teams@example.com", "password": "password123", "plan": "Teams"},
+        headers={"X-Forwarded-For": "10.0.0.1"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("plan") == "Teams"
 
 
 def test_signup_duplicate_email_409(app_and_client):

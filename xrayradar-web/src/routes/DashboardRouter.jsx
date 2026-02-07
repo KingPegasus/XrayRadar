@@ -1,5 +1,6 @@
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { TokensPage } from '../pages/TokensPage'
+import { TeamPage } from '../pages/TeamPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { ProjectIssuesPage } from '../pages/ProjectIssuesPage'
 import { IssueDetailPage } from '../pages/IssueDetailPage'
@@ -13,6 +14,8 @@ export function DashboardRouter({ path, me }) {
   if (path === '/dashboard/projects') return <ProjectsPage me={me} />
 
   if (path === '/dashboard/tokens') return <TokensPage me={me} />
+
+  if (path === '/dashboard/team') return <TeamPage me={me} />
 
   if (path === '/dashboard/settings') return <SettingsPage me={me} />
 

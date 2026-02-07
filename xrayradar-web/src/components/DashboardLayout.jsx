@@ -22,12 +22,13 @@ export function DashboardLayout({ me, onLogout, children }) {
             <Link to="/dashboard">Overview</Link>
             <Link to="/dashboard/projects">Projects</Link>
             <Link to="/dashboard/tokens">Tokens</Link>
+            {(me?.plan === 'Teams' || me?.plan === 'Teams Pro') && <Link to="/dashboard/team">Team</Link>}
             <Link to="/dashboard/settings">Settings</Link>
             {me?.plan && (
               <span
                 className="badge"
                 style={{
-                  background: me.plan === 'Basic' ? 'rgba(79, 124, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
+                  background: (me.plan === 'Basic' || me.plan === 'Teams' || me.plan === 'Teams Pro') ? 'rgba(79, 124, 255, 0.2)' : 'rgba(255, 255, 255, 0.1)',
                   fontSize: 11,
                   padding: '4px 8px',
                 }}

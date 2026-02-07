@@ -384,11 +384,11 @@ def admin_update_user_plan(
     db: Session = Depends(get_db),
     _: Token = Depends(require_admin),
 ):
-    """Update a user's plan (Free, Basic, Pro)."""
+    """Update a user's plan (Free, Basic, Teams, Teams Pro)."""
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    valid_plans = {"Free", "Basic", "Pro"}
+    valid_plans = {"Free", "Basic", "Teams", "Teams Pro"}
     if payload.plan not in valid_plans:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Must be one of: {', '.join(sorted(valid_plans))}")
     user.plan = payload.plan
@@ -419,7 +419,8 @@ def admin_get_stats(db: Session = Depends(get_db), _: Token = Depends(require_ad
     # Users by plan
     users_free = db.execute(select(func.count(User.id)).where(User.plan == "Free")).scalar() or 0
     users_basic = db.execute(select(func.count(User.id)).where(User.plan == "Basic")).scalar() or 0
-    users_pro = db.execute(select(func.count(User.id)).where(User.plan == "Pro")).scalar() or 0
+    users_teams = db.execute(select(func.count(User.id)).where(User.plan == "Teams")).scalar() or 0
+    users_teams_pro = db.execute(select(func.count(User.id)).where(User.plan == "Teams Pro")).scalar() or 0
     
     # Events count
     events_total = db.execute(select(func.count(Event.id))).scalar() or 0
@@ -444,6 +445,12 @@ def admin_get_stats(db: Session = Depends(get_db), _: Token = Depends(require_ad
             EmailLog.success == True
         )
     ).scalar() or 0
+    emails_team_invite = db.execute(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.email_type == "team_invite",
+            EmailLog.success == True
+        )
+    ).scalar() or 0
     emails_failed = db.execute(select(func.count(EmailLog.id)).where(EmailLog.success == False)).scalar() or 0
     
     return AdminStatsOut(
@@ -453,12 +460,14 @@ def admin_get_stats(db: Session = Depends(get_db), _: Token = Depends(require_ad
         tokens_revoked=tokens_revoked,
         users_free=users_free,
         users_basic=users_basic,
-        users_pro=users_pro,
+        users_teams=users_teams,
+        users_teams_pro=users_teams_pro,
         events_total=events_total,
         emails_total=emails_total,
         emails_verification=emails_verification,
         emails_password_reset=emails_password_reset,
         emails_error_alert=emails_error_alert,
+        emails_team_invite=emails_team_invite,
         emails_failed=emails_failed,
     )
 

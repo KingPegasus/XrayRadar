@@ -134,6 +134,10 @@ def app_and_client_with_user(database_url, monkeypatch, request):
             db.query(models.ProjectAlertRecipient).delete()
         if hasattr(models, "ProjectAlertSettings"):
             db.query(models.ProjectAlertSettings).delete()
+        if hasattr(models, "ProjectMember"):
+            db.query(models.ProjectMember).delete()
+        if hasattr(models, "TeamInvite"):
+            db.query(models.TeamInvite).delete()
         db.query(models.TokenRequest).delete()
         db.query(models.Token).delete()
         db.query(models.Project).delete()
@@ -202,6 +206,10 @@ def app_and_client_with_unverified_user(database_url, monkeypatch, request):
             db.query(models.ProjectAlertRecipient).delete()
         if hasattr(models, "ProjectAlertSettings"):
             db.query(models.ProjectAlertSettings).delete()
+        if hasattr(models, "ProjectMember"):
+            db.query(models.ProjectMember).delete()
+        if hasattr(models, "TeamInvite"):
+            db.query(models.TeamInvite).delete()
         db.query(models.TokenRequest).delete()
         db.query(models.Token).delete()
         db.query(models.Project).delete()

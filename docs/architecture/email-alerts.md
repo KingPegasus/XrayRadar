@@ -38,6 +38,12 @@ sequenceDiagram
 - **Config:** `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; if key is unset, sending is a no-op.
 - **Settings:** Per-project in `project_alert_settings` (enabled, level_filter, cooldown_minutes) and `project_alert_recipients`.
 
+## Plan limits
+
+- **Free:** No email alerts. `get_alert_recipients` returns no one for projects owned by a Free user; GET alert-settings returns `enabled=False`, `min_cooldown_minutes=None`; PATCH with `enabled=True` returns 400.
+- **Basic:** Email alerts allowed; minimum cooldown **10 minutes**.
+- **Teams / Teams Pro:** Email alerts allowed; minimum cooldown **1 minute**.
+
 ## User API
 
 - `GET /api/user/projects/{project_id}/alert-settings` — read enabled, cooldown, additional_emails.

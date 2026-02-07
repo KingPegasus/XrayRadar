@@ -2,13 +2,13 @@
 
 ## Overview
 
-Event storage is limited per user plan (Free, Basic, Pro). Limits are enforced at ingest; the dashboard can show current usage via a dedicated API.
+Event storage is limited per user plan (Free, Basic, Teams, Teams Pro). Limits are enforced at ingest; the dashboard can show current usage via a dedicated API.
 
 ## Flow
 
 1. On `POST /api/{project_id}/store/`, the project owner is resolved (if any).
 2. Current event count for that user (across all their projects) is computed.
-3. User’s limit is derived from `User.plan` (e.g. Free: 5,000; Basic: 50,000; Pro: unlimited).
+3. User’s limit is derived from `User.plan` (e.g. Free: 1,000; Basic: 15,000; Teams: 25,000; Teams Pro: 50,000).
 4. If `current_count + 1 > limit`, the request returns 403 and the event is not stored.
 5. If the user is near the limit (e.g. ≥ 80%), a warning is included in the response body.
 

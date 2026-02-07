@@ -21,7 +21,7 @@ def _event_date_expr(session: Session):
     return func.date(Event.timestamp).label("date")
 from ...deps import require_user
 from ...schemas import BulkIssueStatusUpdate, IssueStatusOut, IssueStatusUpdate, IssueSummaryOut
-from ._helpers import require_owned_project
+from ._helpers import require_project_access
 
 router = APIRouter()
 
@@ -50,7 +50,7 @@ def user_list_issues(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     clamped_limit = min(max(limit, 1), 200)
     
     # Build base aggregation query
@@ -119,7 +119,7 @@ def user_list_project_events(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     clamped_limit = min(max(limit, 1), 500)
     q = (
@@ -150,7 +150,7 @@ def user_get_project_event_frequency(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     date_expr = _event_date_expr(db)
     q = (
@@ -174,7 +174,7 @@ def user_get_issue_event_frequency(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     date_expr = _event_date_expr(db)
     q = (
@@ -205,7 +205,7 @@ def user_get_issue_breakdown(
     db: Session = Depends(get_db),
 ):
     """Return event counts by release and by environment for this issue (last 30 days)."""
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
     # By release
@@ -243,7 +243,7 @@ def user_list_issue_events(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     clamped_limit = min(max(limit, 1), 200)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     q = (
@@ -268,7 +268,7 @@ def user_get_event(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     row = db.get(Event, event_id)
     if row is None or row.project_id != project_id:
         raise HTTPException(status_code=404, detail="Not found")
@@ -295,7 +295,7 @@ def user_update_issue_status(
     db: Session = Depends(get_db),
 ):
     """Update or create issue status."""
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     
     if payload.status not in ("open", "in_progress", "resolved", "ignored"):
         raise HTTPException(status_code=400, detail="Invalid status")
@@ -358,7 +358,7 @@ def user_bulk_update_issue_status(
     db: Session = Depends(get_db),
 ):
     """Update status for multiple issues."""
-    require_owned_project(db, user=user, project_id=project_id)
+    require_project_access(db, user=user, project_id=project_id)
     
     if payload.status not in ("open", "in_progress", "resolved", "ignored"):
         raise HTTPException(status_code=400, detail="Invalid status")

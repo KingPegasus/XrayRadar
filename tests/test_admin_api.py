@@ -259,7 +259,7 @@ def test_admin_list_users(app_and_client, monkeypatch):
 def test_admin_update_user_plan_requires_auth(app_and_client):
     """Updating user plan requires admin auth."""
     _, client = app_and_client
-    r = client.patch("/api/admin/users/1/plan", json={"plan": "Pro"})
+    r = client.patch("/api/admin/users/1/plan", json={"plan": "Teams"})
     assert r.status_code == 401
 
 
@@ -269,7 +269,7 @@ def test_admin_update_user_plan_not_found(app_and_client, monkeypatch):
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
     monkeypatch.setenv("XRAYRADAR_ADMIN_EMAILS", "admin@example.com")
     _set_admin_session(client, secret="secret", email="admin@example.com")
-    r = client.patch("/api/admin/users/99999/plan", json={"plan": "Pro"})
+    r = client.patch("/api/admin/users/99999/plan", json={"plan": "Teams"})
     assert r.status_code == 404
 
 
@@ -316,10 +316,10 @@ def test_admin_update_user_plan(app_and_client, monkeypatch):
     finally:
         db.close()
 
-    r = client.patch(f"/api/admin/users/{user_id}/plan", json={"plan": "Pro"})
+    r = client.patch(f"/api/admin/users/{user_id}/plan", json={"plan": "Teams"})
     assert r.status_code == 200
     data = r.json()
-    assert data["plan"] == "Pro"
+    assert data["plan"] == "Teams"
     assert data["email"] == "planupdate@example.com"
     assert "event_count" in data
 
@@ -1278,12 +1278,14 @@ def test_admin_get_stats_empty(app_and_client, monkeypatch):
     assert data["tokens_revoked"] == 0
     assert data["users_free"] == 0
     assert data["users_basic"] == 0
-    assert data["users_pro"] == 0
+    assert data["users_teams"] == 0
+    assert data["users_teams_pro"] == 0
     assert data["events_total"] == 0
     assert data["emails_total"] == 0
     assert data["emails_verification"] == 0
     assert data["emails_password_reset"] == 0
     assert data["emails_error_alert"] == 0
+    assert data["emails_team_invite"] == 0
     assert data["emails_failed"] == 0
 
 
@@ -1301,7 +1303,7 @@ def test_admin_get_stats_with_data(app_and_client, monkeypatch):
         # Create users with different plans
         user1 = models.User(email="free@example.com", password_hash="hash", plan="Free")
         user2 = models.User(email="basic@example.com", password_hash="hash", plan="Basic")
-        user3 = models.User(email="pro@example.com", password_hash="hash", plan="Pro")
+        user3 = models.User(email="teams@example.com", password_hash="hash", plan="Teams")
         db.add(user1)
         db.add(user2)
         db.add(user3)
@@ -1361,10 +1363,17 @@ def test_admin_get_stats_with_data(app_and_client, monkeypatch):
             success=False,
             error_message="Failed to send",
         )
+        email5 = models.EmailLog(
+            email_type="team_invite",
+            recipient_email="invitee@example.com",
+            user_id=user3.id,
+            success=True,
+        )
         db.add(email1)
         db.add(email2)
         db.add(email3)
         db.add(email4)
+        db.add(email5)
 
         db.commit()
     finally:
@@ -1379,10 +1388,12 @@ def test_admin_get_stats_with_data(app_and_client, monkeypatch):
     assert data["tokens_revoked"] == 1  # token2
     assert data["users_free"] == 1
     assert data["users_basic"] == 1
-    assert data["users_pro"] == 1
+    assert data["users_teams"] == 1
+    assert data["users_teams_pro"] == 0
     assert data["events_total"] == 5
-    assert data["emails_total"] == 3  # 3 successful emails
+    assert data["emails_total"] == 4  # 4 successful: verification, password_reset, error_alert, team_invite
     assert data["emails_verification"] == 1
     assert data["emails_password_reset"] == 1
     assert data["emails_error_alert"] == 1
+    assert data["emails_team_invite"] == 1
     assert data["emails_failed"] == 1

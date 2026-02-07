@@ -22,7 +22,7 @@ describe('UsageWidget', () => {
       <UsageWidget
         usage={{
           current_count: 100,
-          limit: 5000,
+          limit: 1000,
           plan: 'Free',
           percentage_used: 2,
           is_exceeded: false,
@@ -31,7 +31,7 @@ describe('UsageWidget', () => {
       />
     )
     expect(screen.getByText(/100/)).toBeInTheDocument()
-    expect(screen.getByText(/5,000/)).toBeInTheDocument()
+    expect(screen.getByText(/1,000/)).toBeInTheDocument()
     expect(screen.getByText(/Free Plan/i)).toBeInTheDocument()
   })
 

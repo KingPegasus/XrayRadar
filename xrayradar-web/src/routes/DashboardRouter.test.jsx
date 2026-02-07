@@ -10,6 +10,10 @@ vi.mock('../pages/TokensPage', () => ({
   TokensPage: ({ me }) => <div>TokensPage: {me?.email}</div>,
 }))
 
+vi.mock('../pages/TeamPage', () => ({
+  TeamPage: ({ me }) => <div>TeamPage: {me?.email}</div>,
+}))
+
 vi.mock('../pages/SettingsPage', () => ({
   SettingsPage: ({ me }) => <div>SettingsPage: {me?.email}</div>,
 }))
@@ -55,6 +59,11 @@ describe('DashboardRouter', () => {
   it('renders SettingsPage for /dashboard/settings', () => {
     render(<DashboardRouter path="/dashboard/settings" me={me} />)
     expect(screen.getByText(/SettingsPage:/i)).toBeInTheDocument()
+  })
+
+  it('renders TeamPage for /dashboard/team', () => {
+    render(<DashboardRouter path="/dashboard/team" me={me} />)
+    expect(screen.getByText(/TeamPage:/i)).toBeInTheDocument()
   })
 
   it('renders ProjectIssuesPage for /dashboard/projects/:id', () => {

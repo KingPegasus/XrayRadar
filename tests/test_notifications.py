@@ -36,12 +36,12 @@ def db_session(database_url, monkeypatch):
 
 @pytest.fixture
 def project_with_owner(db_session):
-    """Create a user and project owned by that user. Unique email per test to avoid UNIQUE constraint."""
+    """Create a user and project owned by that user. Uses Basic plan so get_alert_recipients returns owner."""
     email = f"owner-{uuid.uuid4().hex}@example.com"
     user = models.User(
         email=email,
         password_hash="hash",
-        plan="Free",
+        plan="Basic",
     )
     db_session.add(user)
     db_session.commit()
@@ -97,6 +97,17 @@ def test_get_alert_recipients_owner_only(db_session, project_with_owner):
     project = db_session.get(models.Project, project.id)
     recipients = get_alert_recipients(db_session, project)
     assert set(recipients) == {user.email}
+
+
+def test_get_alert_recipients_free_plan_returns_empty(db_session, project_with_owner):
+    """Free plan project owner gets no alert emails (recipients list empty)."""
+    project, user = project_with_owner
+    user.plan = "Free"
+    db_session.add(user)
+    db_session.commit()
+    project = db_session.get(models.Project, project.id)
+    recipients = get_alert_recipients(db_session, project)
+    assert recipients == []
 
 
 def test_get_alert_recipients_no_owner(db_session, project_no_owner):
