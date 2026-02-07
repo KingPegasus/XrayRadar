@@ -9,7 +9,7 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 **Current Coverage:**
 - **Backend (Python)**: 99% - All tests passing ✓
-- **Frontend (React)**: 98.65% - All tests passing ✓
+- **Frontend (React)**: 97.87% - All tests passing ✓
 
 > Coverage is calculated in CI. To check locally (from repo root):  
 > **Backend:** `uv run pytest --cov=src/xrayradar_server --cov-report=term`  
