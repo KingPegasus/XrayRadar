@@ -165,6 +165,58 @@ def test_user_grant_project_access_revoked_access(app_and_client_with_user):
         db.close()
 
 
+def test_user_revoke_project_access(app_and_client_with_user):
+    """Test revoking project access from token"""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "My Project"})
+    project_id = r1.json()["id"]
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        token = models.Token(name="test", token="test-token", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+
+        access = models.TokenProjectAccess(token_id=token.id, project_id=project_id)
+        db.add(access)
+        db.commit()
+        db.refresh(access)
+        assert access.revoked_at is None
+
+        r = client.post(f"/api/user/tokens/{token.id}/projects/{project_id}/revoke")
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+
+        db.refresh(access)
+        assert access.revoked_at is not None
+    finally:
+        db.close()
+
+
+def test_user_revoke_project_access_not_found(app_and_client_with_user):
+    """Test revoking access when no access exists returns 404"""
+    mainmod, client, user = app_and_client_with_user
+
+    r1 = client.post("/api/user/projects", json={"name": "My Project"})
+    project_id = r1.json()["id"]
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        token = models.Token(name="test", token="test-token", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+
+        r = client.post(f"/api/user/tokens/{token.id}/projects/{project_id}/revoke")
+        assert r.status_code == 404
+    finally:
+        db.close()
+
+
 def test_user_list_token_requests_empty(app_and_client_with_user):
     """Test listing token requests when user has none"""
     mainmod, client, user = app_and_client_with_user

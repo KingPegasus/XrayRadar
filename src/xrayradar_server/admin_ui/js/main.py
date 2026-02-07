@@ -37,6 +37,7 @@ MAIN_JS = """function setView(view) {
 function viewFromHash() {
   const h = (window.location.hash || '').replace('#', '').trim().toLowerCase();
   if (h === 'dashboard') return 'dashboard';
+  if (h === 'tokens') return 'tokens';
   if (h === 'logs') return 'logs';
   if (h === 'deletions') return 'deletions';
   if (h === 'requests') return 'requests';

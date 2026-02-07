@@ -192,6 +192,91 @@ describe('TokensPage', () => {
     }, { timeout: 3000 })
   })
 
+  it('revokes project access from token', async () => {
+    const user = userEvent.setup()
+    const tokens = [
+      {
+        id: 1,
+        name: 'Token 1',
+        created_at: '2024-01-01T00:00:00Z',
+        revoked_at: null,
+      },
+    ]
+    const projects = [{ id: 1, name: 'Project 1' }]
+    let revokeCalled = false
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') {
+        return Promise.resolve(revokeCalled ? [] : [{ project_id: 1 }])
+      }
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      if (url === '/api/user/tokens/1/projects/1/revoke' && opts?.method === 'POST') {
+        revokeCalled = true
+        return Promise.resolve({})
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Token 1')).toBeInTheDocument()
+    }, { timeout: 3000 })
+
+    const manageButton = screen.getByRole('button', { name: /Manage project access/i })
+    await user.click(manageButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Revoke access/i })).toBeInTheDocument()
+    }, { timeout: 3000 })
+
+    const revokeButton = screen.getByRole('button', { name: /Revoke access/i })
+    await user.click(revokeButton)
+
+    await waitFor(() => {
+      expect(api.fetchJson).toHaveBeenCalledWith('/api/user/tokens/1/projects/1/revoke', {
+        method: 'POST',
+      })
+    }, { timeout: 3000 })
+  })
+
+  it('handles error when revoking access fails', async () => {
+    const user = userEvent.setup()
+    const tokens = [
+      { id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null },
+    ]
+    const projects = [{ id: 1, name: 'Project 1' }]
+    let revokeCallCount = 0
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') return Promise.resolve([{ project_id: 1 }])
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      if (url === '/api/user/tokens/1/projects/1/revoke' && opts?.method === 'POST') {
+        revokeCallCount++
+        if (revokeCallCount === 1) return Promise.reject(new Error('Failed to revoke project access'))
+        return Promise.resolve({})
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Token 1')).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: /Manage project access/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Revoke access/i })).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: /Revoke access/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Failed to revoke project access/i)
+    })
+  })
+
   it('displays error when loading fails', async () => {
     api.fetchJson.mockImplementation((url) => {
       if (url === '/api/user/projects') {
@@ -485,7 +570,7 @@ describe('TokensPage', () => {
     await user.click(screen.getByRole('button', { name: /Manage project access/i }))
     await waitFor(() => {
       expect(screen.getByText('Project 1')).toBeInTheDocument()
-      expect(screen.getByText(/Has access/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Revoke access/i })).toBeInTheDocument()
     })
   })
 

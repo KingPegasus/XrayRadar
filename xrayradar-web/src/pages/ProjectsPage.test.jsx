@@ -24,6 +24,20 @@ describe('ProjectsPage', () => {
     expect(screen.getByText(/Signed in as/i)).toBeInTheDocument()
   })
 
+  it('renders Your projects section when projects not yet loaded', () => {
+    let resolveProjects
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') {
+        return new Promise((resolve) => { resolveProjects = resolve })
+      }
+      return Promise.resolve({ current_count: 0, limit: 1000, plan: 'Free', is_exceeded: false, is_near_limit: false })
+    })
+    render(<ProjectsPage me={me} />)
+    expect(screen.getByText('Your projects')).toBeInTheDocument()
+    expect(screen.getByText('Projects')).toBeInTheDocument()
+    resolveProjects([])
+  })
+
   it('loads and displays projects', async () => {
     const projects = [
       { id: 1, name: 'Project 1' },
@@ -105,6 +119,27 @@ describe('ProjectsPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Project name is required/i)).toBeInTheDocument()
     })
+  })
+
+  it('validates project name is required when only whitespace', async () => {
+    const user = userEvent.setup()
+    api.fetchJson
+      .mockResolvedValueOnce([]) // projects
+      .mockResolvedValueOnce({ current_count: 0, limit: 1000, plan: 'Free', is_exceeded: false, is_near_limit: false }) // usage
+    render(<ProjectsPage me={me} />)
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/New project name/i)).toBeInTheDocument()
+    })
+
+    const input = screen.getByPlaceholderText(/New project name/i)
+    await user.type(input, '   ')
+    await user.click(screen.getByRole('button', { name: /Create project/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Project name is required/i)).toBeInTheDocument()
+    })
+    expect(api.fetchJson).not.toHaveBeenCalledWith('/api/user/projects', expect.anything())
   })
 
   it('navigates to project on click', async () => {

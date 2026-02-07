@@ -339,6 +339,24 @@ describe('ProjectIssuesPage', () => {
     })
   })
 
+  it('does not show bulk action bar when no selection', async () => {
+    const mockIssues = [
+      { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
+    ]
+    fetchJson
+      .mockResolvedValueOnce(mockIssues)
+      .mockResolvedValueOnce({ frequency: {}, total: 0 })
+
+    render(<ProjectIssuesPage projectId="123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('M1')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('button', { name: /Resolve/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/\d+ selected/)).not.toBeInTheDocument()
+  })
+
   it('shows bulk actions and resolve selected', async () => {
     const user = userEvent.setup()
     const mockIssues = [
@@ -587,6 +605,30 @@ describe('ProjectIssuesPage', () => {
 
     const messageCell = screen.getByText('M1')
     await user.click(messageCell)
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard/projects/123/issues/fp1')
+    })
+  })
+
+  it('navigates to issue when clicking row (e.g. count cell)', async () => {
+    const user = userEvent.setup()
+    const mockIssues = [
+      { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
+    ]
+    fetchJson
+      .mockResolvedValueOnce(mockIssues)
+      .mockResolvedValueOnce({ frequency: {}, total: 0 })
+
+    render(<ProjectIssuesPage projectId="123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('M1')).toBeInTheDocument()
+    })
+
+    const row = screen.getByRole('row', { name: /M1/i })
+    const countCell = row.querySelector('td:nth-child(5)')
+    await user.click(countCell)
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard/projects/123/issues/fp1')

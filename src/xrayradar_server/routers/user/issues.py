@@ -11,6 +11,14 @@ from sqlalchemy.orm import Session
 
 from ...db import get_db
 from ...models import Event, IssueStatus, User
+
+
+def _event_date_expr(session: Session):
+    """Return a SQL expression for event date (UTC) for grouping. PostgreSQL uses AT TIME ZONE; SQLite uses date() only."""
+    if session.get_bind().dialect.name == "postgresql":
+        timestamp_as_utc = Event.timestamp.op("AT TIME ZONE")("UTC")
+        return func.date(timestamp_as_utc).label("date")
+    return func.date(Event.timestamp).label("date")
 from ...deps import require_user
 from ...schemas import BulkIssueStatusUpdate, IssueStatusOut, IssueStatusUpdate, IssueSummaryOut
 from ._helpers import require_owned_project
@@ -144,11 +152,7 @@ def user_get_project_event_frequency(
 ):
     require_owned_project(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-    # Extract date in UTC: treat naive timestamp as UTC using AT TIME ZONE, then extract date
-    # This ensures latest date (today) is correctly included regardless of DB session timezone
-    # The AT TIME ZONE 'UTC' operator treats the naive timestamp as UTC before extracting date
-    timestamp_as_utc = Event.timestamp.op("AT TIME ZONE")("UTC")
-    date_expr = func.date(timestamp_as_utc).label("date")
+    date_expr = _event_date_expr(db)
     q = (
         select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
@@ -172,11 +176,7 @@ def user_get_issue_event_frequency(
 ):
     require_owned_project(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
-    # Extract date in UTC: treat naive timestamp as UTC using AT TIME ZONE, then extract date
-    # This ensures latest date (today) is correctly included regardless of DB session timezone
-    # The AT TIME ZONE 'UTC' operator treats the naive timestamp as UTC before extracting date
-    timestamp_as_utc = Event.timestamp.op("AT TIME ZONE")("UTC")
-    date_expr = func.date(timestamp_as_utc).label("date")
+    date_expr = _event_date_expr(db)
     q = (
         select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
