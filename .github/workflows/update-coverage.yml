@@ -57,7 +57,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -84,7 +84,9 @@ jobs:
         id: frontend-cov
         working-directory: xrayradar-web
         run: |
-          COV=$(npm run test:coverage -- --run 2>&1 | grep -E "^All files" | awk '{print $4}' | sed 's/%//' || echo "0")
+          # Vitest table: "All files | XX.XX | ..." - use pipe as delimiter, take first % column (Stmts)
+          COV=$(npm run test:coverage -- --run 2>&1 | grep -E "All files" | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/,"",$2); print $2}' | head -1)
+          COV=${COV:-0}
           echo "coverage=$COV" >> $GITHUB_OUTPUT
           echo "Frontend coverage: $COV%"
 

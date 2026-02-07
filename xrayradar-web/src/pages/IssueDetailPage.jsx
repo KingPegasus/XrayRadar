@@ -3,12 +3,16 @@ import { fetchJson } from '../utils/api'
 import { navigate } from '../utils/navigation'
 import { EventFrequencyChart } from '../components/EventFrequencyChart'
 import { IssueBreakdown } from '../components/IssueBreakdown'
+import { IssueStatusBadge } from '../components/IssueStatusBadge'
+import { IssueStatusModal } from '../components/IssueStatusModal'
 
 export function IssueDetailPage({ projectId, fingerprint }) {
   const [events, setEvents] = useState([])
   const [eventFrequencyData, setEventFrequencyData] = useState(null)
   const [breakdown, setBreakdown] = useState(null)
+  const [issueStatus, setIssueStatus] = useState(null)
   const [error, setError] = useState('')
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
 
   const load = useCallback(() => {
     setError('')
@@ -27,17 +31,35 @@ export function IssueDetailPage({ projectId, fingerprint }) {
       .catch((e) => {
         console.warn('Failed to load breakdown:', e)
       })
+
+    // Load issue status - try to get from issues list first
+    fetchJson(`/api/user/projects/${projectId}/issues`)
+      .then((issues) => {
+        const issue = issues.find(i => i.fingerprint === fingerprint)
+        if (issue) {
+          setIssueStatus({
+            status: issue.status || 'open',
+            resolved_release: issue.resolved_release,
+            resolved_at: issue.resolved_at,
+            reopened: issue.reopened || false,
+          })
+        }
+      })
+      .catch((e) => {
+        console.warn('Failed to load issue status:', e)
+      })
   }, [projectId, fingerprint])
 
   useEffect(() => load(), [load])
 
   const eventFrequency = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Use UTC dates to match backend (which returns UTC dates)
+    const now = new Date()
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
     const last30Days = []
     for (let i = 29; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
+      const date = new Date(todayUTC)
+      date.setUTCDate(date.getUTCDate() - i)
       const dateKey = date.toISOString().split('T')[0]
       last30Days.push(dateKey)
     }
@@ -51,11 +73,34 @@ export function IssueDetailPage({ projectId, fingerprint }) {
     return { data: sorted, maxCount, total: eventFrequencyData?.total || 0 }
   }, [eventFrequencyData])
 
+  const shouldShowAutoReopenNotification = useMemo(() => {
+    if (!issueStatus || issueStatus.status !== 'resolved' || events.length === 0 || statusModalOpen) {
+      return false
+    }
+    // Only show if there are events that occurred after the resolution time
+    if (issueStatus.resolved_at) {
+      const resolvedTime = new Date(issueStatus.resolved_at).getTime()
+      return events.some(e => new Date(e.timestamp).getTime() > resolvedTime)
+    }
+    // If no resolved_at, show notification if there are any events (conservative)
+    return true
+  }, [issueStatus, events, statusModalOpen])
+
   return (
     <div className="container page">
       <header className="pageHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 className="pageTitle">Issue</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+            <h1 className="pageTitle" style={{ margin: 0 }}>Issue</h1>
+            {issueStatus && (
+              <IssueStatusBadge
+                status={issueStatus.status || 'open'}
+                resolvedRelease={issueStatus.resolved_release}
+                reopened={issueStatus.reopened}
+                onClick={() => setStatusModalOpen(true)}
+              />
+            )}
+          </div>
           <p className="pageSubtitle">
             Fingerprint: <code>{fingerprint}</code>
             {events.length > 0 && (
@@ -85,6 +130,35 @@ export function IssueDetailPage({ projectId, fingerprint }) {
           {error}
         </div>
       ) : null}
+
+      {shouldShowAutoReopenNotification && (
+        <div className="auto-reopen-notification" style={{ marginBottom: 16, padding: 12, background: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 8, color: '#92400e' }}>
+          <strong>Note:</strong> This issue is marked as resolved, but new events have been recorded. 
+          {issueStatus.resolved_release && ` It was resolved for release "${issueStatus.resolved_release}".`}
+          {!issueStatus.resolved_release && ' It may have been auto-reopened due to new occurrences.'}
+        </div>
+      )}
+
+      {issueStatus && issueStatus.reopened && issueStatus.status === 'open' && (
+        <div className="reopened-notification" style={{ marginBottom: 16, padding: 12, background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', borderRadius: 8, color: '#fbbf24', fontSize: 13 }}>
+          <strong>Reopened:</strong> This issue was previously resolved and has been automatically reopened due to new events.
+        </div>
+      )}
+
+      {statusModalOpen && issueStatus && (
+        <IssueStatusModal
+          projectId={projectId}
+          fingerprint={fingerprint}
+          currentStatus={issueStatus.status || 'open'}
+          resolvedRelease={issueStatus.resolved_release}
+          resolvedAt={issueStatus.resolved_at}
+          onStatusChange={(newStatus) => {
+            setIssueStatus(newStatus)
+            load()
+          }}
+          onClose={() => setStatusModalOpen(false)}
+        />
+      )}
 
       <EventFrequencyChart eventFrequency={eventFrequency} />
 

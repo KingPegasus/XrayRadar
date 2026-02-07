@@ -5,11 +5,11 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 ## Test Coverage
 
 ![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
-![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98.74%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98%65-brightgreen?style=flat-square)
 
 **Current Coverage:**
 - **Backend (Python)**: 99% - All tests passing ✓
-- **Frontend (React)**: 98.74% - All tests passing ✓
+- **Frontend (React)**: 98.65% - All tests passing ✓
 
 > Coverage is calculated in CI. To check locally (from repo root):  
 > **Backend:** `uv run pytest --cov=src/xrayradar_server --cov-report=term`  
@@ -40,30 +40,18 @@ docker compose up -d
 2) (Optional) Build the marketing site (served by the backend in production)
 
 ```bash
-cd xrayradar-web
-npm install
-npm run build
-```
-or 
-
-```bash
 cd xrayradar-web && npm ci && npm run build && cd ..
 ```
 
 3) Run API:
 
 ```bash
+export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
 uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
 ```
 
 Using `uv run` ensures the project virtualenv (from `uv sync`) is used, so all dependencies—including `resend` for email alerts—are available.
 
-If you prefer, you can also run with:
-
-```bash
-export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localhost:5432/xrayradar"
-uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
-```
 
 ### Run locally with Docker
 
@@ -178,6 +166,15 @@ Cookie security note:
 - `XRAYRADAR_BASE_URL` — Base URL for links in emails (verification, password reset, alert links). Defaults to `http://localhost:8001` if unset. In production set to e.g. `https://xrayradar.com`.
 
 When Resend is not configured, signup and password reset still work; users just won't receive verification or reset emails.
+
+**Rate limiting (optional):**
+
+Public endpoints are rate limited to reduce abuse and brute force. Limits are configurable via environment variables:
+
+- `XRAYRADAR_RATE_LIMIT_AUTH` — Auth endpoints (signup, login, forgot-password, reset-password, verify-email, resend-verification) per IP. Default: `5/minute`. Format: `N/minute`, `N/hour`, or `N/day`.
+- `XRAYRADAR_RATE_LIMIT_EVENT_INGEST` — Event ingestion (`POST /api/{project_id}/store/`) per API token. Default: `100/minute`.
+
+When a limit is exceeded, the server returns `429 Too Many Requests` with an error message.
 
 This avoids needing `psql` locally.
 

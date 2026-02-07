@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-06
+
+### Added
+
+- **Rate limiting for public endpoints**
+  - IP-based rate limiting for authentication endpoints (signup, login, forgot-password, reset-password, verify-email, resend-verification)
+  - Token-based rate limiting for event ingestion (`POST /api/{project_id}/store/`)
+  - Configurable via `XRAYRADAR_RATE_LIMIT_AUTH` and `XRAYRADAR_RATE_LIMIT_EVENT_INGEST` (e.g. `5/minute`, `100/minute`)
+  - Implemented with `slowapi`; returns 429 when limits are exceeded
+- **Email logging and admin dashboard statistics**
+  - `EmailLog` model to track email notifications (type, recipient, success status, error messages)
+  - `send_alert_emails` and user auth email flows now log to EmailLog
+  - Admin API endpoint for system statistics (projects, tokens, users, events, email counts)
+  - Admin UI dashboard view displaying system statistics
+- **Issue status management and auto-reopen**
+  - `IssueStatus` model for issue lifecycle (status, resolved release, timestamps)
+  - Endpoints to update and bulk-update issue status; auto-reopen on new events when applicable
+  - Architecture docs updated for issue status and API behavior
+- **Token project access revocation**
+  - `POST /api/user/tokens/{token_id}/projects/{project_id}/revoke` for revoking a token’s project access
+  - TokensPage “Revoke access” button when a token has access to a project
+  - Admin UI: `#tokens` hash routing fixed so `/admin#tokens` shows the tokens view
+
+### Fixed
+
+- **Event frequency and UI date handling** — Frequency queries now extract dates in UTC (PostgreSQL `AT TIME ZONE 'UTC'`); frontend builds the 30-day range in UTC so the latest date (e.g. today) appears correctly in the chart. SQLite tests use plain `date()` for compatibility.
+- **Email alert cooldown and project-level limit** — Cooldown enforced; project-level alert limits applied as intended.
+
+---
+
 ## [0.7.0] - 2026-01-27
 
 ### Added

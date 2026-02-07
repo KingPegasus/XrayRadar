@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { readErrorMessage, fetchMe, fetchJson } from './api'
+import { readErrorMessage, fetchMe, fetchJson, updateIssueStatus, bulkUpdateIssueStatus } from './api'
 
 describe('api', () => {
   beforeEach(() => {
@@ -111,6 +111,67 @@ describe('api', () => {
       })
 
       await expect(fetchJson('/api/test')).rejects.toThrow('Not found')
+    })
+  })
+
+  describe('updateIssueStatus', () => {
+    it('sends PATCH request with status data', async () => {
+      const statusData = { status: 'resolved', resolved_release: 'v1.0.0' }
+      const responseData = { status: 'resolved', resolved_release: 'v1.0.0', reopened: false }
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => responseData,
+      })
+
+      const result = await updateIssueStatus(1, 'fp123', statusData)
+      expect(result).toEqual(responseData)
+      expect(fetch).toHaveBeenCalledWith('/api/user/projects/1/issues/fp123/status', {
+        credentials: 'include',
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(statusData),
+      })
+    })
+
+    it('throws error on failure', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ detail: 'Issue not found' }),
+      })
+
+      await expect(updateIssueStatus(1, 'fp123', { status: 'resolved' })).rejects.toThrow('Issue not found')
+    })
+  })
+
+  describe('bulkUpdateIssueStatus', () => {
+    it('sends POST request with fingerprints and status data', async () => {
+      const fingerprints = ['fp1', 'fp2', 'fp3']
+      const statusData = { status: 'resolved', resolved_release: 'v1.0.0' }
+      const responseData = { updated: 3 }
+      fetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => responseData,
+      })
+
+      const result = await bulkUpdateIssueStatus(1, fingerprints, statusData)
+      expect(result).toEqual(responseData)
+      expect(fetch).toHaveBeenCalledWith('/api/user/projects/1/issues/bulk-status', {
+        credentials: 'include',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fingerprints, ...statusData }),
+      })
+    })
+
+    it('throws error on failure', async () => {
+      fetch.mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({ detail: 'Invalid status' }),
+      })
+
+      await expect(bulkUpdateIssueStatus(1, ['fp1'], { status: 'invalid' })).rejects.toThrow('Invalid status')
     })
   })
 })

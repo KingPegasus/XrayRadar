@@ -10,8 +10,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from itsdangerous import BadSignature
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from .db import init_db
+from .rate_limit import limiter
 from .admin_ui import render_admin_ui
 from .auth import (
     cookie_secure,
@@ -40,7 +44,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="xrayradar-server",
-    version="0.7.0",
+    version="0.8.0",
     lifespan=lifespan,
     docs_url=None,  # Disable default docs
     redoc_url=None,  # Disable default redoc
@@ -48,6 +52,9 @@ app = FastAPI(
     openapi_url=None,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Register web static files and root route, but not catch-all yet
 register_web(app, register_catch_all=False)

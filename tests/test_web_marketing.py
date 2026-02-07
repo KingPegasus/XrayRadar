@@ -142,3 +142,165 @@ def test_spa_fallback_with_empty_path(tmp_path, monkeypatch):
     finally:
         # Restore original state
         webmod._registered_apps = original_apps
+
+
+def test_register_web_without_catch_all(tmp_path, monkeypatch):
+    """Test register_web with register_catch_all=False."""
+    from xrayradar_server.routers.web import register_web
+    from fastapi import FastAPI
+    
+    web_dist = tmp_path / "dist"
+    web_dist.mkdir()
+    (web_dist / "index.html").write_text("<html>ok</html>")
+    monkeypatch.setenv("XRAYRADAR_WEB_DIST", str(web_dist))
+    
+    import xrayradar_server.routers.web as webmod
+    original_apps = webmod._registered_apps.copy()
+    webmod._registered_apps.clear()
+    
+    try:
+        app = FastAPI()
+        register_web(app, register_catch_all=False)
+        
+        client = TestClient(app)
+        # Root route should work
+        r = client.get("/")
+        assert r.status_code == 200
+        
+        # Catch-all should not be registered
+        r = client.get("/some-client-route")
+        assert r.status_code == 404
+    finally:
+        webmod._registered_apps = original_apps
+
+
+def test_register_web_no_index_file(tmp_path, monkeypatch):
+    """Test register_web when index.html doesn't exist."""
+    from xrayradar_server.routers.web import register_web
+    from fastapi import FastAPI
+    
+    web_dist = tmp_path / "dist"
+    web_dist.mkdir()
+    # Don't create index.html
+    monkeypatch.setenv("XRAYRADAR_WEB_DIST", str(web_dist))
+    
+    import xrayradar_server.routers.web as webmod
+    original_apps = webmod._registered_apps.copy()
+    webmod._registered_apps.clear()
+    
+    try:
+        app = FastAPI()
+        register_web(app, register_catch_all=True)
+        
+        client = TestClient(app)
+        # Root route should return 404 when index doesn't exist
+        r = client.get("/")
+        assert r.status_code == 404
+    finally:
+        webmod._registered_apps = original_apps
+
+
+def test_register_web_no_assets_dir(tmp_path, monkeypatch):
+    """Test register_web when assets directory doesn't exist."""
+    from xrayradar_server.routers.web import register_web
+    from fastapi import FastAPI
+    
+    web_dist = tmp_path / "dist"
+    web_dist.mkdir()
+    (web_dist / "index.html").write_text("<html>ok</html>")
+    # Don't create assets directory
+    monkeypatch.setenv("XRAYRADAR_WEB_DIST", str(web_dist))
+    
+    import xrayradar_server.routers.web as webmod
+    original_apps = webmod._registered_apps.copy()
+    webmod._registered_apps.clear()
+    
+    try:
+        app = FastAPI()
+        register_web(app, register_catch_all=True)
+        
+        client = TestClient(app)
+        # Should still work without assets
+        r = client.get("/")
+        assert r.status_code == 200
+    finally:
+        webmod._registered_apps = original_apps
+
+
+def test_register_web_multiple_calls_same_app(tmp_path, monkeypatch):
+    """Test that register_web can be called multiple times on same app."""
+    from xrayradar_server.routers.web import register_web
+    from fastapi import FastAPI
+    
+    web_dist = tmp_path / "dist"
+    web_dist.mkdir()
+    (web_dist / "index.html").write_text("<html>ok</html>")
+    monkeypatch.setenv("XRAYRADAR_WEB_DIST", str(web_dist))
+    
+    import xrayradar_server.routers.web as webmod
+    original_apps = webmod._registered_apps.copy()
+    webmod._registered_apps.clear()
+    
+    try:
+        app = FastAPI()
+        # Register multiple times
+        register_web(app, register_catch_all=True)
+        register_web(app, register_catch_all=True)
+        register_web(app, register_catch_all=True)
+        
+        client = TestClient(app)
+        r = client.get("/")
+        assert r.status_code == 200
+        
+        # Should only have one root route
+        root_routes = [r for r in app.routes if hasattr(r, 'path') and r.path == "/"]
+        assert len(root_routes) == 1
+    finally:
+        webmod._registered_apps = original_apps
+
+
+def test_spa_fallback_blocked_paths(app_with_web):
+    """Test that blocked paths return 404."""
+    client = app_with_web
+    
+    # Test various blocked paths
+    assert client.get("/wp-admin").status_code == 404
+    assert client.get("/wp-content").status_code == 404
+    assert client.get("/wp/").status_code == 404
+    assert client.get("/wordpress").status_code == 404
+    assert client.get("/index.php").status_code == 404
+    assert client.get("/index.php/test").status_code == 404
+
+
+def test_spa_fallback_server_routes(app_with_web):
+    """Test that server routes are not intercepted."""
+    client = app_with_web
+    
+    # These should be handled by their actual routes, not SPA fallback
+    # We can't easily test the actual handlers without setting up the full app,
+    # but we can verify they don't get the SPA index
+    # The actual routes will return their own responses (401, 200, 404, etc.)
+    assert client.get("/api/1/events").status_code == 401  # API route, not SPA
+    # /auth/login might return 404 if not set up, or 405 if method not allowed, or 200 if GET is allowed
+    # The important thing is it's not serving the SPA index (which would be 200 with "XRAYRADAR WEB")
+    r = client.get("/auth/login")
+    assert r.status_code != 200 or "XRAYRADAR WEB" not in r.text  # Should not be SPA
+
+
+def test_spa_fallback_client_routes(app_with_web):
+    """Test that client routes fall back to SPA."""
+    client = app_with_web
+    
+    # These should serve the SPA index
+    r = client.get("/dashboard")
+    assert r.status_code == 200
+    assert "XRAYRADAR WEB" in r.text
+    
+    r = client.get("/pricing")
+    assert r.status_code == 200
+    assert "XRAYRADAR WEB" in r.text
+    
+    r = client.get("/some-random-route")
+    assert r.status_code == 200
+    assert "XRAYRADAR WEB" in r.text
+

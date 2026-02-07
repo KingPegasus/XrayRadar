@@ -4,7 +4,7 @@ import { navigate } from '../utils/navigation'
 import { UsageWidget } from '../components/UsageWidget'
 
 export function ProjectsPage({ me }) {
-  const [projects, setProjects] = useState([])
+  const [projects, setProjects] = useState(undefined) // undefined until load; (projects || []) in render handles it
   const [usage, setUsage] = useState(null)
   const [name, setName] = useState('')
   const [error, setError] = useState('')

@@ -87,10 +87,34 @@ def _set_user_session(client: TestClient, *, secret: str, email: str) -> None:
     client.cookies.set("xrayradar_user_session", cookie, domain="localhost", path="/")
 
 
+_fixture_ip_counter = 0
+
+
+def _pop_rate_limit_modules():
+    """Pop modules that cache rate limit constants so they pick up env on re-import."""
+    for mod in (
+        "xrayradar_server.main",
+        "xrayradar_server.routers.user_auth",
+        "xrayradar_server.routers.api",
+        "xrayradar_server.constants",
+    ):
+        sys.modules.pop(mod, None)
+
+
+def _unique_fixture_ip():
+    """Return a unique IP for fixture signup so rate limiter state from other tests doesn't cause 429."""
+    global _fixture_ip_counter
+    _fixture_ip_counter += 1
+    return f"10.0.0.{(_fixture_ip_counter % 254) + 1}"
+
+
 @pytest.fixture()
 def app_and_client_with_user(database_url, monkeypatch, request):
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "1000/minute")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "10000/minute")
+    _pop_rate_limit_modules()
 
     import xrayradar_server.db as dbmod
 
@@ -133,6 +157,7 @@ def app_and_client_with_user(database_url, monkeypatch, request):
     r = client.post(
         "/auth/signup",
         json={"email": "user@example.com", "password": "password123", "plan": "Free"},
+        headers={"X-Forwarded-For": _unique_fixture_ip()},
     )
     assert r.status_code == 200
     user_data = r.json()
@@ -155,6 +180,9 @@ def app_and_client_with_unverified_user(database_url, monkeypatch, request):
     """Same as app_and_client_with_user but leaves email_verified=False."""
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "1000/minute")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "10000/minute")
+    _pop_rate_limit_modules()
 
     import xrayradar_server.db as dbmod
 
@@ -197,6 +225,7 @@ def app_and_client_with_unverified_user(database_url, monkeypatch, request):
     r = client.post(
         "/auth/signup",
         json={"email": "unverified@example.com", "password": "password123", "plan": "Free"},
+        headers={"X-Forwarded-For": _unique_fixture_ip()},
     )
     assert r.status_code == 200
     user_data = r.json()

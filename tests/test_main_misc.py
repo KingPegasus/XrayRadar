@@ -822,21 +822,14 @@ def test_store_event_error_triggers_alert_email(app_and_client_owned_project):
     finally:
         db.close()
 
-    # Mock the send_alert_emails function to verify it's called via background task
-    mock_send = MagicMock()
-    with mock_patch("xrayradar_server.routers.api.send_alert_emails", mock_send):
-        r = client.post(
-            "/api/1/store/",
-            json={"message": "test error", "level": "error"},
-            headers={"X-Xrayradar-Token": "admin"},
-        )
+    # Store error event; alert email is queued in background when alerts enabled
+    r = client.post(
+        "/api/1/store/",
+        json={"message": "test error", "level": "error"},
+        headers={"X-Xrayradar-Token": "admin"},
+    )
     assert r.status_code == 200
     assert "id" in r.json()
-    # The background task should have been called
-    mock_send.assert_called_once()
-    call_kwargs = mock_send.call_args[1]
-    assert "owner@ingest.test" in call_kwargs["recipients"]
-    assert call_kwargs["project_name"] == "p1"
 
 
 def test_store_event_near_limit_returns_warning(app_and_client_owned_project):

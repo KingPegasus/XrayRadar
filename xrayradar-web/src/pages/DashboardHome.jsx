@@ -27,12 +27,13 @@ export function DashboardHome({ me }) {
   // Event frequency for chart: last 30 days on x-axis (zeros for days with no events), like Project Event Frequency
   const trendDailyForChart = useMemo(() => {
     if (!stats) return null
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Use UTC dates to match backend (which returns UTC dates)
+    const now = new Date()
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
     const last30Days = []
     for (let i = 29; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
+      const date = new Date(todayUTC)
+      date.setUTCDate(date.getUTCDate() - i)
       const dateKey = date.toISOString().split('T')[0]
       last30Days.push(dateKey)
     }

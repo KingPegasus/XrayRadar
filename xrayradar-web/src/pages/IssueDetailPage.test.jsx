@@ -18,6 +18,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce([]) // events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
     await waitFor(() => {
       expect(screen.getByText('Issue')).toBeInTheDocument()
@@ -45,6 +46,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -58,6 +60,7 @@ describe('IssueDetailPage', () => {
       .mockRejectedValueOnce(new Error('Failed to load')) // events fails
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency succeeds
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -71,6 +74,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockRejectedValueOnce(new Error('frequency failed')) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
 
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
@@ -87,6 +91,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
       .mockRejectedValueOnce(new Error('breakdown failed')) // breakdown fails
+      .mockResolvedValueOnce([]) // issues list (for status)
 
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
@@ -113,6 +118,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -134,6 +140,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -152,6 +159,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce([]) // events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -170,9 +178,11 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce([]) // Initial load events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // Initial frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // Initial breakdown
+      .mockResolvedValueOnce([]) // Initial issues list (for status)
       .mockResolvedValueOnce([]) // Refresh events call
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // Refresh frequency call
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // Refresh breakdown
+      .mockResolvedValueOnce([]) // Refresh issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -183,7 +193,7 @@ describe('IssueDetailPage', () => {
     await user.click(refreshButton)
 
     await waitFor(() => {
-      expect(api.fetchJson).toHaveBeenCalledTimes(6) // 3 initial + 3 refresh
+      expect(api.fetchJson).toHaveBeenCalledTimes(8) // 4 initial + 4 refresh
     })
   })
 
@@ -192,6 +202,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce([]) // events
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -212,6 +223,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce([]) // events succeed
       .mockRejectedValueOnce(new Error('frequency failed')) // frequency fails
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
 
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
@@ -227,6 +239,7 @@ describe('IssueDetailPage', () => {
       .mockRejectedValueOnce(new Error('Network error')) // events fails
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency succeeds
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -253,6 +266,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -269,6 +283,7 @@ describe('IssueDetailPage', () => {
       .mockRejectedValueOnce(new Error()) // events fails with no message
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -295,6 +310,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -319,6 +335,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 1 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -348,6 +365,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -364,6 +382,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(null) // events is null
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -392,6 +411,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -420,6 +440,7 @@ describe('IssueDetailPage', () => {
       .mockResolvedValueOnce(events) // events
       .mockResolvedValueOnce({ frequency: {}, total: 2 }) // frequency
       .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -436,6 +457,7 @@ describe('IssueDetailPage', () => {
         by_release: [{ release: '1.0.0', count: 5 }, { release: '1.0.1', count: 2 }],
         by_environment: [{ environment: 'production', count: 4 }, { environment: 'staging', count: 3 }],
       }) // breakdown
+      .mockResolvedValueOnce([]) // issues list (for status)
     render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
 
     await waitFor(() => {
@@ -446,5 +468,191 @@ describe('IssueDetailPage', () => {
       expect(screen.getByText('production')).toBeInTheDocument()
       expect(screen.getByText('staging')).toBeInTheDocument()
     })
+  })
+
+  it('loads issue status from issues list when fingerprint matches', async () => {
+    const issuesList = [
+      {
+        fingerprint: 'abc123',
+        status: 'resolved',
+        resolved_release: 'v1.0.0',
+        resolved_at: '2024-01-15T12:00:00Z',
+        reopened: false,
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce(issuesList) // issues list (for status) - matching issue
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /change issue status/i })).toBeInTheDocument()
+    })
+    // Status badge shows Resolved (from issueStatus loaded from issues list)
+    const resolvedElements = screen.getAllByText('Resolved')
+    expect(resolvedElements.length).toBeGreaterThan(0)
+  })
+
+  it('shows auto-reopen notification when resolved issue has events after resolved_at', async () => {
+    const events = [
+      { id: '1', timestamp: '2024-01-20T00:00:00Z', level: 'error', message: 'E1' }, // after resolved_at
+    ]
+    const issuesList = [
+      {
+        fingerprint: 'abc123',
+        status: 'resolved',
+        resolved_release: 'v1.0.0',
+        resolved_at: '2024-01-15T12:00:00Z',
+        reopened: false,
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce(events)
+      .mockResolvedValueOnce({ frequency: {}, total: 1 })
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] })
+      .mockResolvedValueOnce(issuesList)
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Note:/i)).toBeInTheDocument()
+      expect(screen.getByText(/new events have been recorded/i)).toBeInTheDocument()
+      expect(screen.getByText(/resolved for release/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows auto-reopen notification when resolved with no resolved_at', async () => {
+    const events = [
+      { id: '1', timestamp: '2024-01-01T00:00:00Z', level: 'error', message: 'E1' },
+    ]
+    const issuesList = [
+      {
+        fingerprint: 'abc123',
+        status: 'resolved',
+        resolved_release: null,
+        resolved_at: null,
+        reopened: false,
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce(events)
+      .mockResolvedValueOnce({ frequency: {}, total: 1 })
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] })
+      .mockResolvedValueOnce(issuesList)
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Note:/i)).toBeInTheDocument()
+      expect(screen.getByText(/auto-reopened due to new occurrences/i)).toBeInTheDocument()
+    })
+  })
+
+  it('opens status modal when clicking status badge', async () => {
+    const issuesList = [
+      {
+        fingerprint: 'abc123',
+        status: 'open',
+        resolved_release: null,
+        resolved_at: null,
+        reopened: false,
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ frequency: {}, total: 0 })
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] })
+      .mockResolvedValueOnce(issuesList)
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /change issue status/i })).toBeInTheDocument()
+    })
+
+    const user = userEvent.setup()
+    const badgeButton = screen.getByRole('button', { name: /change issue status/i })
+    await user.click(badgeButton)
+
+    await waitFor(() => {
+      expect(screen.getByText('Update Issue Status')).toBeInTheDocument()
+    })
+  })
+
+  it('shows reopened notification when issue was auto-reopened', async () => {
+    const issuesList = [
+      {
+        fingerprint: 'abc123',
+        status: 'open',
+        resolved_release: 'v1.0.0',
+        resolved_at: '2024-01-15T12:00:00Z',
+        reopened: true,
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ frequency: {}, total: 0 })
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] })
+      .mockResolvedValueOnce(issuesList)
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Reopened:/i)).toBeInTheDocument()
+      expect(screen.getByText(/automatically reopened due to new events/i)).toBeInTheDocument()
+    })
+  })
+
+  it('calls load after status change in modal', async () => {
+    const user = userEvent.setup()
+    const issuesList = [
+      {
+        fingerprint: 'abc123',
+        status: 'open',
+        resolved_release: null,
+        resolved_at: null,
+        reopened: false,
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ frequency: {}, total: 0 })
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] })
+      .mockResolvedValueOnce(issuesList)
+      .mockResolvedValueOnce([])   // load() after save - events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 })   // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] })   // breakdown
+      .mockResolvedValueOnce(issuesList)   // issues list
+    api.updateIssueStatus = api.updateIssueStatus || vi.fn()
+    api.updateIssueStatus.mockResolvedValue({
+      status: 'resolved',
+      resolved_release: 'v1.0.0',
+      reopened: false,
+    })
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /change issue status/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /change issue status/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Update Issue Status')).toBeInTheDocument()
+    })
+
+    const resolvedButtons = screen.getAllByText('Resolved')
+    const resolvedButton = resolvedButtons.find(btn => btn.tagName === 'BUTTON')
+    expect(resolvedButton).toBeDefined()
+    await user.click(resolvedButton)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Resolve until release/i)).toBeInTheDocument()
+    })
+
+    await user.type(screen.getByLabelText(/Resolve until release/i), 'v1.0.0')
+    await user.click(screen.getByText('Save'))
+
+    await waitFor(() => {
+      expect(api.fetchJson).toHaveBeenCalledWith('/api/user/projects/1/issues')
+    }, { timeout: 2000 })
   })
 })

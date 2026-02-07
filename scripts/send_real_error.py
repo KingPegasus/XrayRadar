@@ -171,7 +171,7 @@ def main() -> int:
     p.add_argument("--project-id", type=int, required=True, help="Project id (e.g. 1).")
     p.add_argument("--token", required=True, help="Token value for X-Xrayradar-Token header.")
     p.add_argument("--environment", default="development", help="contexts.environment value.")
-    p.add_argument("--release", default="1.0.1", help="contexts.release value.")
+    p.add_argument("--release", default="1.0.2", help="contexts.release value.")
     args = p.parse_args()
 
     base_url = (args.base_url or "").rstrip("/")

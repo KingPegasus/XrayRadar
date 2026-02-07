@@ -10,23 +10,50 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ...db import get_db
-from ...models import Event, User
+from ...models import Event, IssueStatus, User
+
+
+def _event_date_expr(session: Session):
+    """Return a SQL expression for event date (UTC) for grouping. PostgreSQL uses AT TIME ZONE; SQLite uses date() only."""
+    if session.get_bind().dialect.name == "postgresql":
+        timestamp_as_utc = Event.timestamp.op("AT TIME ZONE")("UTC")
+        return func.date(timestamp_as_utc).label("date")
+    return func.date(Event.timestamp).label("date")
 from ...deps import require_user
-from ...schemas import IssueSummaryOut
+from ...schemas import BulkIssueStatusUpdate, IssueStatusOut, IssueStatusUpdate, IssueSummaryOut
 from ._helpers import require_owned_project
 
 router = APIRouter()
+
+
+def _ensure_issue_status(db: Session, project_id: int, fingerprint: str) -> IssueStatus:
+    """Create default 'open' status if none exists. Returns IssueStatus object."""
+    issue_status = db.get(IssueStatus, (project_id, fingerprint))
+    if issue_status is None:
+        issue_status = IssueStatus(
+            project_id=project_id,
+            fingerprint=fingerprint,
+            status="open",
+            reopened=False,
+        )
+        db.add(issue_status)
+        db.commit()
+        db.refresh(issue_status)
+    return issue_status
 
 
 @router.get("/api/user/projects/{project_id}/issues", response_model=list[IssueSummaryOut])
 def user_list_issues(
     project_id: int,
     limit: int = 50,
+    status: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     require_owned_project(db, user=user, project_id=project_id)
     clamped_limit = min(max(limit, 1), 200)
+    
+    # Build base aggregation query
     agg = (
         select(
             Event.fingerprint,
@@ -40,9 +67,12 @@ def user_list_issues(
         .order_by(func.max(Event.timestamp).desc())
         .limit(clamped_limit)
     )
+    
     groups = db.execute(agg).all()
     out: list[IssueSummaryOut] = []
+    
     for fp, count, first_seen, last_seen in groups:
+        # Get latest event for this fingerprint
         q_latest = (
             select(Event)
             .where(Event.project_id == project_id)
@@ -53,6 +83,16 @@ def user_list_issues(
         latest = db.execute(q_latest).scalars().first()
         if latest is None:
             continue
+        
+        # Get issue status
+        issue_status = db.get(IssueStatus, (project_id, fp))
+        
+        # Filter by status if requested
+        if status is not None:
+            current_status = issue_status.status if issue_status else "open"
+            if current_status != status:
+                continue
+        
         out.append(
             IssueSummaryOut(
                 fingerprint=str(fp),
@@ -63,6 +103,10 @@ def user_list_issues(
                 message=latest.message,
                 environment=latest.environment,
                 release=latest.release,
+                status=issue_status.status if issue_status else "open",
+                resolved_release=issue_status.resolved_release if issue_status else None,
+                resolved_at=issue_status.resolved_at if issue_status else None,
+                reopened=issue_status.reopened if issue_status else False,
             )
         )
     return out
@@ -108,12 +152,13 @@ def user_get_project_event_frequency(
 ):
     require_owned_project(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    date_expr = _event_date_expr(db)
     q = (
-        select(func.date(Event.timestamp).label("date"), func.count(Event.id).label("count"))
+        select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(func.date(Event.timestamp))
-        .order_by(func.date(Event.timestamp))
+        .group_by(date_expr)
+        .order_by(date_expr)
     )
     rows = db.execute(q).all()
     frequency = {_date_str(d): int(c or 0) for d, c in rows}
@@ -131,13 +176,14 @@ def user_get_issue_event_frequency(
 ):
     require_owned_project(db, user=user, project_id=project_id)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    date_expr = _event_date_expr(db)
     q = (
-        select(func.date(Event.timestamp).label("date"), func.count(Event.id).label("count"))
+        select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(func.date(Event.timestamp))
-        .order_by(func.date(Event.timestamp))
+        .group_by(date_expr)
+        .order_by(date_expr)
     )
     rows = db.execute(q).all()
     frequency = {_date_str(d): int(c or 0) for d, c in rows}
@@ -238,3 +284,123 @@ def user_get_event(
         "fingerprint": row.fingerprint,
         "payload": row.payload,
     }
+
+
+@router.patch("/api/user/projects/{project_id}/issues/{fingerprint}/status", response_model=IssueStatusOut)
+def user_update_issue_status(
+    project_id: int,
+    fingerprint: str,
+    payload: IssueStatusUpdate,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Update or create issue status."""
+    require_owned_project(db, user=user, project_id=project_id)
+    
+    if payload.status not in ("open", "in_progress", "resolved", "ignored"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    issue_status = db.get(IssueStatus, (project_id, fingerprint))
+    prev_status = None
+    if issue_status is None:
+        issue_status = IssueStatus(
+            project_id=project_id,
+            fingerprint=fingerprint,
+            status=payload.status,
+            reopened=False,
+        )
+        db.add(issue_status)
+    else:
+        prev_status = issue_status.status
+        issue_status.status = payload.status
+    
+    # Handle resolved status
+    if payload.status == "resolved":
+        issue_status.resolved_release = payload.resolved_release
+        issue_status.resolved_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        issue_status.resolved_by_user_id = user.id
+        issue_status.reopened = False  # Clear reopened flag when resolving
+    else:
+        # Clear resolution fields if not resolved
+        issue_status.resolved_release = None
+        issue_status.resolved_at = None
+        issue_status.resolved_by_user_id = None
+        # If manually changing from resolved to open, mark as reopened
+        if prev_status == "resolved" and payload.status == "open":
+            issue_status.reopened = True
+    
+    # Update notes if provided
+    if payload.notes is not None:
+        issue_status.notes = payload.notes
+    
+    db.commit()
+    db.refresh(issue_status)
+    
+    return IssueStatusOut(
+        project_id=issue_status.project_id,
+        fingerprint=issue_status.fingerprint,
+        status=issue_status.status,
+        resolved_release=issue_status.resolved_release,
+        resolved_at=issue_status.resolved_at,
+        resolved_by_user_id=issue_status.resolved_by_user_id,
+        notes=issue_status.notes,
+        reopened=issue_status.reopened,
+        created_at=issue_status.created_at,
+        updated_at=issue_status.updated_at,
+    )
+
+
+@router.post("/api/user/projects/{project_id}/issues/bulk-status", response_model=dict)
+def user_bulk_update_issue_status(
+    project_id: int,
+    payload: BulkIssueStatusUpdate,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Update status for multiple issues."""
+    require_owned_project(db, user=user, project_id=project_id)
+    
+    if payload.status not in ("open", "in_progress", "resolved", "ignored"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    updated_count = 0
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    for fingerprint in payload.fingerprints:
+        issue_status = db.get(IssueStatus, (project_id, fingerprint))
+        if issue_status is None:
+            issue_status = IssueStatus(
+                project_id=project_id,
+                fingerprint=fingerprint,
+                status=payload.status,
+                reopened=False,
+            )
+            db.add(issue_status)
+        else:
+            prev_status = issue_status.status
+            issue_status.status = payload.status
+        
+        # Handle resolved status
+        if payload.status == "resolved":
+            issue_status.resolved_release = payload.resolved_release
+            issue_status.resolved_at = now
+            issue_status.resolved_by_user_id = user.id
+            issue_status.reopened = False  # Clear reopened flag when resolving
+        else:
+            # Clear resolution fields if not resolved
+            issue_status.resolved_release = None
+            issue_status.resolved_at = None
+            issue_status.resolved_by_user_id = None
+            # If manually changing from resolved to open, mark as reopened
+            if prev_status == "resolved" and payload.status == "open":
+                issue_status.reopened = True
+        
+        # Update notes if provided
+        if payload.notes is not None:
+            issue_status.notes = payload.notes
+        
+        updated_count += 1
+    
+    db.commit()
+    
+    return {"updated": updated_count}

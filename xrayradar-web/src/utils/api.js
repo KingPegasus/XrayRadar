@@ -23,3 +23,19 @@ export async function fetchJson(url, opts) {
   if (!resp.ok) throw new Error(await readErrorMessage(resp))
   return await resp.json()
 }
+
+export async function updateIssueStatus(projectId, fingerprint, statusData) {
+  return await fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(statusData),
+  })
+}
+
+export async function bulkUpdateIssueStatus(projectId, fingerprints, statusData) {
+  return await fetchJson(`/api/user/projects/${projectId}/issues/bulk-status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fingerprints, ...statusData }),
+  })
+}

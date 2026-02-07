@@ -4,10 +4,12 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
+from .db import SessionLocal
+from .email_log import log_email
 from .models import (
     AlertCooldown,
     Project,
@@ -59,9 +61,17 @@ def should_send_alert(
     if not enabled or level != level_filter:
         return False
     fp = fingerprint or ""
-    if cooldown_minutes is None:
+    if cooldown_minutes is None or cooldown_minutes <= 0:
         return True
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    cooldown_delta = timedelta(minutes=cooldown_minutes) + timedelta(seconds=1)
+    project_max = db.execute(
+        select(func.max(AlertCooldown.last_notified_at)).where(
+            AlertCooldown.project_id == project_id,
+        )
+    ).scalar()
+    if project_max is not None and now < project_max + cooldown_delta:
+        return False
     row = db.execute(
         select(AlertCooldown).where(
             AlertCooldown.project_id == project_id,
@@ -70,7 +80,7 @@ def should_send_alert(
     ).scalars().first()
     if row is not None:
         cooldown = row[0] if isinstance(row, tuple) else row
-        if cooldown.last_notified_at + timedelta(minutes=cooldown_minutes) > now:
+        if now < cooldown.last_notified_at + cooldown_delta:
             return False
         cooldown.last_notified_at = now
     else:
@@ -99,6 +109,8 @@ def send_alert_emails(
         return
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         return
+    
+    db = SessionLocal()
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -116,5 +128,20 @@ def send_alert_emails(
                 "html": html,
             }
         )
+        # Log successful emails (one per recipient)
+        for recipient in recipients:
+            log_email(db, "error_alert", recipient, success=True, project_id=project_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send alert emails: %s", e)
+        # Log failed emails (one per recipient)
+        for recipient in recipients:
+            log_email(
+                db,
+                "error_alert",
+                recipient,
+                success=False,
+                project_id=project_id,
+                error_message=str(e),
+            )
+    finally:
+        db.close()

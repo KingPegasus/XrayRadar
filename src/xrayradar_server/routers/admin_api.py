@@ -3,16 +3,17 @@ from uuid import UUID
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..deps import require_admin
-from ..models import DeletionRequest, Event, Project, Token, TokenProjectAccess, TokenRequest, User
+from ..models import DeletionRequest, EmailLog, Event, Project, Token, TokenProjectAccess, TokenRequest, User
 from ..schemas import (
     AdminDeletionRequestOut,
     AdminEventListItemOut,
     AdminEventOut,
+    AdminStatsOut,
     AdminTokenRequestOut,
     AdminUserOut,
     AdminUserPlanUpdate,
@@ -401,6 +402,64 @@ def admin_update_user_plan(
         plan=user.plan,
         created_at=user.created_at,
         event_count=event_count,
+    )
+
+
+@router.get("/api/admin/stats", response_model=AdminStatsOut)
+def admin_get_stats(db: Session = Depends(get_db), _: Token = Depends(require_admin)):
+    """Get system statistics for admin dashboard."""
+    # Projects count
+    projects_total = db.execute(select(func.count(Project.id))).scalar() or 0
+    
+    # Tokens counts
+    tokens_total = db.execute(select(func.count(Token.id))).scalar() or 0
+    tokens_active = db.execute(select(func.count(Token.id)).where(Token.revoked_at.is_(None))).scalar() or 0
+    tokens_revoked = tokens_total - tokens_active
+    
+    # Users by plan
+    users_free = db.execute(select(func.count(User.id)).where(User.plan == "Free")).scalar() or 0
+    users_basic = db.execute(select(func.count(User.id)).where(User.plan == "Basic")).scalar() or 0
+    users_pro = db.execute(select(func.count(User.id)).where(User.plan == "Pro")).scalar() or 0
+    
+    # Events count
+    events_total = db.execute(select(func.count(Event.id))).scalar() or 0
+    
+    # Email counts
+    emails_total = db.execute(select(func.count(EmailLog.id)).where(EmailLog.success == True)).scalar() or 0
+    emails_verification = db.execute(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.email_type == "verification",
+            EmailLog.success == True
+        )
+    ).scalar() or 0
+    emails_password_reset = db.execute(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.email_type == "password_reset",
+            EmailLog.success == True
+        )
+    ).scalar() or 0
+    emails_error_alert = db.execute(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.email_type == "error_alert",
+            EmailLog.success == True
+        )
+    ).scalar() or 0
+    emails_failed = db.execute(select(func.count(EmailLog.id)).where(EmailLog.success == False)).scalar() or 0
+    
+    return AdminStatsOut(
+        projects_total=projects_total,
+        tokens_total=tokens_total,
+        tokens_active=tokens_active,
+        tokens_revoked=tokens_revoked,
+        users_free=users_free,
+        users_basic=users_basic,
+        users_pro=users_pro,
+        events_total=events_total,
+        emails_total=emails_total,
+        emails_verification=emails_verification,
+        emails_password_reset=emails_password_reset,
+        emails_error_alert=emails_error_alert,
+        emails_failed=emails_failed,
     )
 
 

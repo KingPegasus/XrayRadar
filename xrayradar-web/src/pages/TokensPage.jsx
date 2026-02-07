@@ -59,10 +59,21 @@ export function TokensPage({ me }) {
 
   const grantAccess = async (tokenId, projectId) => {
     try {
+      setError('')
       await fetchJson(`/api/user/tokens/${tokenId}/projects/${projectId}/grant`, { method: 'POST' })
       await loadTokens() // Reload to refresh project access
     } catch (e) {
       setError(e.message || 'Failed to grant project access')
+    }
+  }
+
+  const revokeAccess = async (tokenId, projectId) => {
+    try {
+      setError('')
+      await fetchJson(`/api/user/tokens/${tokenId}/projects/${projectId}/revoke`, { method: 'POST' })
+      await loadTokens() // Reload to refresh project access
+    } catch (e) {
+      setError(e.message || 'Failed to revoke project access')
     }
   }
 
@@ -210,9 +221,15 @@ export function TokensPage({ me }) {
                                           <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                                             <span className="small">{p.name} (ID: {p.id})</span>
                                             {hasAccessToProject ? (
-                                              <span className="badge" style={{ background: 'rgba(34, 197, 94, 0.2)', color: '#86efac', fontSize: 11 }}>
-                                                Has access
-                                              </span>
+                                              <button
+                                                className="button"
+                                                type="button"
+                                                onClick={() => revokeAccess(t.id, p.id)}
+                                                disabled={!me?.email_verified}
+                                                style={{ fontSize: 12, padding: '4px 10px', color: '#fca5a5', borderColor: 'rgba(239, 68, 68, 0.5)' }}
+                                              >
+                                                Revoke access
+                                              </button>
                                             ) : (
                                               <button
                                                 className="button"

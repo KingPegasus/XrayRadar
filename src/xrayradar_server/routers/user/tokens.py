@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -93,6 +95,36 @@ def user_grant_project_access(
         access = TokenProjectAccess(token_id=token_id, project_id=project_id)
     else:
         access.revoked_at = None
+    db.add(access)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post(
+    "/api/user/tokens/{token_id}/projects/{project_id}/revoke",
+    response_model=dict,
+)
+def user_revoke_project_access(
+    token_id: int,
+    project_id: int,
+    user: User = Depends(require_verified_user),
+    db: Session = Depends(get_db),
+):
+    require_owned_project(db, user=user, project_id=project_id)
+    require_user_token(db, user=user, token_id=token_id)
+
+    q = (
+        select(TokenProjectAccess)
+        .where(TokenProjectAccess.token_id == token_id)
+        .where(TokenProjectAccess.project_id == project_id)
+        .where(TokenProjectAccess.revoked_at.is_(None))
+        .order_by(TokenProjectAccess.id.desc())
+    )
+    access = db.execute(q).scalars().first()
+    if access is None:
+        raise HTTPException(status_code=404, detail="Access not found")
+
+    access.revoked_at = datetime.now(timezone.utc)
     db.add(access)
     db.commit()
     return {"ok": True}

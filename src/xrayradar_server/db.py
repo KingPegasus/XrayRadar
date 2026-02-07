@@ -32,7 +32,10 @@ def _ensure_engine():
         _connect_args = {}
         if _db_url.startswith("sqlite:"):
             _connect_args["check_same_thread"] = False
-        _engine = create_engine(_db_url, pool_pre_ping=True, connect_args=_connect_args)
+        # Use NullPool for SQLite to avoid connection pooling issues in tests
+        from sqlalchemy.pool import NullPool, QueuePool
+        poolclass = NullPool if _db_url.startswith("sqlite:") else QueuePool
+        _engine = create_engine(_db_url, pool_pre_ping=True, connect_args=_connect_args, poolclass=poolclass)
         _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False)
     return _engine
 

@@ -7,8 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
-from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
-from ..db import get_db
+from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, RATE_LIMIT_AUTH, XRAYRADAR_BASE_URL
+from ..db import get_db, SessionLocal
+from ..email_log import log_email
+from ..rate_limit import get_rate_limit_key_auth, limiter
 from ..deps import require_user
 from ..models import User
 from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin, UserOut, UserSignup
@@ -23,11 +25,25 @@ def _generate_verification_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _get_user_id_by_email(db: Session, email: str) -> int | None:
+    """Get user ID by email address. Returns None if user not found or on error."""
+    try:
+        user = db.execute(select(User).where(User.email == email)).scalars().first()
+        return user.id if user else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _send_verification_email(email: str, token: str) -> None:
     """Send verification email via Resend. No-op if Resend not configured."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         logger.warning("Resend not configured, skipping verification email for %s", email)
         return
+    
+    # Get user_id for logging
+    db = SessionLocal()
+    user_id = _get_user_id_by_email(db, email)
+    
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -51,8 +67,14 @@ def _send_verification_email(email: str, token: str) -> None:
             }
         )
         logger.info("Verification email sent to %s", email)
+        # Log successful email
+        log_email(db, "verification", email, success=True, user_id=user_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send verification email to %s: %s", email, e)
+        # Log failed email
+        log_email(db, "verification", email, success=False, user_id=user_id, error_message=str(e))
+    finally:
+        db.close()
 
 
 def _send_password_reset_email(email: str, token: str) -> None:
@@ -60,6 +82,11 @@ def _send_password_reset_email(email: str, token: str) -> None:
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         logger.warning("Resend not configured, skipping password reset email for %s", email)
         return
+    
+    # Get user_id for logging
+    db = SessionLocal()
+    user_id = _get_user_id_by_email(db, email)
+    
     try:
         import resend
         resend.api_key = RESEND_API_KEY
@@ -83,8 +110,14 @@ def _send_password_reset_email(email: str, token: str) -> None:
             }
         )
         logger.info("Password reset email sent to %s", email)
+        # Log successful email
+        log_email(db, "password_reset", email, success=True, user_id=user_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send password reset email to %s: %s", email, e)
+        # Log failed email
+        log_email(db, "password_reset", email, success=False, user_id=user_id, error_message=str(e))
+    finally:
+        db.close()
 
 
 @router.post("/auth/logout")
@@ -95,7 +128,9 @@ def logout(_: Request, response: Response) -> dict:
 
 
 @router.post("/auth/signup", response_model=UserOut)
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def signup(
+    request: Request,
     payload: UserSignup,
     response: Response,
     background_tasks: BackgroundTasks,
@@ -155,7 +190,13 @@ def signup(
 
 
 @router.post("/auth/login", response_model=UserOut)
-def login(payload: UserLogin, response: Response, db: Session = Depends(get_db)) -> UserOut:
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def login(
+    request: Request,
+    payload: UserLogin,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> UserOut:
     email = (payload.email or "").strip().lower()
     if not email:
         raise HTTPException(status_code=400, detail="Invalid email")
@@ -193,7 +234,9 @@ def login(payload: UserLogin, response: Response, db: Session = Depends(get_db))
 
 
 @router.post("/auth/forgot-password")
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def forgot_password(
+    request: Request,
     payload: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -218,7 +261,12 @@ def forgot_password(
 
 
 @router.post("/auth/reset-password")
-def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict:
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def reset_password(
+    request: Request,
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
     """Reset password using the token from the reset email."""
     token = (payload.token or "").strip()
     if not token or len(token) < 10:  # pragma: no cover - Pydantic validates min_length=10
@@ -247,7 +295,12 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
 
 
 @router.get("/auth/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)) -> dict:
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def verify_email(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+) -> dict:
     """Verify email using the token from the verification email."""
     if not token or len(token) < 10:
         raise HTTPException(status_code=400, detail="Invalid verification token")
@@ -270,7 +323,9 @@ def verify_email(token: str, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/auth/resend-verification")
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def resend_verification(
+    request: Request,
     background_tasks: BackgroundTasks,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),

@@ -163,6 +163,8 @@ describe('SignupModal', () => {
     await waitFor(() => {
       expect(screen.getByText(/Something went wrong. Please try again./i)).toBeInTheDocument()
     })
+    // Flush pending state updates so setSubmitting(false) runs before teardown
+    await new Promise((r) => setTimeout(r, 0))
   })
 
   it('prevents double submission when submitting', async () => {

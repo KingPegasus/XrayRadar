@@ -1179,3 +1179,99 @@ a { color: inherit; text-decoration: none; }
     padding-left: 12px;
   }
 }
+
+/* Issue Status Badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.status-badge button.status-badge {
+  cursor: pointer;
+}
+
+.status-badge button.status-badge:hover {
+  opacity: 1;
+  transform: scale(1.05);
+  border-color: rgba(79, 124, 255, 0.7);
+  box-shadow: 0 0 0 2px rgba(79, 124, 255, 0.2);
+}
+
+.status-badge-open {
+  background: rgba(59, 130, 246, 0.25);
+  color: #7ab8ff;
+  border: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+.status-badge-in-progress {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.status-badge-resolved {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.status-badge-ignored {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+.status-badge-release {
+  font-weight: 400;
+  opacity: 0.8;
+  margin-left: 4px;
+}
+
+.status-badge-reopened {
+  font-weight: 500;
+  opacity: 0.9;
+  font-size: 10px;
+  text-transform: none;
+  font-style: italic;
+}
+
+/* Bulk Actions Bar */
+.bulk-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.bulk-actions-bar button {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+
+/* Auto-reopen Notification */
+.auto-reopen-notification {
+  padding: 12px 16px;
+  background: rgba(254, 243, 199, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  color: rgba(146, 64, 14, 0.9);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auto-reopen-notification strong {
+  font-weight: 600;
+}
