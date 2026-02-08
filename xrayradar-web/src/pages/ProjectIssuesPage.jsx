@@ -6,6 +6,8 @@ import { ProjectSettingsModal } from '../components/ProjectSettingsModal'
 import { IssueStatusBadge } from '../components/IssueStatusBadge'
 
 export function ProjectIssuesPage({ projectId, me }) {
+  const [projectName, setProjectName] = useState(null)
+  const [isOwner, setIsOwner] = useState(false)
   const [issues, setIssues] = useState([])
   const [error, setError] = useState('')
   const [eventFrequencyData, setEventFrequencyData] = useState(null)
@@ -19,9 +21,19 @@ export function ProjectIssuesPage({ projectId, me }) {
       ? `/api/user/projects/${projectId}/issues`
       : `/api/user/projects/${projectId}/issues?status=${statusFilter}`
     fetchJson(url)
-      .then((rows) => setIssues(rows || []))
+      .then((rows) => setIssues(Array.isArray(rows) ? rows : []))
       .catch((e) => setError(e.message || 'Failed to load issues'))
   }
+
+  useEffect(() => {
+    fetchJson('/api/user/projects')
+      .then((projects) => {
+        const p = Array.isArray(projects) ? projects.find((x) => x.id === projectId) : null
+        setProjectName(p ? p.name : null)
+        setIsOwner(p?.is_owner ?? false)
+      })
+      .catch(() => { setProjectName(null); setIsOwner(false) })
+  }, [projectId])
 
   useEffect(() => {
     loadIssues()
@@ -90,13 +102,19 @@ export function ProjectIssuesPage({ projectId, me }) {
     <div className="container page">
       <header className="pageHeader" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <h1 className="pageTitle">Project {projectId}</h1>
+          <h1 className="pageTitle">{projectName ?? `Project ${projectId}`}</h1>
           <p className="pageSubtitle">
             Issues are grouped by fingerprint.
           </p>
         </div>
         <div className="pageActions" style={{ marginTop: 0 }}>
-          <ProjectSettingsModal projectId={projectId} me={me} />
+          <ProjectSettingsModal
+            projectId={projectId}
+            me={me}
+            projectName={projectName}
+            isOwner={isOwner}
+            onProjectNameUpdated={setProjectName}
+          />
           <button className="button" type="button" onClick={() => navigate('/dashboard/projects')}>
             Back
           </button>
@@ -197,7 +215,7 @@ export function ProjectIssuesPage({ projectId, me }) {
               </tr>
             </thead>
             <tbody>
-              {issues.map((it) => (
+              {(Array.isArray(issues) ? issues : []).map((it) => (
                 <tr
                   key={it.fingerprint}
                   style={{ cursor: 'pointer' }}

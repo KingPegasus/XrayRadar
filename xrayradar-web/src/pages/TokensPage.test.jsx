@@ -669,11 +669,11 @@ describe('TokensPage', () => {
       expect(screen.getByText('Token 1')).toBeInTheDocument()
     })
 
-    // Wait for project access to be loaded and rendered
+    // Wait for project access to be loaded and rendered. Token has access to project_id 1,
+    // but project 1 is not in the (owned) projects list, so we show "None" (no owned projects).
     await waitFor(() => {
       const tokenCard = screen.getByText('Token 1').closest('.card')
-      // Token has access to project 1, so should show "1 project(s)"
-      expect(tokenCard).toHaveTextContent(/Project access: 1 project\(s\)/)
+      expect(tokenCard).toHaveTextContent(/Project access: None/)
     }, { timeout: 3000 })
 
     // Token has access to project_id 1, but project with id=1 is not in projects list

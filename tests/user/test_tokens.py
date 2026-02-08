@@ -78,6 +78,42 @@ def test_user_grant_project_access_not_owned_project(app_and_client_with_user):
         db.close()
 
 
+def test_user_grant_project_access_member_forbidden(app_and_client_with_user):
+    """Test that a project member (non-owner) cannot assign their token to the project."""
+    mainmod, client, user = app_and_client_with_user
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        owner = models.User(
+            email="owner@example.com",
+            password_hash="hash",
+            plan="Free",
+            email_verified=True,
+        )
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+
+        project = models.Project(name="Owner Project", owner_user_id=owner.id)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+        db.add(models.ProjectMember(project_id=project.id, user_id=user["id"]))
+        db.commit()
+
+        token = models.Token(name="member-token", token="member-token", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+
+        r = client.post(f"/api/user/tokens/{token.id}/projects/{project.id}/grant")
+        assert r.status_code == 404
+    finally:
+        db.close()
+
+
 def test_user_grant_project_access_not_user_token(app_and_client_with_user):
     """Test granting access fails for non-user token"""
     mainmod, client, user = app_and_client_with_user
@@ -212,6 +248,46 @@ def test_user_revoke_project_access_not_found(app_and_client_with_user):
         db.refresh(token)
 
         r = client.post(f"/api/user/tokens/{token.id}/projects/{project_id}/revoke")
+        assert r.status_code == 404
+    finally:
+        db.close()
+
+
+def test_user_revoke_project_access_member_forbidden(app_and_client_with_user):
+    """Test that a project member (non-owner) cannot revoke token access from the project."""
+    mainmod, client, user = app_and_client_with_user
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        owner = models.User(
+            email="owner2@example.com",
+            password_hash="hash",
+            plan="Free",
+            email_verified=True,
+        )
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+
+        project = models.Project(name="Owner Project 2", owner_user_id=owner.id)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+
+        db.add(models.ProjectMember(project_id=project.id, user_id=user["id"]))
+        db.commit()
+
+        token = models.Token(name="member-token-2", token="member-token-2", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+
+        access = models.TokenProjectAccess(token_id=token.id, project_id=project.id)
+        db.add(access)
+        db.commit()
+
+        r = client.post(f"/api/user/tokens/{token.id}/projects/{project.id}/revoke")
         assert r.status_code == 404
     finally:
         db.close()

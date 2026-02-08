@@ -460,7 +460,7 @@ All user endpoints require authentication via session cookie (set after login):
 **Tokens:**
 - `GET /api/user/tokens` - List tokens owned by the user
 - `GET /api/user/tokens/{token_id}/projects` - List projects a token has access to
-- `POST /api/user/tokens/{token_id}/projects/{project_id}/grant` - Grant a token access to a project (user must own both)
+- `POST /api/user/tokens/{token_id}/projects/{project_id}/grant` - Grant a token access to a project (user must be project owner and own the token)
 
 **Token requests:**
 - `GET /api/user/token-requests` - List user's token requests

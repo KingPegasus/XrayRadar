@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 import httpx
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from itsdangerous import BadSignature
@@ -44,7 +45,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="xrayradar-server",
-    version="0.9.0",
+    version="0.11.0",
     lifespan=lifespan,
     docs_url=None,  # Disable default docs
     redoc_url=None,  # Disable default redoc
@@ -55,6 +56,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+# CORS so browser apps (e.g. React) on other origins can POST to /api/{project_id}/store/
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 # Register web static files and root route, but not catch-all yet
 register_web(app, register_catch_all=False)
