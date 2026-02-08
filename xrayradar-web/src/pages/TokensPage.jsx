@@ -57,6 +57,9 @@ export function TokensPage({ me }) {
     loadRequests()
   }, [loadProjects, loadTokens, loadRequests])
 
+  // Only owned projects can be used for grant/revoke; hide non-owned on this page
+  const ownedProjects = Array.isArray(projects) ? projects.filter((p) => p.is_owner !== false) : []
+
   const grantAccess = async (tokenId, projectId) => {
     try {
       setError('')
@@ -164,6 +167,8 @@ export function TokensPage({ me }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {tokens.map((t) => {
                 const hasAccess = tokenProjects[t.id] || []
+                const ownedProjectIds = new Set(ownedProjects.map((p) => p.id))
+                const hasAccessToOwned = hasAccess.filter((pid) => ownedProjectIds.has(pid))
                 const isExpanded = expandedToken === t.id
                 return (
                   <div key={t.id} className="card" style={{ padding: 12 }}>
@@ -184,12 +189,12 @@ export function TokensPage({ me }) {
                         {!t.revoked_at && (
                           <div style={{ marginTop: 10 }}>
                             <div className="small" style={{ color: 'var(--muted)', marginBottom: 6 }}>
-                              Project access: {hasAccess.length > 0 ? `${hasAccess.length} project(s)` : 'None'}
+                              Project access: {hasAccessToOwned.length > 0 ? `${hasAccessToOwned.length} project(s)` : 'None'}
                             </div>
-                            {hasAccess.length > 0 && (
+                            {hasAccessToOwned.length > 0 && (
                               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                                {hasAccess.map((pid) => {
-                                  const proj = projects.find((p) => p.id === pid)
+                                {hasAccessToOwned.map((pid) => {
+                                  const proj = ownedProjects.find((p) => p.id === pid)
                                   return proj ? (
                                     <span key={pid} className="badge" style={{ background: 'rgba(37, 99, 235, 0.2)', color: '#93c5fd' }}>
                                       {proj.name}
@@ -198,7 +203,7 @@ export function TokensPage({ me }) {
                                 })}
                               </div>
                             )}
-                            {projects.length > 0 && (
+                            {ownedProjects.length > 0 && (
                               <div style={{ marginTop: 10 }}>
                                 <button
                                   className="button"
@@ -215,7 +220,7 @@ export function TokensPage({ me }) {
                                       Grant access to projects:
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                      {projects.map((p) => {
+                                      {ownedProjects.map((p) => {
                                         const hasAccessToProject = hasAccess.includes(p.id)
                                         return (
                                           <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>

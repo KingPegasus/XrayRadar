@@ -69,9 +69,8 @@ cd xrayradar-web && npm audit
 ## Known Security Considerations
 
 ### 1. CORS Configuration
-- **Status**: No CORS middleware configured
-- **Impact**: API is same-origin only (intended for backend-frontend co-hosting)
-- **Recommendation**: If API needs to be accessed from different origins, configure CORS appropriately
+- **Status**: CORS middleware enabled for event ingest from browser apps
+- **Details**: `allow_origins=["*"]`, `allow_methods=["GET", "POST", "OPTIONS"]`, `allow_headers=["*"]`, `allow_credentials=False`. This allows React and other frontends on any origin to `POST` to `/api/{project_id}/store/`; auth is by `X-Xrayradar-Token` only.
 
 ### 2. Rate Limiting
 - **Status**: Implemented (slowapi)

@@ -1,8 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { fetchJson } from '../utils/api'
 import { EmailAlertSettings } from './EmailAlertSettings'
 
-export function ProjectSettingsModal({ projectId, me }) {
+export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onProjectNameUpdated }) {
   const [open, setOpen] = useState(false)
+  const [nameValue, setNameValue] = useState(projectName ?? '')
+  const [nameError, setNameError] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setNameValue(projectName ?? '')
+      setNameError('')
+    }
+  }, [open, projectName])
 
   return (
     <>
@@ -80,6 +91,56 @@ export function ProjectSettingsModal({ projectId, me }) {
                 ×
               </button>
             </div>
+
+            {isOwner && (
+              <div style={{ marginBottom: 20 }}>
+                <label className="fieldLabel" htmlFor="project-name-input">Project name</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 6 }}>
+                  <input
+                    id="project-name-input"
+                    className="fieldInput"
+                    type="text"
+                    value={nameValue}
+                    onChange={(e) => setNameValue(e.target.value)}
+                    placeholder="Project name"
+                    disabled={nameSaving}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="button buttonPrimary"
+                    disabled={nameSaving || (nameValue.trim() === (projectName ?? '').trim())}
+                    onClick={async () => {
+                      const trimmed = nameValue.trim()
+                      if (!trimmed) {
+                        setNameError('Name is required')
+                        return
+                      }
+                      setNameError('')
+                      setNameSaving(true)
+                      try {
+                        const updated = await fetchJson(`/api/user/projects/${projectId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ name: trimmed }),
+                        })
+                        onProjectNameUpdated?.(updated.name)
+                      } catch (e) {
+                        setNameError(e.message || 'Failed to update name')
+                      } finally {
+                        setNameSaving(false)
+                      }
+                    }}
+                  >
+                    {nameSaving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+                {nameError ? (
+                  <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{nameError}</div>
+                ) : null}
+              </div>
+            )}
+
             <EmailAlertSettings projectId={projectId} me={me} compact />
           </div>
         </div>

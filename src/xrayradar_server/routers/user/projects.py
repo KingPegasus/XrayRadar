@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 from ...db import get_db
 from ...models import Project, ProjectMember, User
 from ...deps import require_user, require_verified_user
-from ...schemas import UsageOut, UserProjectCreate, UserProjectOut
+from ...schemas import UsageOut, UserProjectCreate, UserProjectOut, UserProjectUpdate
 from ...usage import check_user_event_limit, is_near_limit
-from ._helpers import user_accessible_project_ids_subq
+from ._helpers import user_accessible_project_ids_subq, require_owned_project
 
 router = APIRouter()
 
@@ -38,6 +38,22 @@ def user_create_project(
     db.commit()
     db.refresh(row)
     return UserProjectOut(id=row.id, name=row.name, is_owner=True)
+
+
+@router.patch("/api/user/projects/{project_id}", response_model=UserProjectOut)
+def user_update_project(
+    project_id: int,
+    payload: UserProjectUpdate,
+    user: User = Depends(require_verified_user),
+    db: Session = Depends(get_db),
+):
+    """Update project name. Only the project owner can update."""
+    project = require_owned_project(db, user=user, project_id=project_id)
+    project.name = payload.name.strip()
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return UserProjectOut(id=project.id, name=project.name, is_owner=True)
 
 
 @router.get("/api/user/usage", response_model=UsageOut)

@@ -139,6 +139,10 @@ class UserProjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
 
+class UserProjectUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
 class UserProjectOut(BaseModel):
     id: int
     name: str
