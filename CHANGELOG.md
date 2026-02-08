@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.11.0] - (unreleased)
 
+### Added
+
+- **Project name update (owner only)**
+  - New `PATCH /api/user/projects/{project_id}` endpoint to update project name; only the project owner can update.
+  - Frontend: project name editing in ProjectSettingsModal (owner-only) and ProjectIssuesPage; page title updates after save.
+  - Tests for owner update success and non-owner (member) receiving 404.
+
 ### Changed
 
-- Version bumped to 0.11.0.
+- **CORS for browser ingest**
+  - CORS middleware enabled so browser apps (e.g. React) on any origin can `POST` to `/api/{project_id}/store/`; auth remains by `X-Xrayradar-Token` only.
+- **Token–project access**
+  - Only project owners can assign tokens to projects (members no longer can); tests added for member-forbidden grant/revoke.
 
 ---
 
