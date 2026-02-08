@@ -21,7 +21,7 @@ export function ProjectIssuesPage({ projectId, me }) {
       ? `/api/user/projects/${projectId}/issues`
       : `/api/user/projects/${projectId}/issues?status=${statusFilter}`
     fetchJson(url)
-      .then((rows) => setIssues(rows || []))
+      .then((rows) => setIssues(Array.isArray(rows) ? rows : []))
       .catch((e) => setError(e.message || 'Failed to load issues'))
   }
 
@@ -215,7 +215,7 @@ export function ProjectIssuesPage({ projectId, me }) {
               </tr>
             </thead>
             <tbody>
-              {issues.map((it) => (
+              {(Array.isArray(issues) ? issues : []).map((it) => (
                 <tr
                   key={it.fingerprint}
                   style={{ cursor: 'pointer' }}

@@ -17,6 +17,9 @@ vi.mock('../utils/api', () => ({
   bulkUpdateIssueStatus: vi.fn(),
 }))
 
+// First fetch on mount is /api/user/projects, then issues, then events/frequency
+const defaultProjects = [{ id: '123', name: 'Test Project', is_owner: true }]
+
 describe('ProjectIssuesPage', () => {
   let mockNavigate
   let fetchJson
@@ -44,13 +47,14 @@ describe('ProjectIssuesPage', () => {
     ]
 
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce(mockIssues) // issues
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+      expect(screen.getByText(/Test Project/i)).toBeInTheDocument()
     })
 
     expect(screen.getByText(/Issues are grouped by fingerprint/i)).toBeInTheDocument()
@@ -78,6 +82,7 @@ describe('ProjectIssuesPage', () => {
     ]
 
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce(mockIssues) // issues
       .mockResolvedValueOnce({ frequency: {}, total: 5 }) // events/frequency
 
@@ -98,13 +103,14 @@ describe('ProjectIssuesPage', () => {
 
   it('handles empty issues list', async () => {
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce([]) // issues
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+      expect(screen.getByText(/Test Project/i)).toBeInTheDocument()
     })
 
     // Table headers should still be present
@@ -117,13 +123,14 @@ describe('ProjectIssuesPage', () => {
 
   it('handles null response from API', async () => {
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce(null) // issues
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
     render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+      expect(screen.getByText(/Test Project/i)).toBeInTheDocument()
     })
 
     // Should handle null by using empty array fallback
@@ -133,6 +140,7 @@ describe('ProjectIssuesPage', () => {
 
   it('handles fetch error', async () => {
     fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve(defaultProjects)
       if (url.includes('/issues') && !url.includes('/frequency')) {
         return Promise.reject(new Error('Failed to load issues'))
       }
@@ -148,6 +156,7 @@ describe('ProjectIssuesPage', () => {
 
   it('handles fetch error without message', async () => {
     fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve(defaultProjects)
       if (url.includes('/issues') && !url.includes('/frequency')) {
         return Promise.reject(new Error())
       }
@@ -166,6 +175,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'Issue when frequency fails' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce(mockIssues) // issues
       .mockRejectedValueOnce(new Error('frequency failed')) // frequency
 
@@ -190,6 +200,7 @@ describe('ProjectIssuesPage', () => {
     ]
 
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce(mockIssues) // issues
       .mockResolvedValueOnce({ frequency: {}, total: 5 }) // events/frequency
 
@@ -210,6 +221,7 @@ describe('ProjectIssuesPage', () => {
   it('navigates back to dashboard', async () => {
     const user = userEvent.setup()
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce([]) // issues
       .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
 
@@ -230,22 +242,25 @@ describe('ProjectIssuesPage', () => {
   it('handles frequency fetch failure silently', async () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     fetchJson
+      .mockResolvedValueOnce(defaultProjects) // /api/user/projects
       .mockResolvedValueOnce([]) // issues succeed
       .mockRejectedValueOnce(new Error('frequency failed')) // frequency fails
 
     render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
-      expect(screen.getByText(/Project 123/i)).toBeInTheDocument()
+      expect(screen.getByText(/Test Project/i)).toBeInTheDocument()
       expect(consoleSpy).toHaveBeenCalledWith('Failed to load event frequency:', expect.any(Error))
     })
     consoleSpy.mockRestore()
   })
 
   it('refetches when projectId changes', async () => {
-    fetchJson.mockImplementation((url) =>
-      url.includes('/frequency') ? Promise.resolve({ frequency: {}, total: 0 }) : Promise.resolve([])
-    )
+    fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve(defaultProjects)
+      if (url.includes('/frequency')) return Promise.resolve({ frequency: {}, total: 0 })
+      return Promise.resolve([])
+    })
     const { rerender } = render(<ProjectIssuesPage projectId="123" />)
 
     await waitFor(() => {
@@ -265,6 +280,7 @@ describe('ProjectIssuesPage', () => {
 
   it('clears error when projectId changes', async () => {
     fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve(defaultProjects)
       if (url.includes('/projects/123/issues') && !url.includes('/frequency')) {
         return Promise.reject(new Error('Failed to load'))
       }
@@ -278,9 +294,11 @@ describe('ProjectIssuesPage', () => {
     })
 
     vi.clearAllMocks()
-    fetchJson.mockImplementation((url) =>
-      url.includes('/frequency') ? Promise.resolve({ frequency: {}, total: 0 }) : Promise.resolve([])
-    )
+    fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve([{ id: 456, name: 'Proj', is_owner: true }])
+      if (url.includes('/frequency')) return Promise.resolve({ frequency: {}, total: 0 })
+      return Promise.resolve([])
+    })
     rerender(<ProjectIssuesPage projectId="456" />)
 
     await waitFor(() => {
@@ -289,9 +307,11 @@ describe('ProjectIssuesPage', () => {
   })
 
   it('refetches with status filter when filter changes', async () => {
-    fetchJson.mockImplementation((url) =>
-      url.includes('/frequency') ? Promise.resolve({ frequency: {}, total: 0 }) : Promise.resolve([])
-    )
+    fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects') return Promise.resolve(defaultProjects)
+      if (url.includes('/frequency')) return Promise.resolve({ frequency: {}, total: 0 })
+      return Promise.resolve([])
+    })
 
     render(<ProjectIssuesPage projectId="123" />)
 
@@ -314,6 +334,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp2', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M2', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -343,6 +364,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -362,6 +384,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
       .mockResolvedValueOnce(mockIssues)
@@ -400,6 +423,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -431,6 +455,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -459,6 +484,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'resolved', resolved_release: 'v1.0.0' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -482,6 +508,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -504,6 +531,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -531,6 +559,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
       .mockResolvedValueOnce(mockIssues)
@@ -562,6 +591,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
       .mockResolvedValueOnce(mockIssues)
@@ -593,6 +623,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -616,6 +647,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -639,6 +671,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
@@ -660,6 +693,7 @@ describe('ProjectIssuesPage', () => {
       { fingerprint: 'fp1', first_seen: '2024-01-01T00:00:00Z', last_seen: '2024-01-02T00:00:00Z', count: 1, level: 'error', message: 'M1', status: 'open' },
     ]
     fetchJson
+      .mockResolvedValueOnce(defaultProjects)
       .mockResolvedValueOnce(mockIssues)
       .mockResolvedValueOnce({ frequency: {}, total: 0 })
 
