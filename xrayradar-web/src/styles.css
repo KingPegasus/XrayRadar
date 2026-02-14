@@ -576,6 +576,14 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted-2);
 }
 
+.footer a {
+  color: var(--muted);
+}
+
+.footer a:hover {
+  color: var(--text);
+}
+
 .footerInner {
   display: flex;
   justify-content: space-between;
@@ -584,6 +592,15 @@ a { color: inherit; text-decoration: none; }
 }
 
 .small { font-size: 13px; }
+
+.link {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--brand-2);
+}
 
 .modalOverlay {
   position: fixed;

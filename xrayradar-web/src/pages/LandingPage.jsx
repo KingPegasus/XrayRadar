@@ -275,6 +275,8 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 <ul className="list">
                   <li><Check /> Up to 25,000 events storage</li>
                   <li><Check /> Email alerts (1 min cooldown)</li>
+                  <li><Check /> Environment views + member environment ACL</li>
+                  <li><Check /> Environment-scoped alert routing</li>
                   <li><Check /> Team access: invite up to 5 members, assign projects</li>
                   <li><Check /> Revoke access per project or remove from team</li>
                 </ul>
@@ -292,6 +294,8 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 <ul className="list">
                   <li><Check /> Up to 50,000 events storage</li>
                   <li><Check /> Email alerts (1 min cooldown)</li>
+                  <li><Check /> Environment views + member environment ACL</li>
+                  <li><Check /> Environment-scoped alert routing</li>
                   <li><Check /> Team access: invite up to 10 members</li>
                   <li><Check /> Revoke access per project or remove from team</li>
                 </ul>
@@ -346,6 +350,8 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 <a href="#pricing">Pricing</a>
                 <a href="https://pypi.org/project/xrayradar/" target="_blank" rel="noopener noreferrer">Python SDK</a>
                 <a href="https://www.npmjs.com/package/@xrayradar/node" target="_blank" rel="noopener noreferrer">JavaScript SDK</a>
+                <Link to="/privacy">Privacy Policy</Link>
+                <Link to="/terms">Terms of Service</Link>
                 <a href="mailto:dev@xrayradar.com">Contact</a>
                 <a href="#top">Back to top</a>
               </div>

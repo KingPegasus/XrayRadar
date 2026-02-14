@@ -56,4 +56,45 @@ describe('LandingPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Choose Teams Pro/i }))
     expect(mockOnSignupOpen).toHaveBeenCalledWith('Teams Pro')
   })
+
+  it('switches language when clicking Python or JavaScript tabs', async () => {
+    const user = userEvent.setup()
+    render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
+
+    const pythonTab = screen.getByRole('tab', { name: /^Python$/i })
+    const jsTab = screen.getByRole('tab', { name: /^JavaScript$/i })
+
+    expect(pythonTab).toHaveAttribute('aria-selected', 'true')
+    await user.click(jsTab)
+    expect(jsTab).toHaveAttribute('aria-selected', 'true')
+    expect(pythonTab).toHaveAttribute('aria-selected', 'false')
+
+    await user.click(pythonTab)
+    expect(pythonTab).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('switches framework when clicking framework tabs', async () => {
+    const user = userEvent.setup()
+    render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
+
+    const fastapiTab = screen.getByRole('tab', { name: /FastAPI/i })
+    const djangoTab = screen.getByRole('tab', { name: /Django/i })
+    const flaskTab = screen.getByRole('tab', { name: /Flask/i })
+
+    expect(fastapiTab).toHaveAttribute('aria-selected', 'true')
+    await user.click(djangoTab)
+    expect(djangoTab).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText(/Quick setup — Django/i)).toBeInTheDocument()
+
+    await user.click(flaskTab)
+    expect(flaskTab).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText(/Quick setup — Flask/i)).toBeInTheDocument()
+  })
+
+  it('shows snippet code when framework is selected', async () => {
+    render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
+
+    expect(screen.getByText(/Quick setup — FastAPI/i)).toBeInTheDocument()
+    expect(screen.getByText(/pip install xrayradar/i)).toBeInTheDocument()
+  })
 })

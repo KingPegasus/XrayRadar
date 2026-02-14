@@ -7,17 +7,22 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
-from ..constants import RESEND_API_KEY, RESEND_FROM_EMAIL, RATE_LIMIT_AUTH, XRAYRADAR_BASE_URL
+from ..constants import RATE_LIMIT_AUTH, RESEND_API_KEY as DEFAULT_RESEND_API_KEY, RESEND_FROM_EMAIL as DEFAULT_RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL as DEFAULT_XRAYRADAR_BASE_URL
 from ..db import get_db, SessionLocal
 from ..email_log import log_email
+from ..mail_jobs import enqueue_email_job, process_pending_email_jobs
 from ..rate_limit import get_rate_limit_key_auth, limiter
 from ..deps import require_user
 from ..models import User
 from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin, UserOut, UserSignup
 
+router = APIRouter()
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Backward-compatible module attributes (tests patch these directly).
+RESEND_API_KEY = DEFAULT_RESEND_API_KEY
+RESEND_FROM_EMAIL = DEFAULT_RESEND_FROM_EMAIL
+XRAYRADAR_BASE_URL = DEFAULT_XRAYRADAR_BASE_URL
 
 
 def _generate_verification_token() -> str:
@@ -35,89 +40,83 @@ def _get_user_id_by_email(db: Session, email: str) -> int | None:
 
 
 def _send_verification_email(email: str, token: str) -> None:
-    """Send verification email via Resend. No-op if Resend not configured."""
+    """Legacy direct sender kept for compatibility tests."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         logger.warning("Resend not configured, skipping verification email for %s", email)
         return
-    
-    # Get user_id for logging
     db = SessionLocal()
     user_id = _get_user_id_by_email(db, email)
-    
     try:
         import resend
+
         resend.api_key = RESEND_API_KEY
         verify_link = f"{XRAYRADAR_BASE_URL.rstrip('/')}/verify-email?token={token}"
-        subject = "[XrayRadar] Verify your email address"
-        html = f"""
-        <p>Welcome to XrayRadar!</p>
-        <p>Please verify your email address by clicking the link below:</p>
-        <p><a href="{verify_link}" style="display: inline-block; padding: 12px 24px; background: #4f7cff; color: white; text-decoration: none; border-radius: 6px;">Verify Email</a></p>
-        <p>Or copy and paste this URL into your browser:</p>
-        <p><a href="{verify_link}">{verify_link}</a></p>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you didn't create an account, you can ignore this email.</p>
-        """
         resend.Emails.send(
             {
                 "from": RESEND_FROM_EMAIL,
                 "to": [email],
-                "subject": subject,
-                "html": html,
+                "subject": "[XrayRadar] Verify your email address",
+                "html": f"<p><a href=\"{verify_link}\">Verify Email</a></p>",
             }
         )
-        logger.info("Verification email sent to %s", email)
-        # Log successful email
         log_email(db, "verification", email, success=True, user_id=user_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send verification email to %s: %s", email, e)
-        # Log failed email
         log_email(db, "verification", email, success=False, user_id=user_id, error_message=str(e))
     finally:
         db.close()
 
 
 def _send_password_reset_email(email: str, token: str) -> None:
-    """Send password reset email via Resend. No-op if Resend not configured."""
+    """Legacy direct sender kept for compatibility tests."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         logger.warning("Resend not configured, skipping password reset email for %s", email)
         return
-    
-    # Get user_id for logging
     db = SessionLocal()
     user_id = _get_user_id_by_email(db, email)
-    
     try:
         import resend
+
         resend.api_key = RESEND_API_KEY
         reset_link = f"{XRAYRADAR_BASE_URL.rstrip('/')}/reset-password?token={token}"
-        subject = "[XrayRadar] Reset your password"
-        html = f"""
-        <p>You requested a password reset for your XrayRadar account.</p>
-        <p>Click the link below to set a new password:</p>
-        <p><a href="{reset_link}" style="display: inline-block; padding: 12px 24px; background: #4f7cff; color: white; text-decoration: none; border-radius: 6px;">Reset Password</a></p>
-        <p>Or copy and paste this URL into your browser:</p>
-        <p><a href="{reset_link}">{reset_link}</a></p>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request a reset, you can ignore this email.</p>
-        """
         resend.Emails.send(
             {
                 "from": RESEND_FROM_EMAIL,
                 "to": [email],
-                "subject": subject,
-                "html": html,
+                "subject": "[XrayRadar] Reset your password",
+                "html": f"<p><a href=\"{reset_link}\">Reset Password</a></p>",
             }
         )
-        logger.info("Password reset email sent to %s", email)
-        # Log successful email
         log_email(db, "password_reset", email, success=True, user_id=user_id)
     except Exception as e:  # noqa: BLE001
         logger.warning("Failed to send password reset email to %s: %s", email, e)
-        # Log failed email
         log_email(db, "password_reset", email, success=False, user_id=user_id, error_message=str(e))
     finally:
         db.close()
+
+
+def _enqueue_verification_email(db: Session, *, email: str, token: str, user_id: int) -> None:
+    enqueue_email_job(
+        db,
+        "verification",
+        {
+            "recipient_email": email,
+            "token": token,
+            "user_id": user_id,
+        },
+    )
+
+
+def _enqueue_password_reset_email(db: Session, *, email: str, token: str, user_id: int) -> None:
+    enqueue_email_job(
+        db,
+        "password_reset",
+        {
+            "recipient_email": email,
+            "token": token,
+            "user_id": user_id,
+        },
+    )
 
 
 @router.post("/auth/logout")
@@ -164,7 +163,8 @@ def signup(
     db.refresh(row)
 
     # Send verification email in background
-    background_tasks.add_task(_send_verification_email, email, verification_token)
+    _enqueue_verification_email(db, email=email, token=verification_token, user_id=row.id)
+    background_tasks.add_task(process_pending_email_jobs)
 
     s = get_session_serializer()
     session_cookie = s.dumps(
@@ -256,7 +256,8 @@ def forgot_password(
     user.password_reset_expires_at = expires_at
     db.commit()
 
-    background_tasks.add_task(_send_password_reset_email, email, token)
+    _enqueue_password_reset_email(db, email=email, token=token, user_id=user.id)
+    background_tasks.add_task(process_pending_email_jobs)
     return {"ok": True, "message": "If an account exists, you will receive a reset link."}
 
 
@@ -340,7 +341,8 @@ def resend_verification(
     db.commit()
 
     # Send verification email in background
-    background_tasks.add_task(_send_verification_email, user.email, new_token)
+    _enqueue_verification_email(db, email=user.email, token=new_token, user_id=user.id)
+    background_tasks.add_task(process_pending_email_jobs)
 
     return {"ok": True, "message": "Verification email sent"}
 

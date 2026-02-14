@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-02-14
+
+### Added
+
+- **Project environment views and filtering**
+  - Environment selector on project issues and issue detail pages, with query param and localStorage persistence.
+  - New `GET /api/user/projects/{project_id}/environments` endpoint for environment list/count/last_seen.
+  - Environment filtering support for issue/events/frequency/breakdown user endpoints.
+- **Environment-level access control (Env ACL)**
+  - Member env ACL model and APIs: `project_member_environments` + owner management endpoints.
+  - Token env ACL model and APIs: `token_project_environment_access` + read/replace endpoints.
+  - Backend enforcement for user read paths and token ingest environment scoping.
+- **Token environment scope management in UI**
+  - Tokens page now supports per-token/per-project environment configuration with a modern inline selector.
+  - Clear unrestricted behavior when no environments are selected ("All environments").
+- **Durable email delivery queue**
+  - New `email_jobs` table and worker utility with retry/backoff processing.
+  - Alert/auth email flows updated to use job enqueue + async processing.
+
+### Changed
+
+- **Alerts become environment-aware**
+  - Added optional env-level alert settings and recipients.
+  - Alert subject/body can include environment context.
+- **Architecture docs expanded**
+  - Added `docs/architecture/environments-acl-notifications.md`.
+  - Updated architecture docs for email alerts, team access, and event frequency.
+
+---
+
 ## [0.11.0] - 2026-02-08
 
 ### Added
@@ -255,6 +285,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.12.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.8.0...v0.9.0

@@ -10,8 +10,9 @@ from ..db import get_db
 from ..rate_limit import get_rate_limit_key_token, limiter
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
 from ..fingerprinting import compute_fingerprint
+from ..mail_jobs import enqueue_email_job, process_pending_email_jobs
 from ..models import Event, IssueStatus, Project, Token
-from ..notifications import get_alert_recipients, send_alert_emails, should_send_alert
+from ..notifications import get_alert_recipients, should_send_alert
 from ..schemas import EventOut, ProjectCreate, ProjectOut
 from ..usage import (
     get_user_event_count,
@@ -91,8 +92,10 @@ def store_event(
     x_xrayradar_token: str | None = Header(
         default=None, alias="X-Xrayradar-Token"),
 ):
+    env = (event.get("contexts") or {}).get("environment")
     authorize_ingest_for_project(
         project_id=project_id,
+        environment=env,
         db=db,
         x_xrayradar_token=x_xrayradar_token,
     )
@@ -187,17 +190,22 @@ def store_event(
 
     # Email alerts: non-blocking, only for error level
     if level == "error":
-        recipients = get_alert_recipients(db, project)
-        if recipients and should_send_alert(db, project_id, fp, str(level)):
-            background_tasks.add_task(
-                send_alert_emails,
-                recipients=recipients,
-                project_name=project.name,
-                event_message=str(message)[:500],
-                event_id=row.id,
-                project_id=project_id,
-                fingerprint=fp,
-            )
+        recipients = get_alert_recipients(db, project, environment=env)
+        if recipients and should_send_alert(db, project_id, fp, str(level), environment=env):
+            for recipient in recipients:
+                enqueue_email_job(
+                    db,
+                    "error_alert",
+                    {
+                        "recipient_email": recipient,
+                        "project_name": project.name,
+                        "event_message": str(message)[:500],
+                        "project_id": project_id,
+                        "fingerprint": fp,
+                        "environment": env,
+                    },
+                )
+            background_tasks.add_task(process_pending_email_jobs)
 
     response = {"id": str(row.id)}
     if warning_message:

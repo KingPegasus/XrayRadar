@@ -5,14 +5,15 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...db import get_db
 from ...deps import require_pro_user, require_user
 from ...email_log import log_email
-from ...models import Project, ProjectMember, TeamInvite, User
+from ...db import SessionLocal
+from ...models import Project, ProjectMember, ProjectMemberEnvironment, TeamInvite, User
 from ...routers.user._helpers import require_owned_project
 from ...schemas import (
     InviteAccept,
@@ -23,14 +24,17 @@ from ...schemas import (
 )
 from ...constants import (
     MAX_TEAM_MEMBERS_BY_PLAN,
-    RESEND_API_KEY,
-    RESEND_FROM_EMAIL,
-    XRAYRADAR_BASE_URL,
+    RESEND_API_KEY as DEFAULT_RESEND_API_KEY,
+    RESEND_FROM_EMAIL as DEFAULT_RESEND_FROM_EMAIL,
+    XRAYRADAR_BASE_URL as DEFAULT_XRAYRADAR_BASE_URL,
 )
 
 router = APIRouter()
 
 INVITE_EXPIRY_DAYS = 7
+RESEND_API_KEY = DEFAULT_RESEND_API_KEY
+RESEND_FROM_EMAIL = DEFAULT_RESEND_FROM_EMAIL
+XRAYRADAR_BASE_URL = DEFAULT_XRAYRADAR_BASE_URL
 
 
 def _get_team_member_count(db: Session, owner_id: int) -> int:
@@ -64,15 +68,18 @@ def _get_team_member_count(db: Session, owner_id: int) -> int:
 
 
 def _send_invite_email(invite_token: str, to_email: str, inviter_email: str) -> bool:
+    """Legacy direct sender kept for compatibility tests."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         return False
-    base = (XRAYRADAR_BASE_URL or "http://localhost:8001").rstrip("/")
-    accept_url = f"{base}/accept-invite?token={invite_token}"
-    html = f"""<p>You've been invited by {inviter_email} to join their team on Xrayradar.</p>
-<p><a href="{accept_url}">Accept invite</a></p>
-<p>This link expires in {INVITE_EXPIRY_DAYS} days.</p>"""
+    accept_url = f"{XRAYRADAR_BASE_URL.rstrip('/')}/accept-invite?token={invite_token}"
+    html = (
+        f"<p>You've been invited by {inviter_email} to join their team on Xrayradar.</p>"
+        f"<p><a href=\"{accept_url}\">Accept invite</a></p>"
+        f"<p>This link expires in {INVITE_EXPIRY_DAYS} days.</p>"
+    )
     try:
         import resend
+
         resend.api_key = RESEND_API_KEY
         resend.Emails.send(
             params={
@@ -83,8 +90,17 @@ def _send_invite_email(invite_token: str, to_email: str, inviter_email: str) -> 
             }
         )
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
+
+
+def _send_invite_and_log(invite_token: str, to_email: str, inviter_email: str, inviter_user_id: int) -> None:
+    sent = _send_invite_email(invite_token, to_email, inviter_email)
+    db = SessionLocal()
+    try:
+        log_email(db, "team_invite", to_email, success=sent, user_id=inviter_user_id)
+    finally:
+        db.close()
 
 
 @router.get("/api/user/team/members", response_model=list[TeamMemberOut])
@@ -230,9 +246,87 @@ def team_remove_member(
     db.commit()
 
 
+@router.get("/api/user/projects/{project_id}/members/{member_user_id}/environments", response_model=list[str])
+def project_member_list_environments(
+    project_id: int,
+    member_user_id: int,
+    user: User = Depends(require_pro_user),
+    db: Session = Depends(get_db),
+):
+    require_owned_project(db, user=user, project_id=project_id)
+    rows = (
+        db.execute(
+            select(ProjectMemberEnvironment.environment).where(
+                ProjectMemberEnvironment.project_id == project_id,
+                ProjectMemberEnvironment.user_id == member_user_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [r for r in rows if r]
+
+
+@router.put("/api/user/projects/{project_id}/members/{member_user_id}/environments", response_model=dict)
+def project_member_replace_environments(
+    project_id: int,
+    member_user_id: int,
+    payload: dict,
+    user: User = Depends(require_pro_user),
+    db: Session = Depends(get_db),
+):
+    require_owned_project(db, user=user, project_id=project_id)
+    member = (
+        db.execute(
+            select(ProjectMember).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == member_user_id,
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if member is None:
+        raise HTTPException(status_code=404, detail="Member not found")
+    envs = payload.get("environments") if isinstance(payload, dict) else None
+    envs = envs if isinstance(envs, list) else []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for e in envs:
+        if not isinstance(e, str):
+            continue
+        s = e.strip()
+        if s and s not in seen:
+            seen.add(s)
+            normalized.append(s)
+    existing = (
+        db.execute(
+            select(ProjectMemberEnvironment).where(
+                ProjectMemberEnvironment.project_id == project_id,
+                ProjectMemberEnvironment.user_id == member_user_id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for row in existing:
+        db.delete(row)
+    for env in normalized:
+        db.add(
+            ProjectMemberEnvironment(
+                project_id=project_id,
+                user_id=member_user_id,
+                environment=env,
+            )
+        )
+    db.commit()
+    return {"ok": True, "environments": normalized}
+
+
 @router.post("/api/user/team/invites", response_model=InviteOut)
 def team_create_invite(
     payload: InviteCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(require_pro_user),
     db: Session = Depends(get_db),
 ):
@@ -268,8 +362,8 @@ def team_create_invite(
     db.commit()
     db.refresh(invite)
 
-    sent = _send_invite_email(token, email, user.email)
-    log_email(db, "team_invite", email, success=sent, user_id=user.id)
+    # Async delivery to keep invite creation responsive.
+    background_tasks.add_task(_send_invite_and_log, token, email, user.email, user.id)
 
     return InviteOut(
         id=invite.id,

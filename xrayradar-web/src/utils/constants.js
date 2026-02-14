@@ -23,4 +23,12 @@ export const FEATURES = [
     title: 'Email alerts',
     text: 'Get notified when errors occur. Configure per-project email alerts with cooldown settings to avoid alert fatigue.',
   },
+  {
+    title: 'Environment views + ACL',
+    text: 'Filter noise by environment (production, staging, etc.) and control which environments teammates can access in each project.',
+  },
+  {
+    title: 'Token environment scoping',
+    text: 'Scope token access per project and per environment, so ingest and automation credentials only reach the environments they need.',
+  },
 ]

@@ -13,29 +13,57 @@ export function IssueDetailPage({ projectId, fingerprint }) {
   const [issueStatus, setIssueStatus] = useState(null)
   const [error, setError] = useState('')
   const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [environmentFilter, setEnvironmentFilter] = useState(null)
+  const [environmentOptions, setEnvironmentOptions] = useState([])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search || '')
+    const envFromUrl = (params.get('environment') || '').trim()
+    const storageKey = `project:${projectId}:environment`
+    const envFromStorage = (localStorage.getItem(storageKey) || '').trim()
+    const initial = envFromUrl || envFromStorage || ''
+    setEnvironmentFilter(initial || null)
+  }, [projectId, fingerprint])
+
+  useEffect(() => {
+    const storageKey = `project:${projectId}:environment`
+    const params = new URLSearchParams(window.location.search || '')
+    if (environmentFilter) {
+      localStorage.setItem(storageKey, environmentFilter)
+      params.set('environment', environmentFilter)
+    } else {
+      localStorage.removeItem(storageKey)
+      params.delete('environment')
+    }
+    const query = params.toString()
+    const next = `${window.location.pathname}${query ? `?${query}` : ''}`
+    window.history.replaceState({}, '', next)
+  }, [projectId, environmentFilter])
 
   const load = useCallback(() => {
     setError('')
-    fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/events`)
-      .then((rows) => setEvents(rows || []))
+    const envQ = environmentFilter ? `?environment=${encodeURIComponent(environmentFilter)}` : ''
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/events${envQ}`))
+      .then((rows) => setEvents(Array.isArray(rows) ? rows : []))
       .catch((e) => setError(e.message || 'Failed to load events'))
 
-    fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/events/frequency`)
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/events/frequency${envQ}`))
       .then((data) => setEventFrequencyData(data))
       .catch((e) => {
         console.warn('Failed to load event frequency:', e)
       })
 
-    fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/breakdown`)
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/issues/${fingerprint}/breakdown${envQ}`))
       .then((data) => setBreakdown(data))
       .catch((e) => {
         console.warn('Failed to load breakdown:', e)
       })
 
     // Load issue status - try to get from issues list first
-    fetchJson(`/api/user/projects/${projectId}/issues`)
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/issues${envQ}`))
       .then((issues) => {
-        const issue = issues.find(i => i.fingerprint === fingerprint)
+        const list = Array.isArray(issues) ? issues : []
+        const issue = list.find(i => i.fingerprint === fingerprint)
         if (issue) {
           setIssueStatus({
             status: issue.status || 'open',
@@ -48,9 +76,15 @@ export function IssueDetailPage({ projectId, fingerprint }) {
       .catch((e) => {
         console.warn('Failed to load issue status:', e)
       })
-  }, [projectId, fingerprint])
+  }, [projectId, fingerprint, environmentFilter])
 
   useEffect(() => load(), [load])
+
+  useEffect(() => {
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/environments`))
+      .then((rows) => setEnvironmentOptions(Array.isArray(rows) ? rows : []))
+      .catch(() => setEnvironmentOptions([]))
+  }, [projectId])
 
   const eventFrequency = useMemo(() => {
     // Use UTC dates to match backend (which returns UTC dates)
@@ -116,7 +150,27 @@ export function IssueDetailPage({ projectId, fingerprint }) {
           </p>
         </div>
         <div className="pageActions" style={{ marginTop: 0, marginLeft: 'auto' }}>
-          <button className="button" type="button" onClick={() => navigate(`/dashboard/projects/${projectId}`)}>
+          <label htmlFor="issue-environment-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            Environment:
+            <select
+              id="issue-environment-filter"
+              value={environmentFilter || 'all'}
+              onChange={(e) => setEnvironmentFilter(e.target.value === 'all' ? null : e.target.value)}
+              style={{ padding: '4px 8px' }}
+            >
+              <option value="all">All</option>
+              {environmentOptions.map((opt) => (
+                <option key={opt.environment} value={opt.environment}>
+                  {opt.environment}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="button"
+            type="button"
+            onClick={() => navigate(`/dashboard/projects/${projectId}${environmentFilter ? `?environment=${encodeURIComponent(environmentFilter)}` : ''}`)}
+          >
             Back
           </button>
           <button className="button" type="button" onClick={load}>
@@ -187,7 +241,7 @@ export function IssueDetailPage({ projectId, fingerprint }) {
                 <tr
                   key={e.id}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/dashboard/projects/${projectId}/issues/${fingerprint}/events/${e.id}`)}
+                  onClick={() => navigate(`/dashboard/projects/${projectId}/issues/${fingerprint}/events/${e.id}${environmentFilter ? `?environment=${encodeURIComponent(environmentFilter)}` : ''}`)}
                 >
                   <td>{new Date(e.timestamp).toLocaleString()}</td>
                   <td>{e.level}</td>

@@ -87,6 +87,17 @@ _Features that have been implemented._
     - Database: `project_members` and `team_invites` tables; migrations and API for member management and invite acceptance
     - Admin: team invite email stats, Users tab plan filter and badges (Free / Basic / Teams / Teams Pro)
 
+### Environment & Delivery
+
+11. **Environment views, Env ACL, and notification delivery separation** ✅ _(v0.12.0)_
+    - Environment selector on project and issue pages (query param + localStorage persistence)
+    - Environment filtering on issues/events/frequency/breakdown user endpoints
+    - Member environment ACL (`project_member_environments`) + owner management UI in project settings
+    - Token environment ACL (`token_project_environment_access`) + ingest enforcement
+    - Token UI support for per-project environment scope configuration
+    - Environment-aware alert routing (env-specific recipients/settings)
+    - Durable DB-backed email jobs + worker retry/backoff (`email_jobs`)
+
 ---
 
 ## Pending Features
@@ -149,10 +160,11 @@ _Features that are planned for upcoming releases, organized by priority._
     - User session history
     - _Competitors: Sentry, Bugsnag, Raygun_
 
-8. **Environment & release tracking**
-    - Environment tags (production, staging, development)
-    - Release/version tracking
-    - Filter errors by environment and release
+8. **Environment & release tracking** _(partially done in v0.12.0)_
+    - ~~Environment tags (production, staging, development)~~ ✅
+    - ~~Filter errors by environment~~ ✅
+    - ~~Environment-level access control (members/tokens)~~ ✅
+    - Release/version tracking improvements (release-centric workflows)
     - Release health metrics
     - First seen / last seen in release
     - _Competitors: Sentry, Rollbar, Bugsnag_
@@ -314,7 +326,7 @@ _Features that are planned for upcoming releases, organized by priority._
 | GitHub integration | ❌ | ✅ | ✅ | ✅ | ❌ |
 | Breadcrumbs | ✅ | ✅ | ✅ | ✅ | ❌ |
 | User context | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Release tracking | ❌ | ✅ | ✅ | ✅ | ❌ |
+| Release tracking | ◑ (env filtering + basic release fields) | ✅ | ✅ | ✅ | ❌ |
 | Custom tags | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Public API | ❌ | ✅ | ✅ | ✅ | ✅ |
 | Webhooks | ❌ | ✅ | ✅ | ✅ | ✅ |
@@ -345,14 +357,14 @@ Based on competitive analysis and user value:
 ### Phase 3: Enhanced Context (v0.10.0)
 8. Breadcrumbs (#6) ✅
 9. User context & impact (#7)
-10. Environment & release tracking (#8)
+10. Environment & release tracking (#8) ◑ (env views/filtering + ACL done in v0.12.0; release health pending)
 
-### Phase 4: Platform Expansion (v0.11.0)
+### Phase 4: Platform Expansion (v0.13.0)
 11. Public REST API (#11)
 12. Outgoing webhooks (#12)
-13. JavaScript/Node.js SDK (#3)
+13. JavaScript/Node.js SDK (#3) ◑ _(core SDK done; React package, Next.js helper, and Express/Koa middleware are available; deeper framework-specific integrations still pending)_
 
-### Phase 5: Collaboration (v0.12.0)
+### Phase 5: Collaboration (v0.14.0)
 14. Team roles & organization (RBAC, project-level roles — remainder of #13)
 15. Comments & notes (#14)
 16. Advanced search & filtering (#10)

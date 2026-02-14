@@ -83,7 +83,7 @@ The backend handles client-side routing by serving `index.html` for all non-API 
   - **Projects**: Create and manage projects
   - **Issues**: View error issues grouped by fingerprint
   - **Events**: View detailed event information with stack traces, breadcrumbs, and context
-  - **Tokens**: Request and manage API tokens for project access
+  - **Tokens**: Request and manage API tokens for project access, including per-project environment scope
 - **Error Display**: Rich error details including:
   - Stack traces with source context
   - Breadcrumbs timeline

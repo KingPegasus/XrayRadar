@@ -13,6 +13,8 @@ from .email_log import log_email
 from .models import (
     AlertCooldown,
     Project,
+    ProjectAlertEnvironmentRecipient,
+    ProjectAlertEnvironmentSetting,
     ProjectAlertRecipient,
     ProjectAlertSettings,
     User,
@@ -22,16 +24,33 @@ logger = logging.getLogger(__name__)
 
 
 def get_project_alert_settings(
-    db: Session, project_id: int
+    db: Session, project_id: int, environment: str | None = None
 ) -> tuple[bool, str, int | None]:
     """Return (enabled, level_filter, cooldown_minutes) for the project. Defaults if no row."""
     row = db.get(ProjectAlertSettings, project_id)
-    if row is None:
-        return False, "error", None
-    return row.enabled, row.level_filter, row.cooldown_minutes
+    enabled = False if row is None else row.enabled
+    level_filter = "error" if row is None else row.level_filter
+    cooldown = None if row is None else row.cooldown_minutes
+    env = (environment or "").strip()
+    if env:
+        env_row = (
+            db.execute(
+                select(ProjectAlertEnvironmentSetting).where(
+                    ProjectAlertEnvironmentSetting.project_id == project_id,
+                    ProjectAlertEnvironmentSetting.environment == env,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if env_row is not None:
+            enabled = env_row.enabled
+            if env_row.cooldown_minutes is not None:
+                cooldown = env_row.cooldown_minutes
+    return enabled, level_filter, cooldown
 
 
-def get_alert_recipients(db: Session, project: Project) -> list[str]:
+def get_alert_recipients(db: Session, project: Project, environment: str | None = None) -> list[str]:
     """Combine owner email and additional recipients, deduplicated. Returns [] for Free plan (no alerts)."""
     if project.owner_user_id is not None:
         owner = db.get(User, project.owner_user_id)
@@ -54,14 +73,29 @@ def get_alert_recipients(db: Session, project: Project) -> list[str]:
         # Handle both scalar (str) and Row/tuple from different SQLAlchemy result shapes
         val = r[0] if (isinstance(r, (tuple, list)) or (hasattr(r, "__getitem__") and not isinstance(r, str))) else r
         emails.add(val)
+    env = (environment or "").strip()
+    if env:
+        env_recs = (
+            db.execute(
+                select(ProjectAlertEnvironmentRecipient.email).where(
+                    ProjectAlertEnvironmentRecipient.project_id == project.id,
+                    ProjectAlertEnvironmentRecipient.environment == env,
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in env_recs:
+            if isinstance(r, str) and r.strip():
+                emails.add(r.strip().lower())
     return list(emails)
 
 
 def should_send_alert(
-    db: Session, project_id: int, fingerprint: str | None, level: str
+    db: Session, project_id: int, fingerprint: str | None, level: str, environment: str | None = None
 ) -> bool:
     """Return True if alerts are enabled, level matches, and cooldown allows. Updates cooldown when sending."""
-    enabled, level_filter, cooldown_minutes = get_project_alert_settings(db, project_id)
+    enabled, level_filter, cooldown_minutes = get_project_alert_settings(db, project_id, environment=environment)
     if not enabled or level != level_filter:
         return False
     fp = fingerprint or ""

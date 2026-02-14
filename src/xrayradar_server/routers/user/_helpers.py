@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from fastapi import HTTPException
 
-from ...models import Project, ProjectMember, Token, User
+from ...models import Project, ProjectMember, ProjectMemberEnvironment, Token, User
 
 
 def require_owned_project(db: Session, *, user: User, project_id: int) -> Project:
@@ -58,3 +58,56 @@ def user_accessible_project_ids_subq(user_id: int):
             Project.id.in_(select(ProjectMember.project_id).where(ProjectMember.user_id == user_id)),
         )
     )
+
+
+def get_allowed_environments(
+    db: Session,
+    *,
+    user: User,
+    project_id: int,
+) -> set[str] | None:
+    """Return allowed environments for this user in the project.
+
+    Returns:
+      - None: unrestricted (owner or member without restrictions)
+      - set[str]: restricted to those environments
+    """
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.owner_user_id == user.id:
+        return None
+
+    member = db.execute(
+        select(ProjectMember).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user.id,
+        )
+    ).scalars().first()
+    if member is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    env_rows = (
+        db.execute(
+            select(ProjectMemberEnvironment.environment).where(
+                ProjectMemberEnvironment.project_id == project_id,
+                ProjectMemberEnvironment.user_id == user.id,
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not env_rows:
+        return None
+    return {e for e in env_rows if e}
+
+
+def validate_requested_environments(
+    allowed_envs: set[str] | None,
+    requested_envs: set[str],
+) -> None:
+    """Validate requested envs against allowed envs."""
+    if allowed_envs is None or not requested_envs:
+        return
+    if not requested_envs.issubset(allowed_envs):
+        raise HTTPException(status_code=404, detail="Project not found")

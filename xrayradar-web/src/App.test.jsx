@@ -6,10 +6,11 @@ import App from './App'
 // Mock fetch globally
 global.fetch = vi.fn()
 
-// Mock navigation
-vi.mock('./utils/navigation', () => ({
-  navigate: vi.fn(),
-}))
+// Mock navigation (must include NAVIGATE_EVENT for usePathname)
+vi.mock('./utils/navigation', async (importOriginal) => {
+  const actual = await importOriginal()
+  return { ...actual, navigate: vi.fn() }
+})
 
 describe('App', () => {
   beforeEach(() => {
@@ -324,6 +325,54 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Set new password/i)).toBeInTheDocument()
+    })
+  })
+
+  it('renders PrivacyPolicyPage when path is /privacy', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/privacy',
+        href: '/privacy',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Privacy Policy/i })).toBeInTheDocument()
+    })
+  })
+
+  it('renders TermsOfServicePage when path is /terms', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/terms',
+        href: '/terms',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Terms of Service/i })).toBeInTheDocument()
     })
   })
 

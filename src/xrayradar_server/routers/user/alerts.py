@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 
 from ...constants import MAX_ALERT_RECIPIENTS, MIN_COOLDOWN_MINUTES_BY_PLAN
 from ...db import get_db
-from ...models import ProjectAlertRecipient, ProjectAlertSettings, User
+from ...models import (
+    ProjectAlertEnvironmentRecipient,
+    ProjectAlertEnvironmentSetting,
+    ProjectAlertRecipient,
+    ProjectAlertSettings,
+    User,
+)
 from ...deps import require_user, require_verified_user
 from ...schemas import AlertSettingsOut, AlertSettingsUpdate
 from ._helpers import require_project_access
@@ -32,6 +38,7 @@ def user_get_alert_settings(
             cooldown_minutes=None,
             min_cooldown_minutes=None,
             additional_emails=[],
+            environment_settings=[],
         )
     min_cooldown = MIN_COOLDOWN_MINUTES_BY_PLAN.get(user.plan, 10)
     settings = db.get(ProjectAlertSettings, project_id)
@@ -42,6 +49,7 @@ def user_get_alert_settings(
             cooldown_minutes=None,
             min_cooldown_minutes=min_cooldown,
             additional_emails=[],
+            environment_settings=[],
         )
     recipients = (
         db.execute(
@@ -52,6 +60,36 @@ def user_get_alert_settings(
         .scalars().all()
     )
     additional_emails = [r for r in recipients if r]
+    env_settings_rows = (
+        db.execute(
+            select(ProjectAlertEnvironmentSetting).where(
+                ProjectAlertEnvironmentSetting.project_id == project_id
+            )
+        )
+        .scalars()
+        .all()
+    )
+    env_rec_rows = (
+        db.execute(
+            select(ProjectAlertEnvironmentRecipient).where(
+                ProjectAlertEnvironmentRecipient.project_id == project_id
+            )
+        )
+        .scalars()
+        .all()
+    )
+    by_env_recipients: dict[str, list[str]] = {}
+    for row in env_rec_rows:
+        by_env_recipients.setdefault(row.environment, []).append(row.email)
+    env_settings = [
+        {
+            "environment": row.environment,
+            "enabled": row.enabled,
+            "cooldown_minutes": row.cooldown_minutes,
+            "additional_emails": sorted(set(by_env_recipients.get(row.environment, []))),
+        }
+        for row in env_settings_rows
+    ]
     cooldown = settings.cooldown_minutes
     if cooldown is not None and min_cooldown is not None and cooldown < min_cooldown:
         cooldown = min_cooldown
@@ -61,6 +99,7 @@ def user_get_alert_settings(
         cooldown_minutes=cooldown,
         min_cooldown_minutes=min_cooldown,
         additional_emails=additional_emails,
+        environment_settings=env_settings,
     )
 
 
@@ -121,6 +160,66 @@ def user_update_alert_settings(
             db.delete(row)
         for email in normalized:
             db.add(ProjectAlertRecipient(project_id=project_id, email=email))
+    if payload.environment_settings is not None:
+        existing_env_settings = (
+            db.execute(
+                select(ProjectAlertEnvironmentSetting).where(
+                    ProjectAlertEnvironmentSetting.project_id == project_id
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in existing_env_settings:
+            db.delete(row)
+        existing_env_recipients = (
+            db.execute(
+                select(ProjectAlertEnvironmentRecipient).where(
+                    ProjectAlertEnvironmentRecipient.project_id == project_id
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in existing_env_recipients:
+            db.delete(row)
+        for item in payload.environment_settings:
+            if not isinstance(item, dict):
+                continue
+            env = str(item.get("environment") or "").strip()
+            if not env:
+                continue
+            env_enabled = bool(item.get("enabled", True))
+            env_cooldown = item.get("cooldown_minutes")
+            if env_cooldown is not None:
+                try:
+                    env_cooldown = int(env_cooldown)
+                except Exception:  # noqa: BLE001
+                    env_cooldown = None
+            db.add(
+                ProjectAlertEnvironmentSetting(
+                    project_id=project_id,
+                    environment=env,
+                    enabled=env_enabled,
+                    cooldown_minutes=env_cooldown,
+                )
+            )
+            env_emails = item.get("additional_emails")
+            if isinstance(env_emails, list):
+                seen_env: set[str] = set()
+                for e in env_emails:
+                    if not isinstance(e, str):
+                        continue
+                    normalized_email = e.strip().lower()
+                    if normalized_email and normalized_email not in seen_env:
+                        seen_env.add(normalized_email)
+                        db.add(
+                            ProjectAlertEnvironmentRecipient(
+                                project_id=project_id,
+                                environment=env,
+                                email=normalized_email,
+                            )
+                        )
     db.commit()
     db.refresh(settings)
     return user_get_alert_settings(project_id=project_id, user=user, db=db)

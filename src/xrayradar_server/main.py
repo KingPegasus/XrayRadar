@@ -45,7 +45,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="xrayradar-server",
-    version="0.11.0",
+    version="0.12.0",
     lifespan=lifespan,
     docs_url=None,  # Disable default docs
     redoc_url=None,  # Disable default redoc

@@ -59,6 +59,24 @@ describe('SignupModal', () => {
     })
   })
 
+  it('validates Terms and Privacy consent', async () => {
+    const user = userEvent.setup()
+    render(<SignupModal open={true} plan="Free" onClose={onClose} />)
+
+    const emailInput = screen.getByPlaceholderText(/you@company.com/i)
+    const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
+    const submitButton = screen.getByRole('button', { name: /Create account/i })
+
+    await user.type(emailInput, 'test@example.com')
+    await user.type(passwordInputs[0], 'password123')
+    await user.type(passwordInputs[1], 'password123')
+    await user.click(submitButton)
+
+    await waitFor(() => {
+      expect(screen.getByText(/You must agree to the Terms of Service and Privacy Policy/i)).toBeInTheDocument()
+    })
+  })
+
   it('validates password match', async () => {
     const user = userEvent.setup()
     render(<SignupModal open={true} plan="Free" onClose={onClose} />)
@@ -93,11 +111,13 @@ describe('SignupModal', () => {
     const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
     const passwordInput = passwordInputs[0]
     const confirmInput = passwordInputs[1]
+    const agreeCheckbox = screen.getByRole('checkbox', { name: /I agree to the/i })
     const submitButton = screen.getByRole('button', { name: /Create account/i })
 
     await user.type(emailInput, 'test@example.com')
     await user.type(passwordInput, 'password123')
     await user.type(confirmInput, 'password123')
+    await user.click(agreeCheckbox)
     await user.click(submitButton)
 
     await waitFor(() => {
@@ -120,11 +140,13 @@ describe('SignupModal', () => {
     const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
     const passwordInput = passwordInputs[0]
     const confirmInput = passwordInputs[1]
+    const agreeCheckbox = screen.getByRole('checkbox', { name: /I agree to the/i })
     const submitButton = screen.getByRole('button', { name: /Create account/i })
 
     await user.type(emailInput, 'test@example.com')
     await user.type(passwordInput, 'password123')
     await user.type(confirmInput, 'password123')
+    await user.click(agreeCheckbox)
     await user.click(submitButton)
 
     await waitFor(() => {
@@ -153,11 +175,13 @@ describe('SignupModal', () => {
     const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
     const passwordInput = passwordInputs[0]
     const confirmInput = passwordInputs[1]
+    const agreeCheckbox = screen.getByRole('checkbox', { name: /I agree to the/i })
     const submitButton = screen.getByRole('button', { name: /Create account/i })
 
     await user.type(emailInput, 'test@example.com')
     await user.type(passwordInput, 'password123')
     await user.type(confirmInput, 'password123')
+    await user.click(agreeCheckbox)
     await user.click(submitButton)
 
     await waitFor(() => {
@@ -180,13 +204,15 @@ describe('SignupModal', () => {
     const passwordInputs = screen.getAllByPlaceholderText(/••••••••/i)
     const passwordInput = passwordInputs[0]
     const confirmInput = passwordInputs[1]
+    const agreeCheckbox = screen.getByRole('checkbox', { name: /I agree to the/i })
     const submitButton = screen.getByRole('button', { name: /Create account/i })
 
     await user.type(emailInput, 'test@example.com')
     await user.type(passwordInput, 'password123')
     await user.type(confirmInput, 'password123')
-    
-    // Click submit button twice quickly - second click should return early (line 27)
+    await user.click(agreeCheckbox)
+
+    // Click submit button twice quickly - second click should return early (submitting guard)
     await user.click(submitButton)
     await user.click(submitButton)
 

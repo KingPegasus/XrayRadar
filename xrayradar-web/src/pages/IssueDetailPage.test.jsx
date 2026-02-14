@@ -193,7 +193,7 @@ describe('IssueDetailPage', () => {
     await user.click(refreshButton)
 
     await waitFor(() => {
-      expect(api.fetchJson).toHaveBeenCalledTimes(8) // 4 initial + 4 refresh
+      expect(api.fetchJson).toHaveBeenCalledTimes(9) // 4 initial + environments fetch + 4 refresh
     })
   })
 

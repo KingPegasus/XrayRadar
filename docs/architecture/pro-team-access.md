@@ -18,6 +18,14 @@ There is no separate "organization" or "team" entity: the "team" is derived from
 - **Constraints:** Unique on `(project_id, user_id)`; a user cannot be added twice to the same project.
 - **Semantics:** User `user_id` has read-only access to project `project_id`. Only projects whose **owner** has `plan` in `('Teams', 'Teams Pro')` may have members (enforced in API, not DB).
 
+### project_member_environments
+
+- **Table:** `project_member_environments`
+- **Primary key:** `(project_id, user_id, environment)`
+- **Semantics:** Optional environment-level restriction for a member on a project.
+  - No rows for a member+project means unrestricted environment access (all envs).
+  - When rows exist, member reads are limited to those environments.
+
 ### team_invites
 
 - **Table:** `team_invites`
@@ -39,6 +47,7 @@ There is no separate "organization" or "team" entity: the "team" is derived from
 - **Before:** Only the project **owner** could access a project in the user API (`require_owned_project`, `user_owned_project_ids_subq`).
 - **After:** A user can access a project if they are the **owner** or a **project member**.
   - **Helper:** `require_project_access(db, user, project_id)` — returns the project or raises 404. Used for issues, tokens, alerts.
+  - **Env helper:** `get_allowed_environments(db, user, project_id)` — resolves environment scope for owner/member.
   - **Subquery:** `user_accessible_project_ids_subq(user_id)` — returns project IDs where the user is owner or in `project_members`. Used for project list and dashboard stats.
 
 ### Teams-only actions
@@ -62,6 +71,8 @@ All team endpoints use session auth (`require_user`). Teams-only endpoints use `
 | POST | `/api/user/team/invites` | Create invite (email, project_ids), send email | Yes |
 | GET | `/api/user/team/invites` | List pending invites you sent | Yes |
 | POST | `/api/user/team/invites/accept` | Accept invite (body: `{ "token": "..." }`); caller must be logged in, invite email must match | No |
+| GET | `/api/user/projects/{project_id}/members/{user_id}/environments` | Read member environment ACL for project | Yes (owner) |
+| PUT | `/api/user/projects/{project_id}/members/{user_id}/environments` | Replace member environment ACL for project | Yes (owner) |
 
 ## Multi-team membership (same user, multiple owners)
 
@@ -151,9 +162,9 @@ sequenceDiagram
 
 ### Backend
 
-- **Models:** `src/xrayradar_server/models.py` — `ProjectMember`, `TeamInvite`; `Project.members`, `User.project_memberships`, `User.team_invites_sent`
-- **Migration:** `alembic/versions/0010_project_members_team_invites.py`
-- **Helpers:** `src/xrayradar_server/routers/user/_helpers.py` — `require_project_access`, `user_accessible_project_ids_subq`; `require_owned_project` still used for owner-only actions
+- **Models:** `src/xrayradar_server/models.py` — `ProjectMember`, `ProjectMemberEnvironment`, `TeamInvite`; `Project.members`, `User.project_memberships`, `User.team_invites_sent`
+- **Migration:** `alembic/versions/0010_project_members_team_invites.py`, `alembic/versions/0012_env_acl_alert_env_and_email_jobs.py`
+- **Helpers:** `src/xrayradar_server/routers/user/_helpers.py` — `require_project_access`, `get_allowed_environments`, `user_accessible_project_ids_subq`; `require_owned_project` still used for owner-only actions
 - **Router:** `src/xrayradar_server/routers/user/team.py` — all team and project-member endpoints
 - **Deps:** `src/xrayradar_server/deps.py` — `require_pro_user`
 - **Projects/Dashboard:** `routers/user/projects.py` (list with `is_owner`), `routers/user/dashboard.py` (stats use accessible subquery)

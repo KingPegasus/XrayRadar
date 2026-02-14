@@ -7,13 +7,42 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
   const [nameValue, setNameValue] = useState(projectName ?? '')
   const [nameError, setNameError] = useState('')
   const [nameSaving, setNameSaving] = useState(false)
+  const [teamMembers, setTeamMembers] = useState([])
+  const [environmentOptions, setEnvironmentOptions] = useState([])
+  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [memberEnvSelection, setMemberEnvSelection] = useState(new Set())
+  const [envAccessSaving, setEnvAccessSaving] = useState(false)
+  const [envAccessError, setEnvAccessError] = useState('')
 
   useEffect(() => {
     if (open) {
       setNameValue(projectName ?? '')
       setNameError('')
+      setEnvAccessError('')
+      if (isOwner) {
+        Promise.resolve(fetchJson('/api/user/team/members'))
+          .then((rows) => {
+            const scoped = (Array.isArray(rows) ? rows : []).filter((m) => Array.isArray(m.project_ids) && m.project_ids.includes(projectId))
+            setTeamMembers(scoped)
+            setSelectedMemberId(scoped[0] ? String(scoped[0].user_id) : '')
+          })
+          .catch(() => setTeamMembers([]))
+        Promise.resolve(fetchJson(`/api/user/projects/${projectId}/environments`))
+          .then((rows) => setEnvironmentOptions(Array.isArray(rows) ? rows.map((r) => r.environment).filter(Boolean) : []))
+          .catch(() => setEnvironmentOptions([]))
+      }
     }
-  }, [open, projectName])
+  }, [open, projectName, isOwner, projectId])
+
+  useEffect(() => {
+    if (!open || !selectedMemberId) {
+      setMemberEnvSelection(new Set())
+      return
+    }
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/members/${selectedMemberId}/environments`))
+      .then((rows) => setMemberEnvSelection(new Set(Array.isArray(rows) ? rows : [])))
+      .catch(() => setMemberEnvSelection(new Set()))
+  }, [open, selectedMemberId, projectId])
 
   return (
     <>
@@ -138,6 +167,83 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
                 {nameError ? (
                   <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{nameError}</div>
                 ) : null}
+              </div>
+            )}
+
+            {isOwner && (
+              <div style={{ marginBottom: 20 }}>
+                <label className="fieldLabel">Environment access</label>
+                {teamMembers.length === 0 ? (
+                  <div className="small" style={{ marginTop: 6, color: 'var(--muted)' }}>
+                    No team members assigned to this project.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginTop: 6 }}>
+                      <select
+                        className="fieldInput"
+                        value={selectedMemberId}
+                        onChange={(e) => setSelectedMemberId(e.target.value)}
+                      >
+                        {teamMembers.map((member) => (
+                          <option key={member.user_id} value={String(member.user_id)}>
+                            {member.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                      {environmentOptions.length === 0 ? (
+                        <div className="small" style={{ color: 'var(--muted)' }}>
+                          No environments detected yet.
+                        </div>
+                      ) : (
+                        environmentOptions.map((env) => (
+                          <label key={env} className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={memberEnvSelection.has(env)}
+                              onChange={(e) => {
+                                const next = new Set(memberEnvSelection)
+                                if (e.target.checked) next.add(env)
+                                else next.delete(env)
+                                setMemberEnvSelection(next)
+                              }}
+                            />
+                            <span>{env}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        className="button"
+                        disabled={!selectedMemberId || envAccessSaving}
+                        onClick={async () => {
+                          setEnvAccessSaving(true)
+                          setEnvAccessError('')
+                          try {
+                            await fetchJson(`/api/user/projects/${projectId}/members/${selectedMemberId}/environments`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ environments: Array.from(memberEnvSelection) }),
+                            })
+                          } catch (e) {
+                            setEnvAccessError(e.message || 'Failed to save environment access')
+                          } finally {
+                            setEnvAccessSaving(false)
+                          }
+                        }}
+                      >
+                        {envAccessSaving ? 'Saving…' : 'Save environment access'}
+                      </button>
+                    </div>
+                    {envAccessError ? (
+                      <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{envAccessError}</div>
+                    ) : null}
+                  </>
+                )}
               </div>
             )}
 

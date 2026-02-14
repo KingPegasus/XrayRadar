@@ -13,6 +13,7 @@ This folder documents the architecture of XrayRadar features. Each document desc
 | [Usage limiting](usage-limiting.md) | Event storage limits per plan tier (Free / Basic / Pro) |
 | [Rate limiting](rate-limiting.md) | IP- and token-based rate limits for auth and event ingest (429) |
 | [Event frequency](event-frequency.md) | 30-day event frequency charts (project and issue views) |
+| [Environments, Env ACL, and notifications](environments-acl-notifications.md) | Per-project environment views, environment access control, and durable email delivery |
 | [Issue status](issue-status.md) | Issue lifecycle management: status tracking, release-based resolution, auto-reopen |
 | [Auth](auth.md) | User authentication: signup, login, session, email verification, password reset |
 | [Account deletion](account-deletion.md) | User deletion requests and admin fulfillment |

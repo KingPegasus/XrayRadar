@@ -43,6 +43,15 @@ export function DashboardLayout({ me, onLogout, children }) {
         </div>
       </header>
       {children}
+      <footer className="footer" style={{ padding: '16px 0' }}>
+        <div className="container footerInner">
+          <div className="small" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
+            <a href="mailto:dev@xrayradar.com">Contact</a>
+          </div>
+        </div>
+      </footer>
     </>
   )
 }

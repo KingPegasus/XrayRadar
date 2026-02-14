@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...db import get_db
-from ...models import Token, TokenProjectAccess, TokenRequest, User
+from ...models import Token, TokenProjectAccess, TokenProjectEnvironmentAccess, TokenRequest, User
 from ...deps import require_user, require_verified_user
 from ...schemas import (
     TokenProjectAccessOut,
@@ -128,6 +128,84 @@ def user_revoke_project_access(
     db.add(access)
     db.commit()
     return {"ok": True}
+
+
+@router.get(
+    "/api/user/tokens/{token_id}/projects/{project_id}/environments",
+    response_model=list[str],
+)
+def user_list_token_project_environments(
+    token_id: int,
+    project_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    require_owned_project(db, user=user, project_id=project_id)
+    require_user_token(db, user=user, token_id=token_id)
+    rows = (
+        db.execute(
+            select(TokenProjectEnvironmentAccess.environment).where(
+                TokenProjectEnvironmentAccess.token_id == token_id,
+                TokenProjectEnvironmentAccess.project_id == project_id,
+                TokenProjectEnvironmentAccess.revoked_at.is_(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [r for r in rows if r]
+
+
+@router.put(
+    "/api/user/tokens/{token_id}/projects/{project_id}/environments",
+    response_model=dict,
+)
+def user_replace_token_project_environments(
+    token_id: int,
+    project_id: int,
+    payload: dict,
+    user: User = Depends(require_verified_user),
+    db: Session = Depends(get_db),
+):
+    require_owned_project(db, user=user, project_id=project_id)
+    require_user_token(db, user=user, token_id=token_id)
+
+    envs = payload.get("environments") if isinstance(payload, dict) else None
+    envs = envs if isinstance(envs, list) else []
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for e in envs:
+        if not isinstance(e, str):
+            continue
+        s = e.strip()
+        if s and s not in seen:
+            seen.add(s)
+            normalized.append(s)
+
+    existing = (
+        db.execute(
+            select(TokenProjectEnvironmentAccess).where(
+                TokenProjectEnvironmentAccess.token_id == token_id,
+                TokenProjectEnvironmentAccess.project_id == project_id,
+                TokenProjectEnvironmentAccess.revoked_at.is_(None),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for row in existing:
+        row.revoked_at = datetime.now(timezone.utc)
+        db.add(row)
+    for env in normalized:
+        db.add(
+            TokenProjectEnvironmentAccess(
+                token_id=token_id,
+                project_id=project_id,
+                environment=env,
+            )
+        )
+    db.commit()
+    return {"ok": True, "environments": normalized}
 
 
 @router.get("/api/user/token-requests", response_model=list[TokenRequestOut])
