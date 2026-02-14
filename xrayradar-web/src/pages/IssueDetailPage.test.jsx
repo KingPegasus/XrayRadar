@@ -655,4 +655,91 @@ describe('IssueDetailPage', () => {
       expect(api.fetchJson).toHaveBeenCalledWith('/api/user/projects/1/issues')
     }, { timeout: 2000 })
   })
+
+  it('sets issue status from issues list when fingerprint matches', async () => {
+    const issuesList = [
+      { fingerprint: 'other', status: 'open' },
+      { fingerprint: 'abc123', status: 'resolved', resolved_release: 'v1.0.0', resolved_at: '2024-01-15T00:00:00Z', reopened: false },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([]) // events
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // frequency
+      .mockResolvedValueOnce({ by_release: [], by_environment: [] }) // breakdown
+      .mockResolvedValueOnce(issuesList) // issues list - matching fingerprint sets status
+      .mockResolvedValueOnce([]) // environments
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue')).toBeInTheDocument()
+      expect(screen.getByText(/resolved/i)).toBeInTheDocument()
+    })
+  })
+
+  it('clears environment filter and storage when selecting All', async () => {
+    const user = userEvent.setup()
+    const storageKey = 'project:1:environment'
+    localStorage.setItem(storageKey, 'production')
+
+    api.fetchJson.mockImplementation((url) => {
+      if (url.includes('/environments') && !url.includes('/issues/')) {
+        return Promise.resolve([{ environment: 'production' }])
+      }
+      return Promise.resolve(url.includes('/events') ? [] : url.includes('breakdown') ? { by_release: [], by_environment: [] } : [])
+    })
+
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => expect(screen.getByLabelText(/Environment/i)).toBeInTheDocument())
+
+    const select = screen.getByRole('combobox', { name: /Environment/i })
+    await user.selectOptions(select, 'all')
+
+    await waitFor(() => {
+      expect(localStorage.getItem(storageKey)).toBeNull()
+    })
+  })
+
+  it('handles environments fetch failure and shows empty env options', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.reject(new Error('Failed to load environments'))
+      }
+      if (url.includes('/events')) return Promise.resolve([])
+      if (url.includes('breakdown')) return Promise.resolve({ by_release: [], by_environment: [] })
+      if (url.includes('/issues') && !url.includes('/events')) return Promise.resolve([])
+      return Promise.resolve([])
+    })
+
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => expect(screen.getByLabelText(/Environment/i)).toBeInTheDocument())
+
+    const select = screen.getByRole('combobox', { name: /Environment/i })
+    expect(select).toHaveValue('all')
+    expect(screen.getByRole('option', { name: 'All' })).toBeInTheDocument()
+  })
+
+  it('environment filter select and Back button include env in navigate', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'production' }, { environment: 'staging' }])
+      }
+      if (url.includes('/events')) return Promise.resolve([])
+      if (url.includes('breakdown')) return Promise.resolve({ by_release: [], by_environment: [] })
+      if (url.includes('/issues') && !url.includes('/events')) return Promise.resolve([])
+      return Promise.resolve([])
+    })
+
+    render(<IssueDetailPage projectId={1} fingerprint="abc123" />)
+
+    await waitFor(() => expect(screen.getByRole('option', { name: 'production' })).toBeInTheDocument())
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /Environment/i }), 'production')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Back/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Back/i }))
+
+    expect(navigation.navigate).toHaveBeenCalledWith('/dashboard/projects/1?environment=production')
+  })
 })

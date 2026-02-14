@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -140,12 +140,40 @@ def _evaluate_scope(
     state = _ensure_state(db, project_id=project.id, environment=environment)
     start = state.last_sent_at or state.last_event_seen_at
 
+    # Environments with enabled env-level alerts own their own events; project-level
+    # scope should not double-send for those environments.
+    env_owned_scopes: set[str] = set()
+    if not _env_key(environment):
+        owned_env_rows = (
+            db.execute(
+                select(ProjectAlertEnvironmentSetting.environment).where(
+                    ProjectAlertEnvironmentSetting.project_id == project.id,
+                    ProjectAlertEnvironmentSetting.enabled.is_(True),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        env_owned_scopes = {
+            str(e).strip()
+            for e in owned_env_rows
+            if isinstance(e, str) and str(e).strip()
+        }
+
     # Initial bootstrap: do not backfill old history before scheduler existed.
     if state.last_sent_at is None and state.last_event_seen_at is None and state.last_evaluated_at is None:
         bootstrap_predicates = [Event.project_id == project.id, Event.level == level_filter]
         env = _env_key(environment)
         if env:
             bootstrap_predicates.append(Event.environment == env)
+        elif env_owned_scopes:
+            bootstrap_predicates.append(
+                or_(
+                    Event.environment.is_(None),
+                    Event.environment == "",
+                    Event.environment.notin_(sorted(env_owned_scopes)),
+                )
+            )
         latest_seen = db.execute(
             select(func.max(Event.timestamp)).where(and_(*bootstrap_predicates))
         ).scalar()
@@ -169,6 +197,14 @@ def _evaluate_scope(
     env = _env_key(environment)
     if env:
         predicates.append(Event.environment == env)
+    elif env_owned_scopes:
+        predicates.append(
+            or_(
+                Event.environment.is_(None),
+                Event.environment == "",
+                Event.environment.notin_(sorted(env_owned_scopes)),
+            )
+        )
     row = db.execute(
         select(func.count(Event.id), func.max(Event.timestamp)).where(and_(*predicates))
     ).one()

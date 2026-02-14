@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Project settings save feedback in UI**
   - Added visible success confirmation when alert settings are saved.
   - Added visible success confirmation when environment access settings are saved.
+  - Project settings modal is now organized into collapsible sections (Project name, Environment access, Email alerts) for better scanability.
 - **Token UX improvement**
   - Tokens page now includes a copy action for token values with inline "Copied" feedback.
 - **Alert delivery refinement**
@@ -40,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added robust alert scheduler state + periodic evaluator path (`alert_schedule_state`, `alert_scheduler`) to enqueue due digests from an in-process scheduler loop in the web app.
   - Added scheduler env controls (`XRAYRADAR_SCHEDULER_ENABLED`, `XRAYRADAR_SCHEDULER_INTERVAL_SECONDS`) and a one-shot worker script `scripts/run_alert_scheduler_once.py` for manual/optional external runs.
   - 90-second enqueue debounce per project/environment (`last_enqueued_at`) to avoid duplicate emails when ingest and scheduler both fire; empty digests are no longer sent.
+  - Enforced exclusive scope routing in scheduler evaluation: project-level digests now exclude events in environments that have their own enabled env-level alert settings, preventing duplicate owner emails for the same env event stream.
+  - Alert settings UI now clearly separates project-wide and environment-specific configuration, and documents email subject mapping in the UI.
 - **Alert settings access control**
   - `GET/PATCH /api/user/projects/{project_id}/alert-settings` now require project ownership.
   - Project members no longer see Email Alert Settings in `ProjectSettingsModal`.

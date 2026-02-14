@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { fetchJson } from '../utils/api'
 import { EmailAlertSettings } from './EmailAlertSettings'
+import { CollapsibleSection } from './CollapsibleSection'
 
 export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onProjectNameUpdated }) {
   const [open, setOpen] = useState(false)
+  const [sectionOpen, setSectionOpen] = useState({ projectName: true, environmentAccess: true, emailAlerts: true })
   const [nameValue, setNameValue] = useState(projectName ?? '')
   const [nameError, setNameError] = useState('')
   const [nameSaving, setNameSaving] = useState(false)
@@ -95,7 +97,7 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
               background: 'var(--panel-bg, #1e293b)',
               borderRadius: 12,
               border: '1px solid rgba(255,255,255,0.1)',
-              maxWidth: 480,
+              maxWidth: 600,
               width: '100%',
               maxHeight: '90vh',
               overflowY: 'auto',
@@ -124,7 +126,11 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
             </div>
 
             {isOwner && (
-              <div style={{ marginBottom: 20 }}>
+              <CollapsibleSection
+                title="Project name"
+                open={sectionOpen.projectName}
+                onToggle={() => setSectionOpen((s) => ({ ...s, projectName: !s.projectName }))}
+              >
                 <label className="fieldLabel" htmlFor="project-name-input">Project name</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 6 }}>
                   <input
@@ -169,11 +175,15 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
                 {nameError ? (
                   <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{nameError}</div>
                 ) : null}
-              </div>
+              </CollapsibleSection>
             )}
 
             {isOwner && (
-              <div style={{ marginBottom: 20 }}>
+              <CollapsibleSection
+                title="Environment access"
+                open={sectionOpen.environmentAccess}
+                onToggle={() => setSectionOpen((s) => ({ ...s, environmentAccess: !s.environmentAccess }))}
+              >
                 <label className="fieldLabel">Environment access</label>
                 {teamMembers.length === 0 ? (
                   <div className="small" style={{ marginTop: 6, color: 'var(--muted)' }}>
@@ -251,10 +261,18 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
                     ) : null}
                   </>
                 )}
-              </div>
+              </CollapsibleSection>
             )}
 
-            {isOwner && <EmailAlertSettings projectId={projectId} me={me} compact />}
+            {isOwner && (
+              <CollapsibleSection
+                title="Email alerts"
+                open={sectionOpen.emailAlerts}
+                onToggle={() => setSectionOpen((s) => ({ ...s, emailAlerts: !s.emailAlerts }))}
+              >
+                <EmailAlertSettings projectId={projectId} me={me} compact projectName={projectName} />
+              </CollapsibleSection>
+            )}
           </div>
         </div>
       )}

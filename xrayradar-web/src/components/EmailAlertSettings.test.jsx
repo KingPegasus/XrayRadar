@@ -155,9 +155,11 @@ describe('EmailAlertSettings', () => {
 
   it('shows error when save fails', async () => {
     const user = userEvent.setup()
-    api.fetchJson
-      .mockResolvedValueOnce({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
-      .mockRejectedValueOnce(new Error('Server error'))
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (opts?.method === 'PATCH') return Promise.reject(new Error('Server error'))
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
 
     render(<EmailAlertSettings projectId={1} me={me} />)
 
@@ -222,6 +224,71 @@ describe('EmailAlertSettings', () => {
     })
   })
 
+  it('renders environment-specific section from environment_settings', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'development' }])
+      }
+      return Promise.resolve({
+        enabled: true,
+        cooldown_minutes: 10,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [
+          {
+            environment: 'development',
+            enabled: true,
+            cooldown_minutes: 15,
+            additional_emails: ['dev@example.com'],
+          },
+        ],
+      })
+    })
+    render(<EmailAlertSettings projectId={1} me={me} projectName="team1" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Project-wide alerts \(all events\)/i)).toBeInTheDocument()
+      expect(screen.getByText(/Environment-specific alerts/i)).toBeInTheDocument()
+      expect(screen.getByText(/\[XrayRadar\] \[development\] team1: Error digest/i)).toBeInTheDocument()
+      expect(screen.getByText('dev@example.com')).toBeInTheDocument()
+    })
+  })
+
+  it('sends environment_settings in PATCH payload', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'development' }])
+      }
+      if (opts?.method === 'PATCH') return Promise.resolve({})
+      return Promise.resolve({
+        enabled: true,
+        cooldown_minutes: 10,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [
+          {
+            environment: 'development',
+            enabled: true,
+            cooldown_minutes: 15,
+            additional_emails: ['dev@example.com'],
+          },
+        ],
+      })
+    })
+
+    render(<EmailAlertSettings projectId={1} me={me} projectName="team1" />)
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
+
+    await waitFor(() => {
+      const patchCall = api.fetchJson.mock.calls.find((call) => call[1]?.method === 'PATCH')
+      expect(patchCall).toBeTruthy()
+      expect(patchCall[1].body).toContain('"environment_settings"')
+      expect(patchCall[1].body).toContain('"environment":"development"')
+    })
+  })
+
   it('does not add duplicate email via Add button', async () => {
     const user = userEvent.setup()
     api.fetchJson.mockResolvedValue({
@@ -258,9 +325,11 @@ describe('EmailAlertSettings', () => {
     const err = new Error()
     err.detail = 'Validation failed'
     err.message = ''
-    api.fetchJson
-      .mockResolvedValueOnce({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
-      .mockRejectedValueOnce(err)
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (opts?.method === 'PATCH') return Promise.reject(err)
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
 
     render(<EmailAlertSettings projectId={1} me={me} />)
 
@@ -277,9 +346,11 @@ describe('EmailAlertSettings', () => {
     const err = new Error()
     err.message = ''
     delete err.detail
-    api.fetchJson
-      .mockResolvedValueOnce({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
-      .mockRejectedValueOnce(err)
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (opts?.method === 'PATCH') return Promise.reject(err)
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
 
     render(<EmailAlertSettings projectId={1} me={me} />)
 
@@ -288,6 +359,117 @@ describe('EmailAlertSettings', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to save/i)).toBeInTheDocument()
+    })
+  })
+
+  it('removes email from environment override', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'development' }])
+      }
+      return Promise.resolve({
+        enabled: false,
+        cooldown_minutes: null,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [
+          { environment: 'development', enabled: true, cooldown_minutes: null, additional_emails: ['dev@example.com', 'other@example.com'] },
+        ],
+      })
+    })
+    render(<EmailAlertSettings projectId={1} me={me} />)
+
+    await waitFor(() => expect(screen.getByText('dev@example.com')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Remove dev@example.com from development/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText('dev@example.com')).not.toBeInTheDocument()
+      expect(screen.getByText('other@example.com')).toBeInTheDocument()
+    })
+  })
+
+  it('adds email for environment via Enter key and Add button', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'staging' }])
+      }
+      return Promise.resolve({
+        enabled: false,
+        cooldown_minutes: null,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [],
+      })
+    })
+    render(<EmailAlertSettings projectId={1} me={me} />)
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/Add email for staging/i)).toBeInTheDocument())
+
+    const envInput = screen.getByPlaceholderText(/Add email for staging/i)
+    await user.type(envInput, 'staging@example.com{Enter}')
+    await waitFor(() => expect(screen.getByText('staging@example.com')).toBeInTheDocument())
+
+    await user.type(envInput, 'second@staging.com')
+    const addButtons = screen.getAllByRole('button', { name: /Add/i })
+    await user.click(addButtons[addButtons.length - 1])
+    await waitFor(() => expect(screen.getByText('second@staging.com')).toBeInTheDocument())
+  })
+
+  it('removes environment override', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'production' }])
+      }
+      return Promise.resolve({
+        enabled: false,
+        cooldown_minutes: null,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [
+          { environment: 'production', enabled: true, cooldown_minutes: null, additional_emails: [] },
+        ],
+      })
+    })
+    render(<EmailAlertSettings projectId={1} me={me} />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Remove environment override/i })).toBeInTheDocument())
+
+    const removeBtn = screen.getByRole('button', { name: /Remove environment override/i })
+    await user.click(removeBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Environment-specific alerts/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows cooldown validation error when env override cooldown below min', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'development' }])
+      }
+      return Promise.resolve({
+        enabled: false,
+        cooldown_minutes: 10,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [
+          { environment: 'development', enabled: true, cooldown_minutes: 5, additional_emails: [] },
+        ],
+      })
+    })
+    render(<EmailAlertSettings projectId={1} me={me} />)
+
+    await waitFor(() => expect(screen.getByDisplayValue('5')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Cooldown minimum for your plan is 10 minutes/i)).toBeInTheDocument()
     })
   })
 })

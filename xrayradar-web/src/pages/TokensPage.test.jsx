@@ -1019,4 +1019,33 @@ describe('TokensPage', () => {
       expect(screen.getByText(/Failed to update token environment access/i)).toBeInTheDocument()
     })
   })
+
+  it('shows error when opening env editor fails to load token environments', async () => {
+    const user = userEvent.setup()
+    const tokens = [{ id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null }]
+    const projects = [{ id: 1, name: 'Project 1', is_owner: true }]
+    api.fetchJson.mockReset()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') return Promise.resolve([{ project_id: 1 }])
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([{ environment: 'prod' }])
+      if (url === '/api/user/tokens/1/projects/1/environments' && !opts) {
+        return Promise.reject(new Error('Failed to load token environment access'))
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+    await waitFor(() => expect(screen.getByText('Token 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Manage project access/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Manage project access/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Configure environments/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Configure environments/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to load token environment access/i)).toBeInTheDocument()
+    })
+  })
 })

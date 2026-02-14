@@ -239,6 +239,42 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(135deg, rgba(79, 124, 255, 0.24), rgba(158, 124, 255, 0.18));
 }
 
+.collapsibleSection {
+  margin-bottom: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collapsibleSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.2);
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.collapsibleChevron {
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.collapsibleChevron.isOpen {
+  transform: rotate(180deg);
+}
+
+.collapsibleSectionBody {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
 .hero {
   padding: 72px 0 46px;
 }

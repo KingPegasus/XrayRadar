@@ -37,6 +37,7 @@ sequenceDiagram
 
 - **Non-blocking and durable:** Ingest enqueues DB jobs; a worker processes jobs with retry/backoff.
 - **Digest semantics:** one alert email per cooldown window (per project trigger), addressed to all configured recipients in a single send.
+- **Exclusive scopes:** project-level scope only evaluates unclaimed events (no environment, or environments without their own enabled env alert settings). Events in enabled env scopes (for example `development`) are owned by that env scope and excluded from project-level digests.
 - **Dedupe:** Ingest and scheduler share a 90-second enqueue debounce per project/environment; a second enqueue within that window is skipped. Empty digests (no issues in the window) are never sent.
 - **Logging semantics:** delivery outcomes are still logged per recipient in `email_log` for auditing and admin stats.
 
@@ -54,6 +55,26 @@ sequenceDiagram
 - **Scheduler:** `src/xrayradar_server/alert_scheduler.py` — periodic due-check evaluator; run in-process from app lifespan (optionally callable via `scripts/run_alert_scheduler_once.py`).
 - **Digest aggregation:** `src/xrayradar_server/notifications.py` — `get_last_alert_sent_at`, `get_top_issues_since`.
 - **Settings:** Project-level (`project_alert_settings`, `project_alert_recipients`) plus optional env-level (`project_alert_environment_settings`, `project_alert_environment_recipients`).
+
+## UI Data Flow
+
+The settings UI now separates project-wide and environment-specific alert configuration and persists both in a single PATCH payload:
+
+```mermaid
+flowchart LR
+    subgraph API
+        GET["GET alert-settings"]
+        PATCH["PATCH alert-settings"]
+    end
+    subgraph UI
+        ProjectWide["Project-wide section"]
+        EnvSections["Environment sections"]
+    end
+    GET -->|enabled, cooldown, additional_emails, environment_settings| ProjectWide
+    GET -->|environment_settings| EnvSections
+    ProjectWide -->|enabled, cooldown, additional_emails| PATCH
+    EnvSections -->|environment_settings| PATCH
+```
 
 ## Plan limits
 

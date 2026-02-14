@@ -408,3 +408,189 @@ def test_enqueue_error_alert_job_stores_event_seen_at(db_session):
     assert state is not None
     assert state.last_event_seen_at == event_seen
 
+
+def test_scheduler_project_scope_excludes_events_owned_by_enabled_env_scope(db_session):
+    project = _create_project(db_session)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentSetting(
+            project_id=project.id,
+            environment="development",
+            enabled=True,
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentRecipient(
+            project_id=project.id,
+            environment="development",
+            email="dev@example.com",
+        )
+    )
+    db_session.add(
+        models.AlertScheduleState(
+            project_id=project.id,
+            environment="",
+            last_sent_at=now - timedelta(minutes=10),
+            last_evaluated_at=now - timedelta(minutes=9),
+            last_event_seen_at=now - timedelta(minutes=10),
+        )
+    )
+    db_session.add(
+        models.AlertScheduleState(
+            project_id=project.id,
+            environment="development",
+            last_sent_at=now - timedelta(minutes=10),
+            last_evaluated_at=now - timedelta(minutes=9),
+            last_event_seen_at=now - timedelta(minutes=10),
+        )
+    )
+    db_session.add(
+        models.Event(
+            project_id=project.id,
+            timestamp=now - timedelta(seconds=10),
+            level="error",
+            message="dev only",
+            environment="development",
+            release=None,
+            server_name=None,
+            fingerprint="fp-dev",
+            payload={"message": "dev only"},
+        )
+    )
+    db_session.commit()
+
+    enqueued = evaluate_due_alerts(now=now)
+    assert enqueued == 1
+    jobs = db_session.execute(
+        select(models.EmailJob).where(models.EmailJob.job_type == "error_alert")
+    ).scalars().all()
+    assert len(jobs) == 1
+    assert jobs[0].payload.get("environment") == "development"
+
+
+def test_scheduler_project_scope_still_includes_events_without_environment(db_session):
+    project = _create_project(db_session)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentSetting(
+            project_id=project.id,
+            environment="development",
+            enabled=True,
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentRecipient(
+            project_id=project.id,
+            environment="development",
+            email="dev@example.com",
+        )
+    )
+    db_session.add(
+        models.AlertScheduleState(
+            project_id=project.id,
+            environment="",
+            last_sent_at=now - timedelta(minutes=10),
+            last_evaluated_at=now - timedelta(minutes=9),
+            last_event_seen_at=now - timedelta(minutes=10),
+        )
+    )
+    db_session.add(
+        models.Event(
+            project_id=project.id,
+            timestamp=now - timedelta(seconds=15),
+            level="error",
+            message="no env",
+            environment=None,
+            release=None,
+            server_name=None,
+            fingerprint="fp-none",
+            payload={"message": "no env"},
+        )
+    )
+    db_session.commit()
+
+    enqueued = evaluate_due_alerts(now=now)
+    assert enqueued == 1
+    job = db_session.execute(
+        select(models.EmailJob).where(models.EmailJob.job_type == "error_alert")
+    ).scalars().first()
+    assert job is not None
+    assert job.payload.get("environment") is None
+
+
+def test_scheduler_project_scope_includes_events_for_env_without_own_config(db_session):
+    project = _create_project(db_session)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentSetting(
+            project_id=project.id,
+            environment="development",
+            enabled=True,
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentRecipient(
+            project_id=project.id,
+            environment="development",
+            email="dev@example.com",
+        )
+    )
+    db_session.add(
+        models.AlertScheduleState(
+            project_id=project.id,
+            environment="",
+            last_sent_at=now - timedelta(minutes=10),
+            last_evaluated_at=now - timedelta(minutes=9),
+            last_event_seen_at=now - timedelta(minutes=10),
+        )
+    )
+    db_session.add(
+        models.Event(
+            project_id=project.id,
+            timestamp=now - timedelta(seconds=10),
+            level="error",
+            message="staging err",
+            environment="staging",
+            release=None,
+            server_name=None,
+            fingerprint="fp-staging",
+            payload={"message": "staging err"},
+        )
+    )
+    db_session.commit()
+
+    enqueued = evaluate_due_alerts(now=now)
+    assert enqueued == 1
+    job = db_session.execute(
+        select(models.EmailJob).where(models.EmailJob.job_type == "error_alert")
+    ).scalars().first()
+    assert job is not None
+    assert job.payload.get("environment") is None
+

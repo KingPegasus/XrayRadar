@@ -292,7 +292,7 @@ describe('ProjectSettingsModal', () => {
 
     render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
     await user.click(screen.getByRole('button', { name: /Project settings/i }))
-    await waitFor(() => expect(screen.getByText(/No environments detected yet/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText(/No environments detected yet/i).length).toBeGreaterThan(0))
   })
 
   it('unchecks environment and shows error when save environment access fails', async () => {
@@ -322,7 +322,7 @@ describe('ProjectSettingsModal', () => {
     render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
     await user.click(screen.getByRole('button', { name: /Project settings/i }))
     await waitFor(() => expect(screen.getByRole('button', { name: /Save environment access/i })).toBeInTheDocument())
-    await user.click(screen.getByLabelText('staging'))
+    await user.click(screen.getAllByLabelText('staging')[0])
     await user.click(screen.getByRole('button', { name: /Save environment access/i }))
     await waitFor(() => {
       expect(screen.getByText(/Failed to save environment access/i)).toBeInTheDocument()
@@ -355,8 +355,8 @@ describe('ProjectSettingsModal', () => {
 
     render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
     await user.click(screen.getByRole('button', { name: /Project settings/i }))
-    await waitFor(() => expect(screen.getByLabelText('production')).toBeInTheDocument())
-    const stagingCheckbox = screen.getByLabelText('staging')
+    await waitFor(() => expect(screen.getAllByLabelText('production')[0]).toBeInTheDocument())
+    const stagingCheckbox = screen.getAllByLabelText('staging')[0]
     expect(stagingCheckbox).toBeChecked()
     await user.click(stagingCheckbox)
     expect(stagingCheckbox).not.toBeChecked()
@@ -386,5 +386,64 @@ describe('ProjectSettingsModal', () => {
     render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
     await user.click(screen.getByRole('button', { name: /Project settings/i }))
     await waitFor(() => expect(screen.getByRole('combobox')).toBeInTheDocument())
+  })
+
+  it('toggles Email alerts section when section header is clicked', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/team/members') return Promise.resolve([])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      if (url === '/api/user/projects/1/alert-settings') {
+        return Promise.resolve({
+          enabled: false,
+          cooldown_minutes: null,
+          additional_emails: [],
+          min_cooldown_minutes: 10,
+        })
+      }
+      return Promise.resolve([])
+    })
+
+    render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
+    await user.click(screen.getByRole('button', { name: /Project settings/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Email alerts/i })).toBeInTheDocument())
+
+    const emailAlertsHeader = screen.getByRole('button', { name: /Email alerts/i })
+    expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument()
+    await user.click(emailAlertsHeader)
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /Save alert settings/i })).not.toBeInTheDocument()
+    })
+    await user.click(emailAlertsHeader)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument()
+    })
+  })
+
+  it('project name input is associated with label and accepts change', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/team/members') return Promise.resolve([])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      if (url === '/api/user/projects/1/alert-settings') {
+        return Promise.resolve({
+          enabled: false,
+          cooldown_minutes: null,
+          additional_emails: [],
+          min_cooldown_minutes: 10,
+        })
+      }
+      return Promise.resolve([])
+    })
+
+    render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
+    await user.click(screen.getByRole('button', { name: /Project settings/i }))
+    await waitFor(() => expect(screen.getByLabelText(/Project name/i)).toBeInTheDocument())
+
+    const input = document.getElementById('project-name-input')
+    expect(input).toBeInTheDocument()
+    await user.clear(input)
+    await user.type(input, 'New Project Name')
+    expect(input).toHaveValue('New Project Name')
   })
 })
