@@ -4,6 +4,8 @@ import { navigate } from './utils/navigation'
 import { fetchMe } from './utils/api'
 import { LoginPage } from './pages/LoginPage'
 import { LandingPage } from './pages/LandingPage'
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
+import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -18,6 +20,7 @@ export default function App() {
   const [signupPlan, setSignupPlan] = useState('Free')
   const [me, setMe] = useState(null)
   const [meLoaded, setMeLoaded] = useState(false)
+  const isTestEnv = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test'
 
   const openSignup = (plan) => {
     setSignupPlan(plan)
@@ -25,10 +28,49 @@ export default function App() {
   }
 
   useEffect(() => {
-    fetchMe()
-      .then((m) => setMe(m))
-      .finally(() => setMeLoaded(true))
-  }, [])
+    let cancelled = false
+    let idleId = null
+    let timeoutId = null
+
+    const loadMe = () => {
+      fetchMe()
+        .then((m) => {
+          if (!cancelled) setMe(m)
+        })
+        .finally(() => {
+          if (!cancelled) setMeLoaded(true)
+        })
+    }
+
+    const deferAuthHydration = path === '/' && !isTestEnv
+
+    if (!deferAuthHydration) {
+      setMeLoaded(false)
+      loadMe()
+    } else {
+      // Keep first paint focused on marketing/public pages and hydrate auth in idle time.
+      setMeLoaded(true)
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(() => {
+          if (!cancelled) fetchMe().then((m) => !cancelled && setMe(m))
+        }, { timeout: 2500 })
+      } else {
+        timeoutId = window.setTimeout(() => {
+          if (!cancelled) fetchMe().then((m) => !cancelled && setMe(m))
+        }, 1200)
+      }
+    }
+
+    return () => {
+      cancelled = true
+      if (typeof window !== 'undefined' && idleId !== null && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [path])
 
   const doLogout = async () => {
     try {
@@ -65,6 +107,14 @@ export default function App() {
 
   if (path === '/reset-password') {
     return <ResetPasswordPage />
+  }
+
+  if (path === '/privacy') {
+    return <PrivacyPolicyPage />
+  }
+
+  if (path === '/terms') {
+    return <TermsOfServicePage />
   }
 
   const refreshMe = useCallback(() => fetchMe().then((m) => setMe(m)), [])

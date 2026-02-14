@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
+import { Link } from './Link'
 import { readErrorMessage, fetchMe } from '../utils/api'
 
 export function SignupModal({ open, plan, onClose }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
@@ -14,6 +16,7 @@ export function SignupModal({ open, plan, onClose }) {
       setEmail('')
       setPassword('')
       setConfirm('')
+      setAgreed(false)
       setError('')
       setSubmitting(false)
       setDone(false)
@@ -37,6 +40,10 @@ export function SignupModal({ open, plan, onClose }) {
     }
     if (password !== confirm) {
       setError('Passwords do not match.')
+      return
+    }
+    if (!agreed) {
+      setError('You must agree to the Terms of Service and Privacy Policy.')
       return
     }
 
@@ -136,6 +143,18 @@ export function SignupModal({ open, plan, onClose }) {
               type="password"
               autoComplete="new-password"
             />
+
+            <label className="fieldLabel" style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                style={{ marginTop: 4, flexShrink: 0 }}
+              />
+              <span className="small">
+                I agree to the <Link to="/terms" className="link">Terms of Service</Link> and <Link to="/privacy" className="link">Privacy Policy</Link>
+              </span>
+            </label>
 
             {error ? (
               <div className="fieldError" role="alert" style={{ marginTop: 10 }}>

@@ -21,7 +21,7 @@ def _event_date_expr(session: Session):
     return func.date(Event.timestamp).label("date")
 from ...deps import require_user
 from ...schemas import BulkIssueStatusUpdate, IssueStatusOut, IssueStatusUpdate, IssueSummaryOut
-from ._helpers import require_project_access
+from ._helpers import get_allowed_environments, require_project_access, validate_requested_environments
 
 router = APIRouter()
 
@@ -42,15 +42,61 @@ def _ensure_issue_status(db: Session, project_id: int, fingerprint: str) -> Issu
     return issue_status
 
 
+def _parse_environment_filter(environment: str | None) -> set[str]:
+    if not environment:
+        return set()
+    return {p.strip() for p in environment.split(",") if p and p.strip()}
+
+
+@router.get("/api/user/projects/{project_id}/environments", response_model=list[dict])
+def user_list_project_environments(
+    project_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    require_project_access(db, user=user, project_id=project_id)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    q = (
+        select(
+            Event.environment,
+            func.count(Event.id).label("count"),
+            func.max(Event.timestamp).label("last_seen"),
+        )
+        .where(Event.project_id == project_id)
+        .where(Event.timestamp >= thirty_days_ago)
+        .where(Event.environment.is_not(None))
+        .group_by(Event.environment)
+        .order_by(func.max(Event.timestamp).desc())
+    )
+    if allowed_envs:
+        q = q.where(Event.environment.in_(allowed_envs))
+    rows = db.execute(q).all()
+    return [
+        {
+            "environment": env,
+            "count": int(count or 0),
+            "last_seen": last_seen,
+        }
+        for env, count, last_seen in rows
+        if env
+    ]
+
+
 @router.get("/api/user/projects/{project_id}/issues", response_model=list[IssueSummaryOut])
 def user_list_issues(
     project_id: int,
     limit: int = 50,
     status: str | None = None,
+    environment: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     require_project_access(db, user=user, project_id=project_id)
+    requested_envs = _parse_environment_filter(environment)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    validate_requested_environments(allowed_envs, requested_envs)
+    effective_envs = requested_envs if requested_envs else (allowed_envs or set())
     clamped_limit = min(max(limit, 1), 200)
     
     # Build base aggregation query
@@ -63,10 +109,10 @@ def user_list_issues(
         )
         .where(Event.project_id == project_id)
         .where(Event.fingerprint.is_not(None))
-        .group_by(Event.fingerprint)
-        .order_by(func.max(Event.timestamp).desc())
-        .limit(clamped_limit)
     )
+    if effective_envs:
+        agg = agg.where(Event.environment.in_(effective_envs))
+    agg = agg.group_by(Event.fingerprint).order_by(func.max(Event.timestamp).desc()).limit(clamped_limit)
     
     groups = db.execute(agg).all()
     out: list[IssueSummaryOut] = []
@@ -77,9 +123,10 @@ def user_list_issues(
             select(Event)
             .where(Event.project_id == project_id)
             .where(Event.fingerprint == fp)
-            .order_by(Event.timestamp.desc())
-            .limit(1)
         )
+        if effective_envs:
+            q_latest = q_latest.where(Event.environment.in_(effective_envs))
+        q_latest = q_latest.order_by(Event.timestamp.desc()).limit(1)
         latest = db.execute(q_latest).scalars().first()
         if latest is None:
             continue
@@ -116,19 +163,25 @@ def user_list_issues(
 def user_list_project_events(
     project_id: int,
     limit: int = 200,
+    environment: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     require_project_access(db, user=user, project_id=project_id)
+    requested_envs = _parse_environment_filter(environment)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    validate_requested_environments(allowed_envs, requested_envs)
+    effective_envs = requested_envs if requested_envs else (allowed_envs or set())
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     clamped_limit = min(max(limit, 1), 500)
     q = (
         select(Event)
         .where(Event.project_id == project_id)
         .where(Event.timestamp >= thirty_days_ago)
-        .order_by(Event.timestamp.desc())
-        .limit(clamped_limit)
     )
+    if effective_envs:
+        q = q.where(Event.environment.in_(effective_envs))
+    q = q.order_by(Event.timestamp.desc()).limit(clamped_limit)
     rows = db.execute(q).scalars().all()
     return [{"id": str(r.id), "timestamp": r.timestamp, "level": r.level, "message": r.message} for r in rows]
 
@@ -147,22 +200,30 @@ def _date_str(date_obj) -> str:
 @router.get("/api/user/projects/{project_id}/events/frequency", response_model=dict)
 def user_get_project_event_frequency(
     project_id: int,
+    environment: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     require_project_access(db, user=user, project_id=project_id)
+    requested_envs = _parse_environment_filter(environment)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    validate_requested_environments(allowed_envs, requested_envs)
+    effective_envs = requested_envs if requested_envs else (allowed_envs or set())
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     date_expr = _event_date_expr(db)
     q = (
         select(date_expr, func.count(Event.id).label("count"))
         .where(Event.project_id == project_id)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(date_expr)
-        .order_by(date_expr)
     )
+    if effective_envs:
+        q = q.where(Event.environment.in_(effective_envs))
+    q = q.group_by(date_expr).order_by(date_expr)
     rows = db.execute(q).all()
     frequency = {_date_str(d): int(c or 0) for d, c in rows}
     total_q = select(func.count(Event.id)).where(Event.project_id == project_id).where(Event.timestamp >= thirty_days_ago)
+    if effective_envs:
+        total_q = total_q.where(Event.environment.in_(effective_envs))
     total_count = db.execute(total_q).scalar() or 0
     return {"frequency": frequency, "total": total_count}
 
@@ -171,10 +232,15 @@ def user_get_project_event_frequency(
 def user_get_issue_event_frequency(
     project_id: int,
     fingerprint: str,
+    environment: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     require_project_access(db, user=user, project_id=project_id)
+    requested_envs = _parse_environment_filter(environment)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    validate_requested_environments(allowed_envs, requested_envs)
+    effective_envs = requested_envs if requested_envs else (allowed_envs or set())
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     date_expr = _event_date_expr(db)
     q = (
@@ -182,9 +248,10 @@ def user_get_issue_event_frequency(
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(date_expr)
-        .order_by(date_expr)
     )
+    if effective_envs:
+        q = q.where(Event.environment.in_(effective_envs))
+    q = q.group_by(date_expr).order_by(date_expr)
     rows = db.execute(q).all()
     frequency = {_date_str(d): int(c or 0) for d, c in rows}
     total_q = (
@@ -193,6 +260,8 @@ def user_get_issue_event_frequency(
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
     )
+    if effective_envs:
+        total_q = total_q.where(Event.environment.in_(effective_envs))
     total_count = db.execute(total_q).scalar() or 0
     return {"frequency": frequency, "total": total_count}
 
@@ -201,11 +270,16 @@ def user_get_issue_event_frequency(
 def user_get_issue_breakdown(
     project_id: int,
     fingerprint: str,
+    environment: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     """Return event counts by release and by environment for this issue (last 30 days)."""
     require_project_access(db, user=user, project_id=project_id)
+    requested_envs = _parse_environment_filter(environment)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    validate_requested_environments(allowed_envs, requested_envs)
+    effective_envs = requested_envs if requested_envs else (allowed_envs or set())
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
     # By release
@@ -214,9 +288,10 @@ def user_get_issue_breakdown(
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(Event.release)
-        .order_by(func.count(Event.id).desc())
     )
+    if effective_envs:
+        q_release = q_release.where(Event.environment.in_(effective_envs))
+    q_release = q_release.group_by(Event.release).order_by(func.count(Event.id).desc())
     rows_release = db.execute(q_release).all()
     by_release = [{"release": r, "count": int(c or 0)} for r, c in rows_release]
 
@@ -226,9 +301,10 @@ def user_get_issue_breakdown(
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
-        .group_by(Event.environment)
-        .order_by(func.count(Event.id).desc())
     )
+    if effective_envs:
+        q_env = q_env.where(Event.environment.in_(effective_envs))
+    q_env = q_env.group_by(Event.environment).order_by(func.count(Event.id).desc())
     rows_env = db.execute(q_env).all()
     by_environment = [{"environment": e, "count": int(c or 0)} for e, c in rows_env]
 
@@ -240,10 +316,15 @@ def user_list_issue_events(
     project_id: int,
     fingerprint: str,
     limit: int = 50,
+    environment: str | None = None,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     require_project_access(db, user=user, project_id=project_id)
+    requested_envs = _parse_environment_filter(environment)
+    allowed_envs = get_allowed_environments(db, user=user, project_id=project_id)
+    validate_requested_environments(allowed_envs, requested_envs)
+    effective_envs = requested_envs if requested_envs else (allowed_envs or set())
     clamped_limit = min(max(limit, 1), 200)
     thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
     q = (
@@ -251,9 +332,10 @@ def user_list_issue_events(
         .where(Event.project_id == project_id)
         .where(Event.fingerprint == fingerprint)
         .where(Event.timestamp >= thirty_days_ago)
-        .order_by(Event.timestamp.desc())
-        .limit(clamped_limit)
     )
+    if effective_envs:
+        q = q.where(Event.environment.in_(effective_envs))
+    q = q.order_by(Event.timestamp.desc()).limit(clamped_limit)
     rows = db.execute(q).scalars().all()
     return [
         {"id": str(r.id), "timestamp": r.timestamp, "level": r.level, "message": r.message, "environment": r.environment, "release": r.release}

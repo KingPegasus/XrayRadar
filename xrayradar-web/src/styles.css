@@ -239,6 +239,42 @@ a { color: inherit; text-decoration: none; }
   background: linear-gradient(135deg, rgba(79, 124, 255, 0.24), rgba(158, 124, 255, 0.18));
 }
 
+.collapsibleSection {
+  margin-bottom: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.collapsibleSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.2);
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.collapsibleChevron {
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.collapsibleChevron.isOpen {
+  transform: rotate(180deg);
+}
+
+.collapsibleSectionBody {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
 .hero {
   padding: 72px 0 46px;
 }
@@ -576,6 +612,14 @@ a { color: inherit; text-decoration: none; }
   color: var(--muted-2);
 }
 
+.footer a {
+  color: var(--muted);
+}
+
+.footer a:hover {
+  color: var(--text);
+}
+
 .footerInner {
   display: flex;
   justify-content: space-between;
@@ -584,6 +628,15 @@ a { color: inherit; text-decoration: none; }
 }
 
 .small { font-size: 13px; }
+
+.link {
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--brand-2);
+}
 
 .modalOverlay {
   position: fixed;
@@ -651,14 +704,34 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Native select dropdown: ensure option list is dark so text is visible */
-select.fieldInput,
-select.fieldInput option {
+select.fieldInput {
   background: rgba(30, 41, 59, 0.98);
   color: var(--text);
+}
+
+/* Toolbar select: match button height and center text vertically (fixes baseline/alignment in header rows) */
+select.fieldInput.fieldInputToolbar {
+  min-height: 40px;
+  margin-top: 0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.25;
+  box-sizing: border-box;
 }
 select.fieldInput option {
   background: rgba(30, 41, 59, 0.98);
   color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  padding: 10px 12px;
+}
+/* Improve readability for native dropdown lists where supported */
+select.fieldInput option:checked {
+  background: rgba(79, 124, 255, 0.35);
+  color: #ffffff;
+  font-weight: 600;
+}
+select.fieldInput option:disabled {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .fieldError {

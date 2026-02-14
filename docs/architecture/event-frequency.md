@@ -6,13 +6,14 @@ Event frequency is shown as a 30-day bar chart on the project page and on the is
 
 ## Data flow
 
-1. **Project page:** Frontend calls `GET /api/user/projects/{project_id}/events/frequency`. Backend aggregates events by date (last 30 days) and returns `{ frequency: { "YYYY-MM-DD": count, ... }, total }`.
-2. **Issue page:** Frontend calls `GET /api/user/projects/{project_id}/issues/{fingerprint}/events/frequency`. Same shape, filtered by fingerprint.
+1. **Project page:** Frontend calls `GET /api/user/projects/{project_id}/events/frequency` with optional `?environment=<env|csv>`. Backend aggregates events by date (last 30 days) and returns `{ frequency: { "YYYY-MM-DD": count, ... }, total }`.
+2. **Issue page:** Frontend calls `GET /api/user/projects/{project_id}/issues/{fingerprint}/events/frequency` with optional environment filter. Same shape, filtered by fingerprint and environment scope.
 3. Frontend builds the last 30 days (all days present, zeros where no events), merges in backend counts, and passes the result to the shared `EventFrequencyChart` component.
+4. If no environment filter is provided, backend uses all environments the caller is allowed to access (owner/member ACL aware).
 
 ## Components
 
-- **Backend:** `src/xrayradar_server/routers/user_api.py` — `user_get_project_event_frequency`, `user_get_issue_event_frequency` (SQL aggregation by date, no row limit).
+- **Backend:** `src/xrayradar_server/routers/user/issues.py` — `user_get_project_event_frequency`, `user_get_issue_event_frequency` (SQL aggregation by date, env-filter aware).
 - **Frontend:** `xrayradar-web/src/components/EventFrequencyChart.jsx` — reusable chart; used by `ProjectIssuesPage.jsx` and `IssueDetailPage.jsx`.
 
 ## Diagram

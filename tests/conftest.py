@@ -112,6 +112,7 @@ def _unique_fixture_ip():
 def app_and_client_with_user(database_url, monkeypatch, request):
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_SCHEDULER_ENABLED", "0")
     monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "1000/minute")
     monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "10000/minute")
     _pop_rate_limit_modules()
@@ -132,8 +133,16 @@ def app_and_client_with_user(database_url, monkeypatch, request):
             db.query(models.AlertCooldown).delete()
         if hasattr(models, "ProjectAlertRecipient"):
             db.query(models.ProjectAlertRecipient).delete()
+        if hasattr(models, "ProjectAlertEnvironmentRecipient"):
+            db.query(models.ProjectAlertEnvironmentRecipient).delete()
+        if hasattr(models, "ProjectAlertEnvironmentSetting"):
+            db.query(models.ProjectAlertEnvironmentSetting).delete()
         if hasattr(models, "ProjectAlertSettings"):
             db.query(models.ProjectAlertSettings).delete()
+        if hasattr(models, "AlertScheduleState"):
+            db.query(models.AlertScheduleState).delete()
+        if hasattr(models, "EmailJob"):
+            db.query(models.EmailJob).delete()
         if hasattr(models, "ProjectMember"):
             db.query(models.ProjectMember).delete()
         if hasattr(models, "TeamInvite"):
@@ -184,6 +193,7 @@ def app_and_client_with_unverified_user(database_url, monkeypatch, request):
     """Same as app_and_client_with_user but leaves email_verified=False."""
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
+    monkeypatch.setenv("XRAYRADAR_SCHEDULER_ENABLED", "0")
     monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "1000/minute")
     monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "10000/minute")
     _pop_rate_limit_modules()
@@ -204,8 +214,16 @@ def app_and_client_with_unverified_user(database_url, monkeypatch, request):
             db.query(models.AlertCooldown).delete()
         if hasattr(models, "ProjectAlertRecipient"):
             db.query(models.ProjectAlertRecipient).delete()
+        if hasattr(models, "ProjectAlertEnvironmentRecipient"):
+            db.query(models.ProjectAlertEnvironmentRecipient).delete()
+        if hasattr(models, "ProjectAlertEnvironmentSetting"):
+            db.query(models.ProjectAlertEnvironmentSetting).delete()
         if hasattr(models, "ProjectAlertSettings"):
             db.query(models.ProjectAlertSettings).delete()
+        if hasattr(models, "AlertScheduleState"):
+            db.query(models.AlertScheduleState).delete()
+        if hasattr(models, "EmailJob"):
+            db.query(models.EmailJob).delete()
         if hasattr(models, "ProjectMember"):
             db.query(models.ProjectMember).delete()
         if hasattr(models, "TeamInvite"):

@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-02-14
+
+### Added
+
+- **Project environment views and filtering**
+  - Environment selector on project issues and issue detail pages, with query param and localStorage persistence.
+  - New `GET /api/user/projects/{project_id}/environments` endpoint for environment list/count/last_seen.
+  - Environment filtering support for issue/events/frequency/breakdown user endpoints.
+- **Environment-level access control (Env ACL)**
+  - Member env ACL model and APIs: `project_member_environments` + owner management endpoints.
+  - Token env ACL model and APIs: `token_project_environment_access` + read/replace endpoints.
+  - Backend enforcement for user read paths and token ingest environment scoping.
+- **Token environment scope management in UI**
+  - Tokens page now supports per-token/per-project environment configuration with a modern inline selector.
+  - Clear unrestricted behavior when no environments are selected ("All environments").
+- **Durable email delivery queue**
+  - New `email_jobs` table and worker utility with retry/backoff processing.
+  - Alert/auth email flows updated to use job enqueue + async processing.
+
+### Changed
+
+- **Alerts become environment-aware**
+  - Added optional env-level alert settings and recipients.
+  - Alert subject/body can include environment context.
+- **Project settings save feedback in UI**
+  - Added visible success confirmation when alert settings are saved.
+  - Added visible success confirmation when environment access settings are saved.
+  - Project settings modal is now organized into collapsible sections (Project name, Environment access, Email alerts) for better scanability.
+- **Token UX improvement**
+  - Tokens page now includes a copy action for token values with inline "Copied" feedback.
+- **Alert delivery refinement**
+  - Error alerts now send as cooldown-window digests (top issues since last successful alert) instead of single-event email bodies.
+  - Digest rendering uses a shared modern template module with optional logo fallback.
+  - Added robust alert scheduler state + periodic evaluator path (`alert_schedule_state`, `alert_scheduler`) to enqueue due digests from an in-process scheduler loop in the web app.
+  - Added scheduler env controls (`XRAYRADAR_SCHEDULER_ENABLED`, `XRAYRADAR_SCHEDULER_INTERVAL_SECONDS`) and a one-shot worker script `scripts/run_alert_scheduler_once.py` for manual/optional external runs.
+  - 90-second enqueue debounce per project/environment (`last_enqueued_at`) to avoid duplicate emails when ingest and scheduler both fire; empty digests are no longer sent.
+  - Enforced exclusive scope routing in scheduler evaluation: project-level digests now exclude events in environments that have their own enabled env-level alert settings, preventing duplicate owner emails for the same env event stream.
+  - Alert settings UI now clearly separates project-wide and environment-specific configuration, and documents email subject mapping in the UI.
+- **Alert settings access control**
+  - `GET/PATCH /api/user/projects/{project_id}/alert-settings` now require project ownership.
+  - Project members no longer see Email Alert Settings in `ProjectSettingsModal`.
+- **Architecture docs expanded**
+  - Added `docs/architecture/environments-acl-notifications.md`.
+  - Updated architecture docs for email alerts, team access, and event frequency.
+
+---
+
 ## [0.11.0] - 2026-02-08
 
 ### Added
@@ -255,6 +302,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.12.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.8.0...v0.9.0

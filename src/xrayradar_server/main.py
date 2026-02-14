@@ -1,5 +1,8 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import logging
 import os
 import secrets
 from urllib.parse import urlencode
@@ -25,6 +28,7 @@ from .auth import (
     parse_admin_allowlist,
 )
 from .constants import GITHUB_OAUTH_ACCESS_TOKEN_URL
+from .constants import SCHEDULER_ENABLED, SCHEDULER_INTERVAL_SECONDS
 from .deps import (
     _is_session_admin,
     admin_me,
@@ -35,17 +39,45 @@ from .routers import admin_api as admin_api_router
 from .routers import api as api_router
 from .routers import user as user_api_router
 from .routers import user_auth as user_auth_router
+from .alert_scheduler import run_once as run_alert_scheduler_once
+
+
+logger = logging.getLogger(__name__)
+
+
+async def _scheduler_loop(stop_event: asyncio.Event) -> None:
+    interval = max(10, int(SCHEDULER_INTERVAL_SECONDS or 60))
+    while not stop_event.is_set():
+        try:
+            await asyncio.to_thread(run_alert_scheduler_once)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("In-process alert scheduler run failed: %s", e)
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=interval)
+        except TimeoutError:
+            continue
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    yield
+    stop_event = asyncio.Event()
+    scheduler_task: asyncio.Task | None = None
+    if SCHEDULER_ENABLED:
+        scheduler_task = asyncio.create_task(_scheduler_loop(stop_event))
+    try:
+        yield
+    finally:
+        stop_event.set()
+        if scheduler_task is not None:
+            scheduler_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await scheduler_task
 
 
 app = FastAPI(
     title="xrayradar-server",
-    version="0.11.0",
+    version="0.12.0",
     lifespan=lifespan,
     docs_url=None,  # Disable default docs
     redoc_url=None,  # Disable default redoc

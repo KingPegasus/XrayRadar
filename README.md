@@ -167,6 +167,21 @@ Cookie security note:
 
 When Resend is not configured, signup and password reset still work; users just won't receive verification or reset emails.
 
+**Alert scheduler (in-process by default):**
+
+The web app runs a periodic in-process scheduler loop that evaluates cooldown-expired alerts and enqueues digest emails even when no new event arrives at that exact time.
+
+Configuration:
+
+- `XRAYRADAR_SCHEDULER_ENABLED` — enable/disable in-process scheduler loop (`1` by default).
+- `XRAYRADAR_SCHEDULER_INTERVAL_SECONDS` — scheduler interval in seconds (`60` by default; minimum effective interval is 10s).
+
+Optional one-shot/manual run command:
+
+```bash
+uv run python scripts/run_alert_scheduler_once.py
+```
+
 **Rate limiting (optional):**
 
 Public endpoints are rate limited to reduce abuse and brute force. Limits are configurable via environment variables:

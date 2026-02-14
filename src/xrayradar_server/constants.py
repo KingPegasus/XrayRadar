@@ -39,3 +39,15 @@ MAX_TEAM_MEMBERS_BY_PLAN = {
 # Rate limiting (requests per window; format: "N/minute", "N/hour", "N/day")
 RATE_LIMIT_AUTH = os.environ.get("XRAYRADAR_RATE_LIMIT_AUTH", "5/minute")
 RATE_LIMIT_EVENT_INGEST = os.environ.get("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "100/minute")
+
+# In-process alert scheduler
+SCHEDULER_ENABLED = os.environ.get("XRAYRADAR_SCHEDULER_ENABLED", "1").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+try:
+    SCHEDULER_INTERVAL_SECONDS = int(os.environ.get("XRAYRADAR_SCHEDULER_INTERVAL_SECONDS", "60"))
+except ValueError:
+    SCHEDULER_INTERVAL_SECONDS = 60

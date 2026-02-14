@@ -1,37 +1,49 @@
-"""Email alerts for error events: recipients, cooldown, and Resend sending."""
-
-import logging
-import uuid
+"""Email alert settings and digest data helpers."""
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from .constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
-from .db import SessionLocal
-from .email_log import log_email
 from .models import (
     AlertCooldown,
+    EmailLog,
+    Event,
     Project,
+    ProjectAlertEnvironmentRecipient,
+    ProjectAlertEnvironmentSetting,
     ProjectAlertRecipient,
     ProjectAlertSettings,
     User,
 )
 
-logger = logging.getLogger(__name__)
-
-
 def get_project_alert_settings(
-    db: Session, project_id: int
+    db: Session, project_id: int, environment: str | None = None
 ) -> tuple[bool, str, int | None]:
     """Return (enabled, level_filter, cooldown_minutes) for the project. Defaults if no row."""
     row = db.get(ProjectAlertSettings, project_id)
-    if row is None:
-        return False, "error", None
-    return row.enabled, row.level_filter, row.cooldown_minutes
+    enabled = False if row is None else row.enabled
+    level_filter = "error" if row is None else row.level_filter
+    cooldown = None if row is None else row.cooldown_minutes
+    env = (environment or "").strip()
+    if env:
+        env_row = (
+            db.execute(
+                select(ProjectAlertEnvironmentSetting).where(
+                    ProjectAlertEnvironmentSetting.project_id == project_id,
+                    ProjectAlertEnvironmentSetting.environment == env,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if env_row is not None:
+            enabled = env_row.enabled
+            if env_row.cooldown_minutes is not None:
+                cooldown = env_row.cooldown_minutes
+    return enabled, level_filter, cooldown
 
 
-def get_alert_recipients(db: Session, project: Project) -> list[str]:
+def get_alert_recipients(db: Session, project: Project, environment: str | None = None) -> list[str]:
     """Combine owner email and additional recipients, deduplicated. Returns [] for Free plan (no alerts)."""
     if project.owner_user_id is not None:
         owner = db.get(User, project.owner_user_id)
@@ -54,14 +66,29 @@ def get_alert_recipients(db: Session, project: Project) -> list[str]:
         # Handle both scalar (str) and Row/tuple from different SQLAlchemy result shapes
         val = r[0] if (isinstance(r, (tuple, list)) or (hasattr(r, "__getitem__") and not isinstance(r, str))) else r
         emails.add(val)
+    env = (environment or "").strip()
+    if env:
+        env_recs = (
+            db.execute(
+                select(ProjectAlertEnvironmentRecipient.email).where(
+                    ProjectAlertEnvironmentRecipient.project_id == project.id,
+                    ProjectAlertEnvironmentRecipient.environment == env,
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in env_recs:
+            if isinstance(r, str) and r.strip():
+                emails.add(r.strip().lower())
     return list(emails)
 
 
 def should_send_alert(
-    db: Session, project_id: int, fingerprint: str | None, level: str
+    db: Session, project_id: int, fingerprint: str | None, level: str, environment: str | None = None
 ) -> bool:
     """Return True if alerts are enabled, level matches, and cooldown allows. Updates cooldown when sending."""
-    enabled, level_filter, cooldown_minutes = get_project_alert_settings(db, project_id)
+    enabled, level_filter, cooldown_minutes = get_project_alert_settings(db, project_id, environment=environment)
     if not enabled or level != level_filter:
         return False
     fp = fingerprint or ""
@@ -99,53 +126,85 @@ def should_send_alert(
     return True
 
 
-def send_alert_emails(
+def get_last_alert_sent_at(
+    db: Session,
     *,
-    recipients: list[str],
-    project_name: str,
-    event_message: str,
-    event_id: uuid.UUID,
     project_id: int,
-    fingerprint: str | None,
-) -> None:
-    """Send one email to all recipients via Resend. No-op if no recipients or RESEND_API_KEY unset. Swallows errors."""
-    if not recipients:
-        return
-    if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
-        return
-    
-    db = SessionLocal()
-    try:
-        import resend
-        resend.api_key = RESEND_API_KEY
-        issue_path = f"/dashboard/projects/{project_id}/issues"
-        if fingerprint:
-            issue_path = f"/dashboard/projects/{project_id}/issues/{fingerprint}"
-        link = f"{XRAYRADAR_BASE_URL.rstrip('/')}{issue_path}"
-        subject = f"[XrayRadar] {project_name}: {event_message[:80]}"
-        html = f"<p>New error in <b>{project_name}</b>.</p><p>{event_message}</p><p><a href=\"{link}\">View in XrayRadar</a></p>"
-        resend.Emails.send(
+    recipient_email: str,
+) -> datetime | None:
+    """Return most recent successful error_alert send time for recipient+project."""
+    recipient = (recipient_email or "").strip().lower()
+    if not recipient:
+        return None
+    return db.execute(
+        select(func.max(EmailLog.sent_at)).where(
+            EmailLog.email_type == "error_alert",
+            EmailLog.success.is_(True),
+            EmailLog.project_id == project_id,
+            EmailLog.recipient_email == recipient,
+        )
+    ).scalar()
+
+
+def get_top_issues_since(
+    db: Session,
+    *,
+    project_id: int,
+    start: datetime | None,
+    end: datetime,
+    environment: str | None = None,
+    limit: int = 5,
+) -> list[dict]:
+    """
+    Return top issues in [start, end] window ordered by frequency.
+
+    Each item includes fingerprint, count, latest_timestamp, latest_message, and environment.
+    """
+    predicates = [Event.project_id == project_id, Event.timestamp <= end]
+    if start is not None:
+        predicates.append(Event.timestamp > start)
+    env = (environment or "").strip()
+    if env:
+        predicates.append(Event.environment == env)
+
+    grouped = (
+        db.execute(
+            select(
+                Event.fingerprint,
+                func.count(Event.id).label("event_count"),
+                func.max(Event.timestamp).label("latest_timestamp"),
+            )
+            .where(and_(*predicates))
+            .group_by(Event.fingerprint)
+            .order_by(func.count(Event.id).desc(), func.max(Event.timestamp).desc())
+            .limit(limit)
+        )
+        .all()
+    )
+
+    items: list[dict] = []
+    for fp, event_count, latest_timestamp in grouped:
+        latest_event = (
+            db.execute(
+                select(Event)
+                .where(
+                    Event.project_id == project_id,
+                    Event.fingerprint == fp,
+                    Event.timestamp == latest_timestamp,
+                )
+                .order_by(Event.id.desc())
+                .limit(1)
+            )
+            .scalars()
+            .first()
+        )
+        items.append(
             {
-                "from": RESEND_FROM_EMAIL,
-                "to": recipients,
-                "subject": subject,
-                "html": html,
+                "fingerprint": fp or "",
+                "count": int(event_count or 0),
+                "latest_timestamp": latest_timestamp,
+                "latest_message": (latest_event.message if latest_event else "")[:300],
+                "environment": (latest_event.environment if latest_event else None),
             }
         )
-        # Log successful emails (one per recipient)
-        for recipient in recipients:
-            log_email(db, "error_alert", recipient, success=True, project_id=project_id)
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Failed to send alert emails: %s", e)
-        # Log failed emails (one per recipient)
-        for recipient in recipients:
-            log_email(
-                db,
-                "error_alert",
-                recipient,
-                success=False,
-                project_id=project_id,
-                error_message=str(e),
-            )
-    finally:
-        db.close()
+    return items

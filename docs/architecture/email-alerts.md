@@ -2,7 +2,9 @@
 
 ## Overview
 
-When an error-level event is stored and the project has email alerts enabled, the project owner and any additional configured recipients receive an email via the Resend API. Alerts are subject to a per-fingerprint cooldown to avoid flooding.
+When an error-level event is stored and the project has email alerts enabled, recipients are resolved (owner + configured recipients), and a digest email job is queued for delivery. Alerts are subject to cooldown controls to avoid flooding, including optional environment-level overrides.
+
+Alert timing is now evaluated by a periodic in-process scheduler pass in the web app lifecycle, so due digest emails can be queued even if no fresh event arrives exactly when cooldown expires.
 
 ## Architecture
 
@@ -10,33 +12,69 @@ When an error-level event is stored and the project has email alerts enabled, th
 sequenceDiagram
   participant Client
   participant API as store_event
+  participant Scheduler as in_process_scheduler
   participant DB as Database
   participant Alerts as notifications
+  participant Jobs as email_jobs worker
   participant Resend as Resend API
 
   Client->>API: POST /api/{id}/store/
   API->>DB: Save event, commit
-  API->>Alerts: should_send_alert(project, fingerprint, level)
-  alt Alerts enabled and not in cooldown
-    Alerts->>DB: Record last_notified_at
-    API->>Resend: background_tasks.add_task(send_alert_emails, recipients, ...)
+  API->>Alerts: should_send_alert(project, fingerprint, level, environment)
+  alt Ingest path allows immediate alert
+    API->>DB: enqueue email_jobs (error_alert digest trigger)
   end
+  Scheduler->>DB: evaluate due project/env scopes
+  alt Due and new qualifying events since last send
+    Scheduler->>DB: enqueue email_jobs (error_alert digest trigger)
+  end
+  Jobs->>DB: pull pending jobs
+  Jobs->>DB: build digest window [last_sent, trigger_time]
+  Jobs->>Resend: send
+  Jobs->>DB: mark sent/retry/failed
   API->>Client: 200 + event id
 ```
 
-- **Non-blocking:** Use FastAPI `BackgroundTasks` so ingest response is not delayed by Resend. No new queue/worker.
+- **Non-blocking and durable:** Ingest enqueues DB jobs; a worker processes jobs with retry/backoff.
+- **Digest semantics:** one alert email per cooldown window (per project trigger), addressed to all configured recipients in a single send.
+- **Exclusive scopes:** project-level scope only evaluates unclaimed events (no environment, or environments without their own enabled env alert settings). Events in enabled env scopes (for example `development`) are owned by that env scope and excluded from project-level digests.
+- **Dedupe:** Ingest and scheduler share a 90-second enqueue debounce per project/environment; a second enqueue within that window is skipped. Empty digests (no issues in the window) are never sent.
+- **Logging semantics:** delivery outcomes are still logged per recipient in `email_log` for auditing and admin stats.
 
 ## Recipients
 
 - **Project owner** — `User.email` for the user who owns the project (`Project.owner_user_id`).
-- **Additional emails** — Stored in `project_alert_recipients`; deduplicated with owner so no one is emailed twice.
+- **Additional emails** — Stored in `project_alert_recipients`; deduplicated with owner.
+- **Environment recipients (optional)** — Stored in `project_alert_environment_recipients` and merged for matching environment.
 
 ## Components
 
-- **Trigger:** `store_event` in `src/xrayradar_server/routers/api.py` (after commit, via `BackgroundTasks`).
-- **Logic:** `src/xrayradar_server/notifications.py` — `get_alert_recipients`, `should_send_alert`, `send_alert_emails`.
-- **Config:** `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; if key is unset, sending is a no-op.
-- **Settings:** Per-project in `project_alert_settings` (enabled, level_filter, cooldown_minutes) and `project_alert_recipients`.
+- **Trigger:** `store_event` in `src/xrayradar_server/routers/api.py` (enqueue after commit).
+- **Logic:** `src/xrayradar_server/notifications.py` — `get_alert_recipients`, `should_send_alert`.
+- **Queue/worker:** `src/xrayradar_server/mail_jobs.py` — enqueue + processing + retry.
+- **Scheduler:** `src/xrayradar_server/alert_scheduler.py` — periodic due-check evaluator; run in-process from app lifespan (optionally callable via `scripts/run_alert_scheduler_once.py`).
+- **Digest aggregation:** `src/xrayradar_server/notifications.py` — `get_last_alert_sent_at`, `get_top_issues_since`.
+- **Settings:** Project-level (`project_alert_settings`, `project_alert_recipients`) plus optional env-level (`project_alert_environment_settings`, `project_alert_environment_recipients`).
+
+## UI Data Flow
+
+The settings UI now separates project-wide and environment-specific alert configuration and persists both in a single PATCH payload:
+
+```mermaid
+flowchart LR
+    subgraph API
+        GET["GET alert-settings"]
+        PATCH["PATCH alert-settings"]
+    end
+    subgraph UI
+        ProjectWide["Project-wide section"]
+        EnvSections["Environment sections"]
+    end
+    GET -->|enabled, cooldown, additional_emails, environment_settings| ProjectWide
+    GET -->|environment_settings| EnvSections
+    ProjectWide -->|enabled, cooldown, additional_emails| PATCH
+    EnvSections -->|environment_settings| PATCH
+```
 
 ## Plan limits
 
@@ -46,5 +84,5 @@ sequenceDiagram
 
 ## User API
 
-- `GET /api/user/projects/{project_id}/alert-settings` — read enabled, cooldown, additional_emails.
-- `PATCH /api/user/projects/{project_id}/alert-settings` — update settings and additional recipients.
+- `GET /api/user/projects/{project_id}/alert-settings` — read project and environment-level alert settings (**owner only**).
+- `PATCH /api/user/projects/{project_id}/alert-settings` — update project-level and optional environment-level settings (**owner only**).

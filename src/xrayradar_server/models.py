@@ -86,6 +86,21 @@ class ProjectMember(Base):
     user: Mapped["User"] = relationship("User", back_populates="project_memberships")
 
 
+class ProjectMemberEnvironment(Base):
+    __tablename__ = "project_member_environments"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    environment: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+
+
 class Event(Base):
     __tablename__ = "events"
 
@@ -165,6 +180,34 @@ class TokenProjectAccess(Base):
     token_ref: Mapped[Token] = relationship(
         "Token", back_populates="project_access")
     project: Mapped[Project] = relationship(Project)
+
+
+class TokenProjectEnvironmentAccess(Base):
+    __tablename__ = "token_project_environment_access"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("tokens.id"), nullable=False, index=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, index=True
+    )
+    environment: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "token_id",
+            "project_id",
+            "environment",
+            name="uq_token_project_environment_access_unique",
+        ),
+    )
 
 
 class User(Base):
@@ -300,6 +343,46 @@ class ProjectAlertRecipient(Base):
     __table_args__ = (UniqueConstraint("project_id", "email", name="uq_project_alert_recipients_project_email"),)
 
 
+class ProjectAlertEnvironmentSetting(Base):
+    __tablename__ = "project_alert_environment_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, index=True
+    )
+    environment: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    cooldown_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "environment",
+            name="uq_project_alert_environment_settings_project_environment",
+        ),
+    )
+
+
+class ProjectAlertEnvironmentRecipient(Base):
+    __tablename__ = "project_alert_environment_recipients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id"), nullable=False, index=True
+    )
+    environment: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "environment",
+            "email",
+            name="uq_project_alert_environment_recipients_unique",
+        ),
+    )
+
+
 class AlertCooldown(Base):
     __tablename__ = "alert_cooldown"
 
@@ -313,6 +396,30 @@ class AlertCooldown(Base):
         DateTime(timezone=False), nullable=False
     )
 
+
+class AlertScheduleState(Base):
+    __tablename__ = "alert_schedule_state"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, primary_key=True
+    )
+    environment: Mapped[str] = mapped_column(String(64), nullable=False, default="", primary_key=True)
+    last_evaluated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True, index=True
+    )
+    last_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True, index=True
+    )
+    last_event_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    last_job_key: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    last_enqueued_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive, onupdate=_utcnow_naive
+    )
 
 class DeletionRequest(Base):
     __tablename__ = "deletion_requests"
@@ -356,6 +463,22 @@ class EmailLog(Base):
 
     project: Mapped[Project | None] = relationship("Project")
     user: Mapped[User | None] = relationship("User")
+
+
+class EmailJob(Base):
+    __tablename__ = "email_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    job_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    payload: Mapped[dict] = mapped_column(JSONOrJSONB(), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True, index=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=False), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive, index=True
+    )
 
 
 class IssueStatus(Base):

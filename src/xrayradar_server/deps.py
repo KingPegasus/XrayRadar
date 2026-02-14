@@ -10,7 +10,7 @@ from .auth import (
     unauthorized,
 )
 from .db import get_db
-from .models import Token, TokenProjectAccess, User
+from .models import Token, TokenProjectAccess, TokenProjectEnvironmentAccess, User
 
 EMAIL_VERIFICATION_REQUIRED_DETAIL = "Email verification required for this action."
 
@@ -77,6 +77,7 @@ def get_current_token(
 
 def require_project_access(
     project_id: int,
+    environment: str | None = None,
     db: Session = Depends(get_db),
     token: Token = Depends(get_current_token),
 ) -> Token:
@@ -92,6 +93,22 @@ def require_project_access(
     access = db.execute(q).scalars().first()
     if access is None:
         raise forbidden("Token has no access to this project")
+    env = (environment or "").strip()
+    if env:
+        env_access = (
+            db.execute(
+                select(TokenProjectEnvironmentAccess).where(
+                    TokenProjectEnvironmentAccess.token_id == token.id,
+                    TokenProjectEnvironmentAccess.project_id == project_id,
+                    TokenProjectEnvironmentAccess.revoked_at.is_(None),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        # No env rows means unrestricted token for that project.
+        if env_access and env not in {r.environment for r in env_access}:
+            raise forbidden("Token has no access to this environment")
     return token
 
 
@@ -121,11 +138,17 @@ def admin_me(request: Request) -> dict:
 def authorize_ingest_for_project(
     *,
     project_id: int,
+    environment: str | None = None,
     db: Session,
     x_xrayradar_token: str | None,
 ) -> None:
     token = get_current_token(db=db, x_xrayradar_token=x_xrayradar_token)
-    require_project_access(project_id=project_id, db=db, token=token)
+    require_project_access(
+        project_id=project_id,
+        environment=environment,
+        db=db,
+        token=token,
+    )
 
 
 def health() -> dict:

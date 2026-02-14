@@ -12,21 +12,48 @@ export function ProjectIssuesPage({ projectId, me }) {
   const [error, setError] = useState('')
   const [eventFrequencyData, setEventFrequencyData] = useState(null)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [environmentFilter, setEnvironmentFilter] = useState(null)
+  const [environmentOptions, setEnvironmentOptions] = useState([])
   const [selectedFingerprints, setSelectedFingerprints] = useState(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search || '')
+    const envFromUrl = (params.get('environment') || '').trim()
+    const storageKey = `project:${projectId}:environment`
+    const envFromStorage = (localStorage.getItem(storageKey) || '').trim()
+    const initial = envFromUrl || envFromStorage || ''
+    setEnvironmentFilter(initial || null)
+  }, [projectId])
+
+  useEffect(() => {
+    const storageKey = `project:${projectId}:environment`
+    const params = new URLSearchParams(window.location.search || '')
+    if (environmentFilter) {
+      localStorage.setItem(storageKey, environmentFilter)
+      params.set('environment', environmentFilter)
+    } else {
+      localStorage.removeItem(storageKey)
+      params.delete('environment')
+    }
+    const query = params.toString()
+    const next = `${window.location.pathname}${query ? `?${query}` : ''}`
+    window.history.replaceState({}, '', next)
+  }, [projectId, environmentFilter])
+
   const loadIssues = () => {
     setError('')
-    const url = statusFilter === 'all'
-      ? `/api/user/projects/${projectId}/issues`
-      : `/api/user/projects/${projectId}/issues?status=${statusFilter}`
-    fetchJson(url)
+    const params = new URLSearchParams()
+    if (statusFilter !== 'all') params.set('status', statusFilter)
+    if (environmentFilter) params.set('environment', environmentFilter)
+    const url = `/api/user/projects/${projectId}/issues${params.toString() ? `?${params.toString()}` : ''}`
+    Promise.resolve(fetchJson(url))
       .then((rows) => setIssues(Array.isArray(rows) ? rows : []))
       .catch((e) => setError(e.message || 'Failed to load issues'))
   }
 
   useEffect(() => {
-    fetchJson('/api/user/projects')
+    Promise.resolve(fetchJson('/api/user/projects'))
       .then((projects) => {
         const p = Array.isArray(projects) ? projects.find((x) => x.id === projectId) : null
         setProjectName(p ? p.name : null)
@@ -37,13 +64,20 @@ export function ProjectIssuesPage({ projectId, me }) {
 
   useEffect(() => {
     loadIssues()
-
-    fetchJson(`/api/user/projects/${projectId}/events/frequency`)
+    const params = new URLSearchParams()
+    if (environmentFilter) params.set('environment', environmentFilter)
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/events/frequency${params.toString() ? `?${params.toString()}` : ''}`))
       .then((data) => setEventFrequencyData(data))
       .catch((e) => {
         console.warn('Failed to load event frequency:', e)
       })
-  }, [projectId, statusFilter])
+  }, [projectId, statusFilter, environmentFilter])
+
+  useEffect(() => {
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/environments`))
+      .then((rows) => setEnvironmentOptions(Array.isArray(rows) ? rows : []))
+      .catch(() => setEnvironmentOptions([]))
+  }, [projectId])
 
   const eventFrequency = useMemo(() => {
     // Use UTC dates to match backend (which returns UTC dates)
@@ -108,13 +142,15 @@ export function ProjectIssuesPage({ projectId, me }) {
           </p>
         </div>
         <div className="pageActions" style={{ marginTop: 0 }}>
-          <ProjectSettingsModal
-            projectId={projectId}
-            me={me}
-            projectName={projectName}
-            isOwner={isOwner}
-            onProjectNameUpdated={setProjectName}
-          />
+          {isOwner && (
+            <ProjectSettingsModal
+              projectId={projectId}
+              me={me}
+              projectName={projectName}
+              isOwner={isOwner}
+              onProjectNameUpdated={setProjectName}
+            />
+          )}
           <button className="button" type="button" onClick={() => navigate('/dashboard/projects')}>
             Back
           </button>
@@ -133,13 +169,31 @@ export function ProjectIssuesPage({ projectId, me }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 className="pageSectionTitle" style={{ margin: 0 }}>Issues</h2>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <label htmlFor="environment-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              Environment:
+              <select
+                className="fieldInput"
+                id="environment-filter"
+                value={environmentFilter || 'all'}
+                onChange={(e) => setEnvironmentFilter(e.target.value === 'all' ? null : e.target.value)}
+                style={{ width: 160 }}
+              >
+                <option value="all">All</option>
+                {environmentOptions.map((opt) => (
+                  <option key={opt.environment} value={opt.environment}>
+                    {opt.environment}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label htmlFor="status-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Filter:
               <select
+                className="fieldInput"
                 id="status-filter"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{ padding: '4px 8px' }}
+                style={{ width: 160 }}
               >
                 <option value="all">All</option>
                 <option value="open">Open</option>
@@ -222,7 +276,8 @@ export function ProjectIssuesPage({ projectId, me }) {
                   onClick={(e) => {
                     // Don't navigate if clicking checkbox
                     if (e.target.type !== 'checkbox') {
-                      navigate(`/dashboard/projects/${projectId}/issues/${it.fingerprint}`)
+                      const envQ = environmentFilter ? `?environment=${encodeURIComponent(environmentFilter)}` : ''
+                      navigate(`/dashboard/projects/${projectId}/issues/${it.fingerprint}${envQ}`)
                     }
                   }}
                 >
@@ -241,7 +296,8 @@ export function ProjectIssuesPage({ projectId, me }) {
                       reopened={it.reopened}
                       onClick={(e) => {
                         e.stopPropagation()
-                        navigate(`/dashboard/projects/${projectId}/issues/${it.fingerprint}`)
+                        const envQ = environmentFilter ? `?environment=${encodeURIComponent(environmentFilter)}` : ''
+                        navigate(`/dashboard/projects/${projectId}/issues/${it.fingerprint}${envQ}`)
                       }}
                     />
                   </td>

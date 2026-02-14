@@ -13,7 +13,7 @@ export function DashboardLayout({ me, onLogout, children }) {
           <Link className="brand" to="/">
             {!logoError && (
               <span className="logo" aria-hidden="true">
-                <Logo width={120} height={36} onError={() => setLogoError(true)} />
+                <Logo width={230} height={44} onError={() => setLogoError(true)} />
               </span>
             )}
             {logoError && <span className="brand-text">XrayRadar</span>}
@@ -43,6 +43,15 @@ export function DashboardLayout({ me, onLogout, children }) {
         </div>
       </header>
       {children}
+      <footer className="footer" style={{ padding: '16px 0' }}>
+        <div className="container footerInner">
+          <div className="small" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
+            <a href="mailto:dev@xrayradar.com">Contact</a>
+          </div>
+        </div>
+      </footer>
     </>
   )
 }

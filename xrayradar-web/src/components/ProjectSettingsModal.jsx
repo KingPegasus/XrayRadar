@@ -1,19 +1,52 @@
 import { useState, useEffect } from 'react'
 import { fetchJson } from '../utils/api'
 import { EmailAlertSettings } from './EmailAlertSettings'
+import { CollapsibleSection } from './CollapsibleSection'
 
 export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onProjectNameUpdated }) {
   const [open, setOpen] = useState(false)
+  const [sectionOpen, setSectionOpen] = useState({ projectName: true, environmentAccess: true, emailAlerts: true })
   const [nameValue, setNameValue] = useState(projectName ?? '')
   const [nameError, setNameError] = useState('')
   const [nameSaving, setNameSaving] = useState(false)
+  const [teamMembers, setTeamMembers] = useState([])
+  const [environmentOptions, setEnvironmentOptions] = useState([])
+  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [memberEnvSelection, setMemberEnvSelection] = useState(new Set())
+  const [envAccessSaving, setEnvAccessSaving] = useState(false)
+  const [envAccessError, setEnvAccessError] = useState('')
+  const [envAccessSuccess, setEnvAccessSuccess] = useState('')
 
   useEffect(() => {
     if (open) {
       setNameValue(projectName ?? '')
       setNameError('')
+      setEnvAccessError('')
+      setEnvAccessSuccess('')
+      if (isOwner) {
+        Promise.resolve(fetchJson('/api/user/team/members'))
+          .then((rows) => {
+            const scoped = (Array.isArray(rows) ? rows : []).filter((m) => Array.isArray(m.project_ids) && m.project_ids.includes(projectId))
+            setTeamMembers(scoped)
+            setSelectedMemberId(scoped[0] ? String(scoped[0].user_id) : '')
+          })
+          .catch(() => setTeamMembers([]))
+        Promise.resolve(fetchJson(`/api/user/projects/${projectId}/environments`))
+          .then((rows) => setEnvironmentOptions(Array.isArray(rows) ? rows.map((r) => r.environment).filter(Boolean) : []))
+          .catch(() => setEnvironmentOptions([]))
+      }
     }
-  }, [open, projectName])
+  }, [open, projectName, isOwner, projectId])
+
+  useEffect(() => {
+    if (!open || !selectedMemberId) {
+      setMemberEnvSelection(new Set())
+      return
+    }
+    Promise.resolve(fetchJson(`/api/user/projects/${projectId}/members/${selectedMemberId}/environments`))
+      .then((rows) => setMemberEnvSelection(new Set(Array.isArray(rows) ? rows : [])))
+      .catch(() => setMemberEnvSelection(new Set()))
+  }, [open, selectedMemberId, projectId])
 
   return (
     <>
@@ -64,7 +97,7 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
               background: 'var(--panel-bg, #1e293b)',
               borderRadius: 12,
               border: '1px solid rgba(255,255,255,0.1)',
-              maxWidth: 480,
+              maxWidth: 600,
               width: '100%',
               maxHeight: '90vh',
               overflowY: 'auto',
@@ -93,7 +126,11 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
             </div>
 
             {isOwner && (
-              <div style={{ marginBottom: 20 }}>
+              <CollapsibleSection
+                title="Project name"
+                open={sectionOpen.projectName}
+                onToggle={() => setSectionOpen((s) => ({ ...s, projectName: !s.projectName }))}
+              >
                 <label className="fieldLabel" htmlFor="project-name-input">Project name</label>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 6 }}>
                   <input
@@ -138,10 +175,104 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
                 {nameError ? (
                   <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{nameError}</div>
                 ) : null}
-              </div>
+              </CollapsibleSection>
             )}
 
-            <EmailAlertSettings projectId={projectId} me={me} compact />
+            {isOwner && (
+              <CollapsibleSection
+                title="Environment access"
+                open={sectionOpen.environmentAccess}
+                onToggle={() => setSectionOpen((s) => ({ ...s, environmentAccess: !s.environmentAccess }))}
+              >
+                <label className="fieldLabel">Environment access</label>
+                {teamMembers.length === 0 ? (
+                  <div className="small" style={{ marginTop: 6, color: 'var(--muted)' }}>
+                    No team members assigned to this project.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginTop: 6 }}>
+                      <select
+                        className="fieldInput"
+                        value={selectedMemberId}
+                        onChange={(e) => setSelectedMemberId(e.target.value)}
+                      >
+                        {teamMembers.map((member) => (
+                          <option key={member.user_id} value={String(member.user_id)}>
+                            {member.email}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+                      {environmentOptions.length === 0 ? (
+                        <div className="small" style={{ color: 'var(--muted)' }}>
+                          No environments detected yet.
+                        </div>
+                      ) : (
+                        environmentOptions.map((env) => (
+                          <label key={env} className="small" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={memberEnvSelection.has(env)}
+                              onChange={(e) => {
+                                const next = new Set(memberEnvSelection)
+                                if (e.target.checked) next.add(env)
+                                else next.delete(env)
+                                setMemberEnvSelection(next)
+                              }}
+                            />
+                            <span>{env}</span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        className="button"
+                        disabled={!selectedMemberId || envAccessSaving}
+                        onClick={async () => {
+                          setEnvAccessSaving(true)
+                          setEnvAccessError('')
+                          setEnvAccessSuccess('')
+                          try {
+                            await fetchJson(`/api/user/projects/${projectId}/members/${selectedMemberId}/environments`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ environments: Array.from(memberEnvSelection) }),
+                            })
+                            setEnvAccessSuccess('Environment access saved.')
+                          } catch (e) {
+                            setEnvAccessError(e.message || 'Failed to save environment access')
+                          } finally {
+                            setEnvAccessSaving(false)
+                          }
+                        }}
+                      >
+                        {envAccessSaving ? 'Saving…' : 'Save environment access'}
+                      </button>
+                    </div>
+                    {envAccessError ? (
+                      <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{envAccessError}</div>
+                    ) : null}
+                    {envAccessSuccess ? (
+                      <div className="small" style={{ marginTop: 6, color: '#86efac' }}>{envAccessSuccess}</div>
+                    ) : null}
+                  </>
+                )}
+              </CollapsibleSection>
+            )}
+
+            {isOwner && (
+              <CollapsibleSection
+                title="Email alerts"
+                open={sectionOpen.emailAlerts}
+                onToggle={() => setSectionOpen((s) => ({ ...s, emailAlerts: !s.emailAlerts }))}
+              >
+                <EmailAlertSettings projectId={projectId} me={me} compact projectName={projectName} />
+              </CollapsibleSection>
+            )}
           </div>
         </div>
       )}

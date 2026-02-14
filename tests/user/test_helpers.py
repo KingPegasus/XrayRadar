@@ -3,11 +3,13 @@
 import pytest
 
 from xrayradar_server.routers.user._helpers import (
+    get_allowed_environments,
     require_owned_project,
     require_project_access,
     require_user_token,
     user_accessible_project_ids_subq,
     user_owned_project_ids_subq,
+    validate_requested_environments,
 )
 import xrayradar_server.models as models
 
@@ -242,3 +244,81 @@ def test_require_user_token_revoked(app_and_client_with_user):
         assert exc_info.value.status_code == 400
     finally:
         db.close()
+
+
+def test_get_allowed_environments_project_not_found(app_and_client_with_user):
+    """get_allowed_environments raises 404 when project does not exist."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        user_obj = db.get(models.User, user["id"])
+        with pytest.raises(Exception) as exc_info:
+            get_allowed_environments(db, user=user_obj, project_id=99999)
+        assert exc_info.value.status_code == 404
+    finally:
+        db.close()
+
+
+def test_get_allowed_environments_member_not_found(app_and_client_with_user):
+    """get_allowed_environments raises 404 when user is neither owner nor member."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        other = models.User(
+            email="allo-env-other@example.com",
+            password_hash="h",
+            plan="Teams",
+            email_verified=True,
+        )
+        db.add(other)
+        db.commit()
+        db.refresh(other)
+        proj = models.Project(name="AlloEnvProj", owner_user_id=other.id)
+        db.add(proj)
+        db.commit()
+        db.refresh(proj)
+        user_obj = db.get(models.User, user["id"])
+        with pytest.raises(Exception) as exc_info:
+            get_allowed_environments(db, user=user_obj, project_id=proj.id)
+        assert exc_info.value.status_code == 404
+    finally:
+        db.close()
+
+
+def test_get_allowed_environments_member_with_restrictions(app_and_client_with_user):
+    """get_allowed_environments returns set when member has environment restrictions."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        owner = models.User(
+            email="allo-owner@example.com",
+            password_hash="h",
+            plan="Teams",
+            email_verified=True,
+        )
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+        proj = models.Project(name="AlloProj", owner_user_id=owner.id)
+        db.add(proj)
+        db.commit()
+        db.refresh(proj)
+        db.add(models.ProjectMember(project_id=proj.id, user_id=user["id"]))
+        db.add(models.ProjectMemberEnvironment(project_id=proj.id, user_id=user["id"], environment="staging"))
+        db.add(models.ProjectMemberEnvironment(project_id=proj.id, user_id=user["id"], environment="production"))
+        db.commit()
+        user_obj = db.get(models.User, user["id"])
+        result = get_allowed_environments(db, user=user_obj, project_id=proj.id)
+        assert result == {"staging", "production"}
+    finally:
+        db.close()
+
+
+def test_validate_requested_environments_raises_when_not_subset(app_and_client_with_user):
+    """validate_requested_environments raises 404 when requested envs are not subset of allowed."""
+    with pytest.raises(Exception) as exc_info:
+        validate_requested_environments(allowed_envs={"production"}, requested_envs={"staging", "production"})
+    assert exc_info.value.status_code == 404

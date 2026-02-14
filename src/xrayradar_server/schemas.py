@@ -266,6 +266,7 @@ class AlertSettingsOut(BaseModel):
     cooldown_minutes: Optional[int] = None
     min_cooldown_minutes: Optional[int] = None  # plan-based minimum (Free=no alerts, Basic=10min, Teams/Teams Pro=1min)
     additional_emails: list[str] = []
+    environment_settings: list[dict[str, Any]] = []
 
 
 class AlertSettingsUpdate(BaseModel):
@@ -273,6 +274,7 @@ class AlertSettingsUpdate(BaseModel):
     level_filter: Optional[str] = None
     cooldown_minutes: Optional[int] = None
     additional_emails: Optional[list[str]] = None
+    environment_settings: Optional[list[dict[str, Any]]] = None
 
 
 class DeletionRequestCreate(BaseModel):
