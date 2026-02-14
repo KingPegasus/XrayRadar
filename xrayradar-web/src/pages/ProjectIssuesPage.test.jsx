@@ -59,6 +59,22 @@ describe('ProjectIssuesPage', () => {
 
     expect(screen.getByText(/Issues are grouped by fingerprint/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Back/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Project settings/i })).toBeInTheDocument()
+  })
+
+  it('does not show project settings button for members', async () => {
+    const memberProjects = [{ id: '123', name: 'Test Project', is_owner: false }]
+    fetchJson
+      .mockResolvedValueOnce(memberProjects) // /api/user/projects
+      .mockResolvedValueOnce([]) // issues
+      .mockResolvedValueOnce({ frequency: {}, total: 0 }) // events/frequency
+
+    render(<ProjectIssuesPage projectId="123" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Test Project/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /Project settings/i })).not.toBeInTheDocument()
   })
 
   it('displays issues in table', async () => {

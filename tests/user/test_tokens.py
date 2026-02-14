@@ -323,3 +323,99 @@ def test_user_create_token_request_no_note(app_and_client_with_user):
     data = r.json()
     assert data["name"] == "My Token"
     assert data["note"] is None
+
+
+def test_user_list_token_project_environments(app_and_client_with_user):
+    """GET token project environments returns allowed environments."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    db = dbmod.SessionLocal()
+    try:
+        token = models.Token(name="t", token="t", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+        db.add(models.TokenProjectAccess(token_id=token.id, project_id=project_id))
+        db.add(
+            models.TokenProjectEnvironmentAccess(
+                token_id=token.id,
+                project_id=project_id,
+                environment="production",
+            )
+        )
+        db.add(
+            models.TokenProjectEnvironmentAccess(
+                token_id=token.id,
+                project_id=project_id,
+                environment="staging",
+            )
+        )
+        db.commit()
+        r = client.get(f"/api/user/tokens/{token.id}/projects/{project_id}/environments")
+        assert r.status_code == 200
+        data = r.json()
+        assert set(data) == {"production", "staging"}
+    finally:
+        db.close()
+
+
+def test_user_replace_token_project_environments(app_and_client_with_user):
+    """PUT token project environments replaces and returns new list."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    db = dbmod.SessionLocal()
+    try:
+        token = models.Token(name="t", token="t", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+        db.add(models.TokenProjectAccess(token_id=token.id, project_id=project_id))
+        db.commit()
+        r = client.put(
+            f"/api/user/tokens/{token.id}/projects/{project_id}/environments",
+            json={"environments": ["production", "staging"]},
+        )
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert set(r.json()["environments"]) == {"production", "staging"}
+        r2 = client.get(f"/api/user/tokens/{token.id}/projects/{project_id}/environments")
+        assert r2.status_code == 200
+        assert set(r2.json()) == {"production", "staging"}
+    finally:
+        db.close()
+
+
+def test_user_revoke_project_access_already_revoked_404(app_and_client_with_user):
+    """Revoke when access is already revoked returns 404."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    db = dbmod.SessionLocal()
+    try:
+        token = models.Token(name="t", token="t", user_id=user["id"])
+        db.add(token)
+        db.commit()
+        db.refresh(token)
+        access = models.TokenProjectAccess(
+            token_id=token.id,
+            project_id=project_id,
+            revoked_at=datetime.now(timezone.utc),
+        )
+        db.add(access)
+        db.commit()
+        r = client.post(f"/api/user/tokens/{token.id}/projects/{project_id}/revoke")
+        assert r.status_code == 404
+        assert "not found" in r.json().get("detail", "").lower() or "access" in r.json().get("detail", "").lower()
+    finally:
+        db.close()

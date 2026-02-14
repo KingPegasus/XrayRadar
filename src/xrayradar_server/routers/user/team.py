@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ...db import get_db
 from ...deps import require_pro_user, require_user
+from ...email_templates import render_team_invite_email
 from ...email_log import log_email
 from ...db import SessionLocal
 from ...models import Project, ProjectMember, ProjectMemberEnvironment, TeamInvite, User
@@ -71,11 +72,10 @@ def _send_invite_email(invite_token: str, to_email: str, inviter_email: str) -> 
     """Legacy direct sender kept for compatibility tests."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
         return False
-    accept_url = f"{XRAYRADAR_BASE_URL.rstrip('/')}/accept-invite?token={invite_token}"
-    html = (
-        f"<p>You've been invited by {inviter_email} to join their team on Xrayradar.</p>"
-        f"<p><a href=\"{accept_url}\">Accept invite</a></p>"
-        f"<p>This link expires in {INVITE_EXPIRY_DAYS} days.</p>"
+    subject, html = render_team_invite_email(
+        base_url=XRAYRADAR_BASE_URL,
+        invite_token=invite_token,
+        inviter_email=inviter_email,
     )
     try:
         import resend
@@ -85,7 +85,7 @@ def _send_invite_email(invite_token: str, to_email: str, inviter_email: str) -> 
             params={
                 "from": RESEND_FROM_EMAIL,
                 "to": [to_email],
-                "subject": "You're invited to join a team on Xrayradar",
+                "subject": subject,
                 "html": html,
             }
         )

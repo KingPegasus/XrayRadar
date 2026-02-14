@@ -142,13 +142,15 @@ export function ProjectIssuesPage({ projectId, me }) {
           </p>
         </div>
         <div className="pageActions" style={{ marginTop: 0 }}>
-          <ProjectSettingsModal
-            projectId={projectId}
-            me={me}
-            projectName={projectName}
-            isOwner={isOwner}
-            onProjectNameUpdated={setProjectName}
-          />
+          {isOwner && (
+            <ProjectSettingsModal
+              projectId={projectId}
+              me={me}
+              projectName={projectName}
+              isOwner={isOwner}
+              onProjectNameUpdated={setProjectName}
+            />
+          )}
           <button className="button" type="button" onClick={() => navigate('/dashboard/projects')}>
             Back
           </button>

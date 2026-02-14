@@ -147,7 +147,6 @@ def user_list_token_project_environments(
             select(TokenProjectEnvironmentAccess.environment).where(
                 TokenProjectEnvironmentAccess.token_id == token_id,
                 TokenProjectEnvironmentAccess.project_id == project_id,
-                TokenProjectEnvironmentAccess.revoked_at.is_(None),
             )
         )
         .scalars()
@@ -187,15 +186,14 @@ def user_replace_token_project_environments(
             select(TokenProjectEnvironmentAccess).where(
                 TokenProjectEnvironmentAccess.token_id == token_id,
                 TokenProjectEnvironmentAccess.project_id == project_id,
-                TokenProjectEnvironmentAccess.revoked_at.is_(None),
             )
         )
         .scalars()
         .all()
     )
     for row in existing:
-        row.revoked_at = datetime.now(timezone.utc)
-        db.add(row)
+        db.delete(row)
+    db.flush()  # apply deletes before inserts to avoid UNIQUE on replace
     for env in normalized:
         db.add(
             TokenProjectEnvironmentAccess(

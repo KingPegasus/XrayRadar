@@ -149,11 +149,11 @@ export function IssueDetailPage({ projectId, fingerprint }) {
             )}
           </p>
         </div>
-        <div className="pageActions" style={{ marginTop: 0, marginLeft: 'auto' }}>
-          <label htmlFor="issue-environment-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="pageActions" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 0, marginLeft: 'auto' }}>
+          <label htmlFor="issue-environment-filter" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             Environment:
             <select
-              className="fieldInput"
+              className="fieldInput fieldInputToolbar"
               id="issue-environment-filter"
               value={environmentFilter || 'all'}
               onChange={(e) => setEnvironmentFilter(e.target.value === 'all' ? null : e.target.value)}

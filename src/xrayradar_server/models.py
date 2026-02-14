@@ -397,6 +397,30 @@ class AlertCooldown(Base):
     )
 
 
+class AlertScheduleState(Base):
+    __tablename__ = "alert_schedule_state"
+
+    project_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, primary_key=True
+    )
+    environment: Mapped[str] = mapped_column(String(64), nullable=False, default="", primary_key=True)
+    last_evaluated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True, index=True
+    )
+    last_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True, index=True
+    )
+    last_event_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    last_job_key: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    last_enqueued_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=False), nullable=True, index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), nullable=False, default=_utcnow_naive, onupdate=_utcnow_naive
+    )
+
 class DeletionRequest(Base):
     __tablename__ = "deletion_requests"
 

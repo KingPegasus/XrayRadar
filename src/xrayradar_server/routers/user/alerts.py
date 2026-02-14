@@ -17,7 +17,7 @@ from ...models import (
 )
 from ...deps import require_user, require_verified_user
 from ...schemas import AlertSettingsOut, AlertSettingsUpdate
-from ._helpers import require_project_access
+from ._helpers import require_owned_project
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ def user_get_alert_settings(
     db: Session = Depends(get_db),
 ):
     """Get email alert settings for the project (owned by current user)."""
-    require_project_access(db, user=user, project_id=project_id)
+    require_owned_project(db, user=user, project_id=project_id)
     min_cooldown = MIN_COOLDOWN_MINUTES_BY_PLAN.get(user.plan)
     if user.plan == "Free":
         return AlertSettingsOut(
@@ -111,7 +111,7 @@ def user_update_alert_settings(
     db: Session = Depends(get_db),
 ):
     """Update email alert settings and additional recipients (full replace for additional_emails)."""
-    require_project_access(db, user=user, project_id=project_id)
+    require_owned_project(db, user=user, project_id=project_id)
     if user.plan == "Free":
         if payload.enabled:
             raise HTTPException(

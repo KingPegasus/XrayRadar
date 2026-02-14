@@ -672,6 +672,16 @@ select.fieldInput {
   background: rgba(30, 41, 59, 0.98);
   color: var(--text);
 }
+
+/* Toolbar select: match button height and center text vertically (fixes baseline/alignment in header rows) */
+select.fieldInput.fieldInputToolbar {
+  min-height: 40px;
+  margin-top: 0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  line-height: 1.25;
+  box-sizing: border-box;
+}
 select.fieldInput option {
   background: rgba(30, 41, 59, 0.98);
   color: rgba(255, 255, 255, 0.92);

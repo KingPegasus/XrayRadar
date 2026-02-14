@@ -34,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added visible success confirmation when environment access settings are saved.
 - **Token UX improvement**
   - Tokens page now includes a copy action for token values with inline "Copied" feedback.
+- **Alert delivery refinement**
+  - Error alerts now send as cooldown-window digests (top issues since last successful alert) instead of single-event email bodies.
+  - Digest rendering uses a shared modern template module with optional logo fallback.
+  - Added robust alert scheduler state + periodic evaluator path (`alert_schedule_state`, `alert_scheduler`) to enqueue due digests from an in-process scheduler loop in the web app.
+  - Added scheduler env controls (`XRAYRADAR_SCHEDULER_ENABLED`, `XRAYRADAR_SCHEDULER_INTERVAL_SECONDS`) and a one-shot worker script `scripts/run_alert_scheduler_once.py` for manual/optional external runs.
+  - 90-second enqueue debounce per project/environment (`last_enqueued_at`) to avoid duplicate emails when ingest and scheduler both fire; empty digests are no longer sent.
+- **Alert settings access control**
+  - `GET/PATCH /api/user/projects/{project_id}/alert-settings` now require project ownership.
+  - Project members no longer see Email Alert Settings in `ProjectSettingsModal`.
 - **Architecture docs expanded**
   - Added `docs/architecture/environments-acl-notifications.md`.
   - Updated architecture docs for email alerts, team access, and event frequency.

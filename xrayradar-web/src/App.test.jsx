@@ -440,6 +440,29 @@ describe('App', () => {
     }, { timeout: 2000 })
   })
 
+  it('redirects to login with full accept-invite URL including search when unauthenticated', async () => {
+    const { navigate } = await import('./utils/navigation')
+    fetch.mockResolvedValueOnce({ ok: false, status: 401 })
+
+    Object.defineProperty(window, 'location', {
+      value: {
+        pathname: '/accept-invite',
+        href: '/accept-invite?token=abc',
+        search: '?token=abc',
+        assign: vi.fn(),
+        replace: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/login?next=' + encodeURIComponent('/accept-invite?token=abc'))
+    }, { timeout: 2000 })
+  })
+
   it('renders accept-invite page when authenticated', async () => {
     const mockMe = { id: 1, email: 'user@example.com' }
     fetch.mockResolvedValueOnce({

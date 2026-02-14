@@ -826,6 +826,7 @@ describe('TokensPage', () => {
     const tokens = [{ id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null }]
     const projects = [{ id: 1, name: 'Project 1', is_owner: true }]
 
+    api.fetchJson.mockReset()
     api.fetchJson.mockImplementation((url, opts) => {
       if (url === '/api/user/projects') return Promise.resolve(projects)
       if (url === '/api/user/tokens') return Promise.resolve(tokens)
@@ -860,6 +861,162 @@ describe('TokensPage', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ environments: ['production', 'staging'] }),
       })
+    })
+  })
+
+  it('shows Copy button and Copied after copying token', async () => {
+    const user = userEvent.setup()
+    const tokens = [
+      {
+        id: 1,
+        name: 'Token 1',
+        created_at: '2024-01-01T00:00:00Z',
+        revoked_at: null,
+        token: 'secret-xyz',
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(tokens)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => expect(screen.getByText('secret-xyz')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: /Copy token Token 1/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Copy token Token 1/i }))
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('secret-xyz')
+    })
+    expect(screen.getByText('Copied')).toBeInTheDocument()
+  })
+
+  it('shows error when clipboard copy fails', async () => {
+    const user = userEvent.setup()
+    const tokens = [
+      {
+        id: 1,
+        name: 'Token 1',
+        created_at: '2024-01-01T00:00:00Z',
+        revoked_at: null,
+        token: 'secret-xyz',
+      },
+    ]
+    api.fetchJson
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce(tokens)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+
+    const writeText = vi.fn().mockRejectedValue(new Error('Clipboard denied'))
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    })
+
+    render(<TokensPage me={me} />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Copy token Token 1/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Copy token Token 1/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to copy token/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows No environments discovered in env editor when project has no environments', async () => {
+    const user = userEvent.setup()
+    const tokens = [{ id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null }]
+    const projects = [{ id: 1, name: 'Project 1', is_owner: true }]
+    api.fetchJson.mockReset()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') return Promise.resolve([{ project_id: 1 }])
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      if (url === '/api/user/tokens/1/projects/1/environments' && !opts) return Promise.resolve([])
+      if (url === '/api/user/tokens/1/projects/1/environments' && opts?.method === 'PUT') {
+        return Promise.resolve({ ok: true, environments: [] })
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+    await waitFor(() => expect(screen.getByText('Token 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Manage project access/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Manage project access/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Configure environments/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Configure environments/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/No environments discovered yet in this project/i)).toBeInTheDocument()
+    })
+  })
+
+  it('closes env editor when Cancel is clicked', async () => {
+    const user = userEvent.setup()
+    const tokens = [{ id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null }]
+    const projects = [{ id: 1, name: 'Project 1', is_owner: true }]
+    api.fetchJson.mockReset()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') return Promise.resolve([{ project_id: 1 }])
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([{ environment: 'prod' }])
+      if (url === '/api/user/tokens/1/projects/1/environments' && !opts) return Promise.resolve([])
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+    await waitFor(() => expect(screen.getByText('Token 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Manage project access/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Manage project access/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Configure environments/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Configure environments/i }))
+    await waitFor(() => expect(screen.getByText(/Choose environments for this token/i)).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Cancel/i }))
+    await waitFor(() => {
+      expect(screen.queryByText(/Choose environments for this token/i)).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows error when save environment scope fails', async () => {
+    const user = userEvent.setup()
+    const tokens = [{ id: 1, name: 'Token 1', created_at: '2024-01-01T00:00:00Z', revoked_at: null }]
+    const projects = [{ id: 1, name: 'Project 1', is_owner: true }]
+    api.fetchJson.mockReset()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects') return Promise.resolve(projects)
+      if (url === '/api/user/tokens') return Promise.resolve(tokens)
+      if (url === '/api/user/tokens/1/projects') return Promise.resolve([{ project_id: 1 }])
+      if (url === '/api/user/token-requests') return Promise.resolve([])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([{ environment: 'production' }])
+      if (url === '/api/user/tokens/1/projects/1/environments' && !opts) return Promise.resolve(['production'])
+      if (url === '/api/user/tokens/1/projects/1/environments' && opts?.method === 'PUT') {
+        return Promise.reject(new Error('Failed to update token environment access'))
+      }
+      return Promise.resolve([])
+    })
+
+    render(<TokensPage me={me} />)
+    await waitFor(() => expect(screen.getByText('Token 1')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: /Manage project access/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Manage project access/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Configure environments/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Configure environments/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save environment scope/i })).toBeInTheDocument(), { timeout: 5000 })
+    await user.click(screen.getByRole('button', { name: /Save environment scope/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to update token environment access/i)).toBeInTheDocument()
     })
   })
 })

@@ -169,6 +169,98 @@ def test_team_remove_member(app_and_client_with_user):
     assert len(r2.json()) == 0
 
 
+def test_project_member_list_environments_requires_pro(app_and_client_with_user):
+    """GET member environments returns 403 when user is not Pro."""
+    mainmod, client, user = app_and_client_with_user
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    pid = r1.json()["id"]
+    r = client.get(f"/api/user/projects/{pid}/members/999/environments")
+    assert r.status_code == 403
+
+
+def test_project_member_list_environments_empty_and_after_replace(app_and_client_with_user):
+    """GET member environments returns [] initially; PUT replaces; GET returns new list."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Teams")
+        other = models.User(
+            email="envmember@example.com",
+            password_hash="hash",
+            plan="Free",
+            email_verified=True,
+        )
+        db.add(other)
+        db.commit()
+        db.refresh(other)
+        other_id = other.id
+    finally:
+        db.close()
+
+    r1 = client.post("/api/user/projects", json={"name": "EnvProj"})
+    assert r1.status_code == 200
+    pid = r1.json()["id"]
+    client.post(
+        f"/api/user/projects/{pid}/members",
+        json={"email": "envmember@example.com"},
+    )
+
+    r = client.get(f"/api/user/projects/{pid}/members/{other_id}/environments")
+    assert r.status_code == 200
+    assert r.json() == []
+
+    r_put = client.put(
+        f"/api/user/projects/{pid}/members/{other_id}/environments",
+        json={"environments": ["production", "staging"]},
+    )
+    assert r_put.status_code == 200
+    assert r_put.json() == {"ok": True, "environments": ["production", "staging"]}
+
+    r2 = client.get(f"/api/user/projects/{pid}/members/{other_id}/environments")
+    assert r2.status_code == 200
+    assert set(r2.json()) == {"production", "staging"}
+
+    client.put(
+        f"/api/user/projects/{pid}/members/{other_id}/environments",
+        json={"environments": []},
+    )
+    r3 = client.get(f"/api/user/projects/{pid}/members/{other_id}/environments")
+    assert r3.status_code == 200
+    assert r3.json() == []
+
+
+def test_project_member_replace_environments_member_not_found(app_and_client_with_user):
+    """PUT member environments returns 404 when member is not on the project."""
+    mainmod, client, user = app_and_client_with_user
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Teams")
+        other = models.User(
+            email="stranger@example.com",
+            password_hash="hash",
+            plan="Free",
+            email_verified=True,
+        )
+        db.add(other)
+        db.commit()
+        db.refresh(other)
+        other_id = other.id
+    finally:
+        db.close()
+
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    pid = r1.json()["id"]
+    r = client.put(
+        f"/api/user/projects/{pid}/members/{other_id}/environments",
+        json={"environments": ["production"]},
+    )
+    assert r.status_code == 404
+
+
 def test_team_create_invite_pro(app_and_client_with_user):
     """Pro user can create a team invite."""
     mainmod, client, user = app_and_client_with_user

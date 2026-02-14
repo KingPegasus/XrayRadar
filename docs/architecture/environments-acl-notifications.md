@@ -53,6 +53,7 @@ Goals:
 
 - `email_jobs` table stores durable send jobs (`pending/sent/failed`) with retry metadata.
 - Worker utility (`process_pending_email_jobs`) processes pending jobs with exponential backoff.
+- Error alerts are sent as cooldown-window digests (top issues in `[last successful send, trigger time]`).
 - All major email categories are supported by the queue:
   - `error_alert`
   - `verification`
@@ -115,6 +116,7 @@ sequenceDiagram
   - `project_alert_environment_settings` (enabled, cooldown override)
   - `project_alert_environment_recipients` (extra env-scoped recipients)
 - Alert subject/body can include environment context to reduce operator confusion.
+- Digest aggregation respects environment scope when the alert is triggered for a specific environment.
 
 ## Key files
 

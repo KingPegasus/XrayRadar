@@ -10,7 +10,8 @@ from ..db import get_db
 from ..rate_limit import get_rate_limit_key_token, limiter
 from ..deps import authorize_ingest_for_project, require_admin, require_project_access
 from ..fingerprinting import compute_fingerprint
-from ..mail_jobs import enqueue_email_job, process_pending_email_jobs
+from ..alert_scheduler import enqueue_error_alert_job
+from ..mail_jobs import process_pending_email_jobs
 from ..models import Event, IssueStatus, Project, Token
 from ..notifications import get_alert_recipients, should_send_alert
 from ..schemas import EventOut, ProjectCreate, ProjectOut
@@ -192,20 +193,15 @@ def store_event(
     if level == "error":
         recipients = get_alert_recipients(db, project, environment=env)
         if recipients and should_send_alert(db, project_id, fp, str(level), environment=env):
-            for recipient in recipients:
-                enqueue_email_job(
-                    db,
-                    "error_alert",
-                    {
-                        "recipient_email": recipient,
-                        "project_name": project.name,
-                        "event_message": str(message)[:500],
-                        "project_id": project_id,
-                        "fingerprint": fp,
-                        "environment": env,
-                    },
-                )
-            background_tasks.add_task(process_pending_email_jobs)
+            enqueued = enqueue_error_alert_job(
+                db,
+                project=project,
+                recipients=recipients,
+                environment=env,
+                triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            )
+            if enqueued:
+                background_tasks.add_task(process_pending_email_jobs)
 
     response = {"id": str(row.id)}
     if warning_message:

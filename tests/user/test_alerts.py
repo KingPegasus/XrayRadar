@@ -205,6 +205,37 @@ def test_user_alert_settings_other_project_404(app_and_client_with_user):
     assert r2.status_code == 404
 
 
+def test_member_cannot_get_or_patch_alert_settings(app_and_client_with_user):
+    """Project members (non-owners) cannot access alert settings endpoints."""
+    mainmod, client, user = app_and_client_with_user
+
+    import xrayradar_server.db as dbmod
+    db = dbmod.SessionLocal()
+    try:
+        owner = models.User(email="owner-alerts@example.com", password_hash="hash", plan="Teams")
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+        proj = models.Project(name="Owner Project", owner_user_id=owner.id)
+        db.add(proj)
+        db.commit()
+        db.refresh(proj)
+        db.add(models.ProjectMember(project_id=proj.id, user_id=user["id"]))
+        db.commit()
+        shared_project_id = proj.id
+    finally:
+        db.close()
+
+    r_get = client.get(f"/api/user/projects/{shared_project_id}/alert-settings")
+    assert r_get.status_code == 404
+
+    r_patch = client.patch(
+        f"/api/user/projects/{shared_project_id}/alert-settings",
+        json={"enabled": True},
+    )
+    assert r_patch.status_code == 404
+
+
 def test_user_update_alert_settings_level_filter(app_and_client_with_user):
     """PATCH alert-settings with level_filter updates it"""
     mainmod, client, user = app_and_client_with_user
@@ -262,3 +293,102 @@ def test_user_update_alert_settings_replace_recipients(app_and_client_with_user)
     assert r3.status_code == 200
     assert "old1@x.com" not in r3.json()["additional_emails"]
     assert "old2@x.com" not in r3.json()["additional_emails"]
+
+
+def test_user_get_alert_settings_free_plan_returns_disabled_and_no_min_cooldown(app_and_client_with_user):
+    """GET alert-settings as Free plan returns enabled=False, min_cooldown_minutes=None, environment_settings=[]."""
+    mainmod, client, user = app_and_client_with_user
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    r = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["enabled"] is False
+    assert data["min_cooldown_minutes"] is None
+    assert data["environment_settings"] == []
+
+
+def test_user_get_alert_settings_with_environment_settings(app_and_client_with_user):
+    """GET alert-settings returns environment_settings when present."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    db2 = dbmod.SessionLocal()
+    try:
+        db2.add(
+            models.ProjectAlertSettings(
+                project_id=project_id,
+                enabled=True,
+                level_filter="error",
+                cooldown_minutes=15,
+            )
+        )
+        db2.add(
+            models.ProjectAlertEnvironmentSetting(
+                project_id=project_id,
+                environment="production",
+                enabled=True,
+                cooldown_minutes=5,
+            )
+        )
+        db2.add(
+            models.ProjectAlertEnvironmentRecipient(
+                project_id=project_id,
+                environment="production",
+                email="prod@example.com",
+            )
+        )
+        db2.commit()
+    finally:
+        db2.close()
+    r = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["environment_settings"]) == 1
+    assert data["environment_settings"][0]["environment"] == "production"
+    assert data["environment_settings"][0]["enabled"] is True
+    assert data["environment_settings"][0]["cooldown_minutes"] == 5
+    assert "prod@example.com" in data["environment_settings"][0]["additional_emails"]
+
+
+def test_user_update_alert_settings_environment_settings(app_and_client_with_user):
+    """PATCH alert-settings with environment_settings creates env settings and recipients."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={
+            "enabled": True,
+            "environment_settings": [
+                {
+                    "environment": "staging",
+                    "enabled": True,
+                    "cooldown_minutes": 20,
+                    "additional_emails": ["staging@example.com"],
+                },
+            ],
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["environment_settings"]) == 1
+    assert data["environment_settings"][0]["environment"] == "staging"
+    assert data["environment_settings"][0]["cooldown_minutes"] == 20
+    assert data["environment_settings"][0]["additional_emails"] == ["staging@example.com"]
+    r2 = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r2.status_code == 200
+    assert r2.json()["environment_settings"][0]["environment"] == "staging"

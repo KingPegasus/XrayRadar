@@ -254,7 +254,7 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
               </div>
             )}
 
-            <EmailAlertSettings projectId={projectId} me={me} compact />
+            {isOwner && <EmailAlertSettings projectId={projectId} me={me} compact />}
           </div>
         </div>
       )}

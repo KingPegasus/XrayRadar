@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
 from ..constants import RATE_LIMIT_AUTH, RESEND_API_KEY as DEFAULT_RESEND_API_KEY, RESEND_FROM_EMAIL as DEFAULT_RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL as DEFAULT_XRAYRADAR_BASE_URL
 from ..db import get_db, SessionLocal
+from ..email_templates import render_password_reset_email, render_verification_email
 from ..email_log import log_email
 from ..mail_jobs import enqueue_email_job, process_pending_email_jobs
 from ..rate_limit import get_rate_limit_key_auth, limiter
@@ -50,13 +51,13 @@ def _send_verification_email(email: str, token: str) -> None:
         import resend
 
         resend.api_key = RESEND_API_KEY
-        verify_link = f"{XRAYRADAR_BASE_URL.rstrip('/')}/verify-email?token={token}"
+        subject, html = render_verification_email(base_url=XRAYRADAR_BASE_URL, token=token)
         resend.Emails.send(
             {
                 "from": RESEND_FROM_EMAIL,
                 "to": [email],
-                "subject": "[XrayRadar] Verify your email address",
-                "html": f"<p><a href=\"{verify_link}\">Verify Email</a></p>",
+                "subject": subject,
+                "html": html,
             }
         )
         log_email(db, "verification", email, success=True, user_id=user_id)
@@ -78,13 +79,13 @@ def _send_password_reset_email(email: str, token: str) -> None:
         import resend
 
         resend.api_key = RESEND_API_KEY
-        reset_link = f"{XRAYRADAR_BASE_URL.rstrip('/')}/reset-password?token={token}"
+        subject, html = render_password_reset_email(base_url=XRAYRADAR_BASE_URL, token=token)
         resend.Emails.send(
             {
                 "from": RESEND_FROM_EMAIL,
                 "to": [email],
-                "subject": "[XrayRadar] Reset your password",
-                "html": f"<p><a href=\"{reset_link}\">Reset Password</a></p>",
+                "subject": subject,
+                "html": html,
             }
         )
         log_email(db, "password_reset", email, success=True, user_id=user_id)

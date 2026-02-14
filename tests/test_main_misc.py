@@ -30,6 +30,18 @@ def app_and_client(database_url, monkeypatch, request):
     db = dbmod.SessionLocal()
     try:
         db.query(models.TokenProjectAccess).delete()
+        if hasattr(models, "ProjectAlertEnvironmentRecipient"):
+            db.query(models.ProjectAlertEnvironmentRecipient).delete()
+        if hasattr(models, "ProjectAlertEnvironmentSetting"):
+            db.query(models.ProjectAlertEnvironmentSetting).delete()
+        if hasattr(models, "ProjectAlertRecipient"):
+            db.query(models.ProjectAlertRecipient).delete()
+        if hasattr(models, "ProjectAlertSettings"):
+            db.query(models.ProjectAlertSettings).delete()
+        if hasattr(models, "AlertScheduleState"):
+            db.query(models.AlertScheduleState).delete()
+        if hasattr(models, "EmailJob"):
+            db.query(models.EmailJob).delete()
         db.query(models.Event).delete()
         db.query(models.TokenRequest).delete()
         db.query(models.Token).delete()
@@ -733,6 +745,7 @@ def test_store_event_timestamp_not_string_uses_now(app_and_client):
 def app_and_client_owned_project(database_url, monkeypatch, request):
     """Fixture with a project that has an owner (for testing limit/warning in store_event)."""
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
+    monkeypatch.setenv("XRAYRADAR_SCHEDULER_ENABLED", "0")
 
     import xrayradar_server.db as dbmod
 

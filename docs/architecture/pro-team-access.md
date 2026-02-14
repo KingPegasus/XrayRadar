@@ -2,7 +2,7 @@
 
 ## Overview
 
-Team access allows users on the **Teams** or **Teams Pro** plan to share projects with other users (team members). A Teams account owner can invite users by email, assign them to specific projects, and revoke access. Members see assigned projects in their dashboard and can view issues, events, and alerts for those projects but cannot create projects or manage team membership.
+Team access allows users on the **Teams** or **Teams Pro** plan to share projects with other users (team members). A Teams account owner can invite users by email, assign them to specific projects, and revoke access. Members see assigned projects in their dashboard and can view issues, events, and alert outcomes for those projects but cannot create projects or manage team membership.
 
 There is no separate "organization" or "team" entity: the "team" is derived from users who have at least one `project_members` row for a project owned by the Teams user.
 
@@ -46,7 +46,8 @@ There is no separate "organization" or "team" entity: the "team" is derived from
 
 - **Before:** Only the project **owner** could access a project in the user API (`require_owned_project`, `user_owned_project_ids_subq`).
 - **After:** A user can access a project if they are the **owner** or a **project member**.
-  - **Helper:** `require_project_access(db, user, project_id)` — returns the project or raises 404. Used for issues, tokens, alerts.
+  - **Helper:** `require_project_access(db, user, project_id)` — returns the project or raises 404. Used for issues, tokens, and other member-readable project views.
+  - **Owner-only alert settings:** `GET/PATCH /api/user/projects/{project_id}/alert-settings` are guarded by `require_owned_project`.
   - **Env helper:** `get_allowed_environments(db, user, project_id)` — resolves environment scope for owner/member.
   - **Subquery:** `user_accessible_project_ids_subq(user_id)` — returns project IDs where the user is owner or in `project_members`. Used for project list and dashboard stats.
 
