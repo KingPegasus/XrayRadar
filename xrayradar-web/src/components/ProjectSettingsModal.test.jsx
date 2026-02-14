@@ -176,4 +176,40 @@ describe('ProjectSettingsModal', () => {
       expect(screen.getByText(/Network error/i)).toBeInTheDocument()
     })
   })
+
+  it('shows success message when environment access is saved', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/team/members') {
+        return Promise.resolve([{ user_id: 2, email: 'member@example.com', project_ids: [1] }])
+      }
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'production' }, { environment: 'staging' }])
+      }
+      if (url === '/api/user/projects/1/members/2/environments') {
+        if (opts?.method === 'PUT') return Promise.resolve({ ok: true })
+        return Promise.resolve([])
+      }
+      if (url === '/api/user/projects/1/alert-settings') {
+        return Promise.resolve({
+          enabled: false,
+          cooldown_minutes: null,
+          additional_emails: [],
+          min_cooldown_minutes: 10,
+        })
+      }
+      return Promise.resolve([])
+    })
+
+    render(<ProjectSettingsModal projectId={1} me={me} projectName="My Project" isOwner />)
+
+    await user.click(screen.getByRole('button', { name: /Project settings/i }))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save environment access/i })).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Save environment access/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Environment access saved\./i)).toBeInTheDocument()
+    })
+  })
 })

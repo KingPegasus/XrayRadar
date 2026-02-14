@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Alerts become environment-aware**
   - Added optional env-level alert settings and recipients.
   - Alert subject/body can include environment context.
+- **Project settings save feedback in UI**
+  - Added visible success confirmation when alert settings are saved.
+  - Added visible success confirmation when environment access settings are saved.
+- **Token UX improvement**
+  - Tokens page now includes a copy action for token values with inline "Copied" feedback.
 - **Architecture docs expanded**
   - Added `docs/architecture/environments-acl-notifications.md`.
   - Updated architecture docs for email alerts, team access, and event frequency.

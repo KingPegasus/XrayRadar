@@ -170,10 +170,11 @@ export function ProjectIssuesPage({ projectId, me }) {
             <label htmlFor="environment-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Environment:
               <select
+                className="fieldInput"
                 id="environment-filter"
                 value={environmentFilter || 'all'}
                 onChange={(e) => setEnvironmentFilter(e.target.value === 'all' ? null : e.target.value)}
-                style={{ padding: '4px 8px' }}
+                style={{ width: 160 }}
               >
                 <option value="all">All</option>
                 {environmentOptions.map((opt) => (
@@ -186,10 +187,11 @@ export function ProjectIssuesPage({ projectId, me }) {
             <label htmlFor="status-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               Filter:
               <select
+                className="fieldInput"
                 id="status-filter"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                style={{ padding: '4px 8px' }}
+                style={{ width: 160 }}
               >
                 <option value="all">All</option>
                 <option value="open">Open</option>

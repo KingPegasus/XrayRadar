@@ -13,12 +13,14 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
   const [memberEnvSelection, setMemberEnvSelection] = useState(new Set())
   const [envAccessSaving, setEnvAccessSaving] = useState(false)
   const [envAccessError, setEnvAccessError] = useState('')
+  const [envAccessSuccess, setEnvAccessSuccess] = useState('')
 
   useEffect(() => {
     if (open) {
       setNameValue(projectName ?? '')
       setNameError('')
       setEnvAccessError('')
+      setEnvAccessSuccess('')
       if (isOwner) {
         Promise.resolve(fetchJson('/api/user/team/members'))
           .then((rows) => {
@@ -223,12 +225,14 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
                         onClick={async () => {
                           setEnvAccessSaving(true)
                           setEnvAccessError('')
+                          setEnvAccessSuccess('')
                           try {
                             await fetchJson(`/api/user/projects/${projectId}/members/${selectedMemberId}/environments`, {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ environments: Array.from(memberEnvSelection) }),
                             })
+                            setEnvAccessSuccess('Environment access saved.')
                           } catch (e) {
                             setEnvAccessError(e.message || 'Failed to save environment access')
                           } finally {
@@ -241,6 +245,9 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
                     </div>
                     {envAccessError ? (
                       <div className="fieldError" role="alert" style={{ marginTop: 6 }}>{envAccessError}</div>
+                    ) : null}
+                    {envAccessSuccess ? (
+                      <div className="small" style={{ marginTop: 6, color: '#86efac' }}>{envAccessSuccess}</div>
                     ) : null}
                   </>
                 )}

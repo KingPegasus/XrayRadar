@@ -16,6 +16,7 @@ export function TokensPage({ me }) {
   const [tokenProjectEnvironments, setTokenProjectEnvironments] = useState({}) // `${tokenId}:${projectId}` -> [env]
   const [envEditorDraft, setEnvEditorDraft] = useState({}) // `${tokenId}:${projectId}` -> Set(env)
   const [envBusyKey, setEnvBusyKey] = useState('')
+  const [copiedTokenId, setCopiedTokenId] = useState(null)
 
   const loadProjects = useCallback(async () => {
     try {
@@ -164,6 +165,19 @@ export function TokensPage({ me }) {
     }
   }
 
+  const copyToken = async (tokenId, tokenValue) => {
+    if (!tokenValue) return
+    try {
+      await navigator.clipboard.writeText(tokenValue)
+      setCopiedTokenId(tokenId)
+      window.setTimeout(() => {
+        setCopiedTokenId((prev) => (prev === tokenId ? null : prev))
+      }, 1800)
+    } catch (e) {
+      setError('Failed to copy token')
+    }
+  }
+
   return (
     <div className="container" style={{ padding: '46px 0' }}>
       <div className="panel" style={{ padding: 18 }}>
@@ -239,9 +253,20 @@ export function TokensPage({ me }) {
                         </div>
                         {t.token && !t.revoked_at ? (
                           <div style={{ marginTop: 8 }}>
-                            <code style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: 4, wordBreak: 'break-all' }}>
-                              {t.token}
-                            </code>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                              <code style={{ fontSize: 12, background: 'rgba(255,255,255,0.1)', padding: '4px 8px', borderRadius: 4, wordBreak: 'break-all' }}>
+                                {t.token}
+                              </code>
+                              <button
+                                type="button"
+                                className="button"
+                                onClick={() => copyToken(t.id, t.token)}
+                                style={{ fontSize: 12, padding: '4px 10px' }}
+                                aria-label={`Copy token ${t.name}`}
+                              >
+                                {copiedTokenId === t.id ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
                           </div>
                         ) : null}
                         {!t.revoked_at && (

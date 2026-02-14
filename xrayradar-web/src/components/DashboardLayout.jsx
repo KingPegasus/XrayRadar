@@ -13,7 +13,7 @@ export function DashboardLayout({ me, onLogout, children }) {
           <Link className="brand" to="/">
             {!logoError && (
               <span className="logo" aria-hidden="true">
-                <Logo width={120} height={36} onError={() => setLogoError(true)} />
+                <Logo width={230} height={44} onError={() => setLogoError(true)} />
               </span>
             )}
             {logoError && <span className="brand-text">XrayRadar</span>}

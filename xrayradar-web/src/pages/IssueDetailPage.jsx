@@ -153,10 +153,11 @@ export function IssueDetailPage({ projectId, fingerprint }) {
           <label htmlFor="issue-environment-filter" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             Environment:
             <select
+              className="fieldInput"
               id="issue-environment-filter"
               value={environmentFilter || 'all'}
               onChange={(e) => setEnvironmentFilter(e.target.value === 'all' ? null : e.target.value)}
-              style={{ padding: '4px 8px' }}
+              style={{ width: 160 }}
             >
               <option value="all">All</option>
               {environmentOptions.map((opt) => (

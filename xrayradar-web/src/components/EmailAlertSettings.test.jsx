@@ -54,6 +54,7 @@ describe('EmailAlertSettings', () => {
         })
       )
     })
+    expect(screen.getByText(/Alert settings saved\./i)).toBeInTheDocument()
   })
 
   it('shows verify email message when not verified', async () => {

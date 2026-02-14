@@ -668,14 +668,24 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Native select dropdown: ensure option list is dark so text is visible */
-select.fieldInput,
-select.fieldInput option {
+select.fieldInput {
   background: rgba(30, 41, 59, 0.98);
   color: var(--text);
 }
 select.fieldInput option {
   background: rgba(30, 41, 59, 0.98);
   color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  padding: 10px 12px;
+}
+/* Improve readability for native dropdown lists where supported */
+select.fieldInput option:checked {
+  background: rgba(79, 124, 255, 0.35);
+  color: #ffffff;
+  font-weight: 600;
+}
+select.fieldInput option:disabled {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .fieldError {

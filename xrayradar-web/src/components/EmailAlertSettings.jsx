@@ -9,6 +9,7 @@ export function EmailAlertSettings({ projectId, me, compact = false }) {
   const [newEmail, setNewEmail] = useState('')
   const [alertSaveBusy, setAlertSaveBusy] = useState(false)
   const [alertSaveError, setAlertSaveError] = useState('')
+  const [alertSaveSuccess, setAlertSaveSuccess] = useState('')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
 
   useEffect(() => {
@@ -170,6 +171,9 @@ export function EmailAlertSettings({ projectId, me, compact = false }) {
         {alertSaveError ? (
           <div className="fieldError" style={{ marginBottom: 10 }}>{alertSaveError}</div>
         ) : null}
+        {alertSaveSuccess ? (
+          <div className="small" style={{ marginBottom: 10, color: '#86efac' }}>{alertSaveSuccess}</div>
+        ) : null}
         {!me?.email_verified && (
           <div className="small" style={{ marginBottom: 10, color: '#fbbf24' }}>
             Verify your email to save alert settings.
@@ -181,6 +185,7 @@ export function EmailAlertSettings({ projectId, me, compact = false }) {
           disabled={alertSaveBusy || !me?.email_verified}
           onClick={async () => {
             setAlertSaveError('')
+            setAlertSaveSuccess('')
             const cooldown = alertCooldown.trim() === '' ? null : parseInt(alertCooldown, 10)
             const cooldownNum = cooldown != null && !isNaN(cooldown) ? cooldown : null
             if (cooldownNum != null && cooldownNum > 0 && minCooldownMinutes != null && cooldownNum < minCooldownMinutes) {
@@ -198,6 +203,7 @@ export function EmailAlertSettings({ projectId, me, compact = false }) {
                   additional_emails: additionalEmails,
                 }),
               })
+              setAlertSaveSuccess('Alert settings saved.')
             } catch (e) {
               setAlertSaveError(e.message || e.detail || 'Failed to save')
             } finally {
