@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-02-08
+
+### Added
+
+- **SEO**
+  - Added `robots.txt` (Allow /) for crawler guidance.
+- **Optional user in auth**
+  - Optional user retrieval in dependencies; unauthenticated requests can resolve to no user without failing.
+
+### Changed
+
+- **Environment-specific alert settings (plan-gated)**
+  - New user plan checks for environment-specific alert settings: only Teams and Teams Pro plans can access these features.
+- **Alert scheduling**
+  - Enhanced alert scheduling to prevent duplicate emails within a 90-second window.
+- **User authentication API**
+  - `GET /api/me` now returns 200 with body `null` when unauthenticated (instead of 401); user auth routes updated to use optional user dependency where appropriate.
+- **Frontend performance**
+  - Lazy loading for key components and routes (React.lazy + Suspense) to reduce initial bundle and improve load time.
+
 ## [0.12.0] - 2026-02-14
 
 ### Added
@@ -302,6 +322,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.13.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.9.0...v0.10.0

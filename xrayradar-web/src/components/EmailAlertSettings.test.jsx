@@ -8,6 +8,7 @@ vi.mock('../utils/api')
 
 describe('EmailAlertSettings', () => {
   const me = { email: 'test@example.com', email_verified: true }
+  const meTeams = { ...me, plan: 'Teams' }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -20,7 +21,7 @@ describe('EmailAlertSettings', () => {
   })
 
   it('renders alert settings', async () => {
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => {
       expect(screen.getByText(/Email alerts for errors/i)).toBeInTheDocument()
@@ -34,7 +35,7 @@ describe('EmailAlertSettings', () => {
       .mockResolvedValueOnce({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
       .mockResolvedValueOnce({})
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText(/Add email/i)).toBeInTheDocument())
 
@@ -70,7 +71,7 @@ describe('EmailAlertSettings', () => {
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     api.fetchJson.mockRejectedValueOnce(new Error('Failed to load'))
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => {
       expect(consoleSpy).toHaveBeenCalledWith('Failed to load alert settings:', expect.any(Error))
@@ -86,7 +87,7 @@ describe('EmailAlertSettings', () => {
       additional_emails: [],
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => {
       expect(screen.getByDisplayValue('10')).toBeInTheDocument()
@@ -96,7 +97,7 @@ describe('EmailAlertSettings', () => {
 
   it('toggles alert checkbox', async () => {
     const user = userEvent.setup()
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByLabelText(/Email alerts for errors/i)).toBeInTheDocument())
 
@@ -114,7 +115,7 @@ describe('EmailAlertSettings', () => {
       min_cooldown_minutes: 10,
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByText('a@b.com')).toBeInTheDocument())
 
@@ -126,7 +127,7 @@ describe('EmailAlertSettings', () => {
 
   it('adds email via Enter key', async () => {
     const user = userEvent.setup()
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText(/Add email/i)).toBeInTheDocument())
 
@@ -140,7 +141,7 @@ describe('EmailAlertSettings', () => {
     const user = userEvent.setup()
     api.fetchJson.mockResolvedValue({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText(/Add email/i)).toBeInTheDocument())
 
@@ -161,7 +162,7 @@ describe('EmailAlertSettings', () => {
       return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
@@ -191,6 +192,36 @@ describe('EmailAlertSettings', () => {
 
     await waitFor(() => expect(screen.getByText(/Email alerts for errors/i)).toBeInTheDocument())
     expect(screen.queryByText(/^Email alerts$/)).not.toBeInTheDocument()
+  })
+
+  it('hides environment-specific alerts section for Basic plan', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'development' }])
+      }
+      return Promise.resolve({
+        enabled: true,
+        cooldown_minutes: 10,
+        min_cooldown_minutes: 10,
+        additional_emails: [],
+        environment_settings: [
+          {
+            environment: 'development',
+            enabled: true,
+            cooldown_minutes: 15,
+            additional_emails: ['dev@example.com'],
+          },
+        ],
+      })
+    })
+
+    render(<EmailAlertSettings projectId={1} me={{ ...me, plan: 'Basic' }} projectName="basic-project" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Project-wide alerts \(all events\)/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Environment-specific alerts/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\[XrayRadar\] \[development\] basic-project: Error digest/i)).not.toBeInTheDocument()
   })
 
   it('loads with stored cooldown when stored >= min', async () => {
@@ -244,7 +275,7 @@ describe('EmailAlertSettings', () => {
         ],
       })
     })
-    render(<EmailAlertSettings projectId={1} me={me} projectName="team1" />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} projectName="team1" />)
 
     await waitFor(() => {
       expect(screen.getByText(/Project-wide alerts \(all events\)/i)).toBeInTheDocument()
@@ -277,7 +308,7 @@ describe('EmailAlertSettings', () => {
       })
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} projectName="team1" />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} projectName="team1" />)
     await waitFor(() => expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
 
@@ -298,7 +329,7 @@ describe('EmailAlertSettings', () => {
       min_cooldown_minutes: 10,
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByText('existing@example.com')).toBeInTheDocument())
 
@@ -310,7 +341,7 @@ describe('EmailAlertSettings', () => {
 
   it('does not add empty email via Enter key', async () => {
     const user = userEvent.setup()
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText(/Add email/i)).toBeInTheDocument())
 
@@ -331,7 +362,7 @@ describe('EmailAlertSettings', () => {
       return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
@@ -352,7 +383,7 @@ describe('EmailAlertSettings', () => {
       return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
     })
 
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument())
     await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
@@ -378,7 +409,7 @@ describe('EmailAlertSettings', () => {
         ],
       })
     })
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByText('dev@example.com')).toBeInTheDocument())
 
@@ -404,7 +435,7 @@ describe('EmailAlertSettings', () => {
         environment_settings: [],
       })
     })
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByPlaceholderText(/Add email for staging/i)).toBeInTheDocument())
 
@@ -434,7 +465,7 @@ describe('EmailAlertSettings', () => {
         ],
       })
     })
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByRole('button', { name: /Remove environment override/i })).toBeInTheDocument())
 
@@ -462,7 +493,7 @@ describe('EmailAlertSettings', () => {
         ],
       })
     })
-    render(<EmailAlertSettings projectId={1} me={me} />)
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
 
     await waitFor(() => expect(screen.getByDisplayValue('5')).toBeInTheDocument())
 

@@ -314,7 +314,7 @@ def test_user_get_alert_settings_with_environment_settings(app_and_client_with_u
     mainmod, client, user = app_and_client_with_user
     db = dbmod.SessionLocal()
     try:
-        _set_plan(db, user["id"], "Basic")
+        _set_plan(db, user["id"], "Teams")
     finally:
         db.close()
     r1 = client.post("/api/user/projects", json={"name": "P"})
@@ -363,7 +363,7 @@ def test_user_update_alert_settings_environment_settings(app_and_client_with_use
     mainmod, client, user = app_and_client_with_user
     db = dbmod.SessionLocal()
     try:
-        _set_plan(db, user["id"], "Basic")
+        _set_plan(db, user["id"], "Teams")
     finally:
         db.close()
     r1 = client.post("/api/user/projects", json={"name": "P"})
@@ -392,3 +392,62 @@ def test_user_update_alert_settings_environment_settings(app_and_client_with_use
     r2 = client.get(f"/api/user/projects/{project_id}/alert-settings")
     assert r2.status_code == 200
     assert r2.json()["environment_settings"][0]["environment"] == "staging"
+
+
+def test_user_get_alert_settings_hides_environment_settings_for_basic(app_and_client_with_user):
+    """Basic plan should not see environment settings even if legacy rows exist."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    db2 = dbmod.SessionLocal()
+    try:
+        db2.add(
+            models.ProjectAlertEnvironmentSetting(
+                project_id=project_id,
+                environment="production",
+                enabled=True,
+                cooldown_minutes=5,
+            )
+        )
+        db2.add(
+            models.ProjectAlertEnvironmentRecipient(
+                project_id=project_id,
+                environment="production",
+                email="prod@example.com",
+            )
+        )
+        db2.commit()
+    finally:
+        db2.close()
+    r = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r.status_code == 200
+    assert r.json()["environment_settings"] == []
+
+
+def test_user_update_alert_settings_environment_settings_rejected_for_basic(app_and_client_with_user):
+    """Basic plan cannot set environment-based alert settings."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={
+            "environment_settings": [
+                {"environment": "development", "enabled": True, "cooldown_minutes": 20}
+            ]
+        },
+    )
+    assert r.status_code == 400
+    assert "teams" in r.json().get("detail", "").lower()

@@ -16,6 +16,18 @@ from .models import (
     User,
 )
 
+
+def _is_teams_plan(plan: str | None) -> bool:
+    return (plan or "").strip() in {"Teams", "Teams Pro"}
+
+
+def _project_owner(db: Session, project_id: int) -> User | None:
+    project = db.get(Project, project_id)
+    if project is None or project.owner_user_id is None:
+        return None
+    return db.get(User, project.owner_user_id)
+
+
 def get_project_alert_settings(
     db: Session, project_id: int, environment: str | None = None
 ) -> tuple[bool, str, int | None]:
@@ -24,8 +36,9 @@ def get_project_alert_settings(
     enabled = False if row is None else row.enabled
     level_filter = "error" if row is None else row.level_filter
     cooldown = None if row is None else row.cooldown_minutes
+    owner = _project_owner(db, project_id)
     env = (environment or "").strip()
-    if env:
+    if env and owner is not None and _is_teams_plan(owner.plan):
         env_row = (
             db.execute(
                 select(ProjectAlertEnvironmentSetting).where(
@@ -45,15 +58,12 @@ def get_project_alert_settings(
 
 def get_alert_recipients(db: Session, project: Project, environment: str | None = None) -> list[str]:
     """Combine owner email and additional recipients, deduplicated. Returns [] for Free plan (no alerts)."""
-    if project.owner_user_id is not None:
-        owner = db.get(User, project.owner_user_id)
-        if owner is not None and owner.plan == "Free":
-            return []
+    owner = db.get(User, project.owner_user_id) if project.owner_user_id is not None else None
+    if owner is not None and owner.plan == "Free":
+        return []
     emails: set[str] = set()
-    if project.owner_user_id is not None:
-        owner = db.get(User, project.owner_user_id)
-        if owner is not None:
-            emails.add(owner.email)
+    if owner is not None:
+        emails.add(owner.email)
     recs = (
         db.execute(
             select(ProjectAlertRecipient.email).where(
@@ -67,7 +77,7 @@ def get_alert_recipients(db: Session, project: Project, environment: str | None 
         val = r[0] if (isinstance(r, (tuple, list)) or (hasattr(r, "__getitem__") and not isinstance(r, str))) else r
         emails.add(val)
     env = (environment or "").strip()
-    if env:
+    if env and owner is not None and _is_teams_plan(owner.plan):
         env_recs = (
             db.execute(
                 select(ProjectAlertEnvironmentRecipient.email).where(

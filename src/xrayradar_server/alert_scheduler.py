@@ -16,6 +16,7 @@ from .models import (
     Project,
     ProjectAlertEnvironmentSetting,
     ProjectAlertSettings,
+    User,
 )
 from .notifications import get_alert_recipients, get_project_alert_settings
 
@@ -26,6 +27,16 @@ def _utcnow_naive() -> datetime:
 
 def _env_key(environment: str | None) -> str:
     return (environment or "").strip()
+
+
+def _is_teams_plan(plan: str | None) -> bool:
+    return (plan or "").strip() in {"Teams", "Teams Pro"}
+
+
+def _project_owner(db: Session, project: Project) -> User | None:
+    if project.owner_user_id is None:
+        return None
+    return db.get(User, project.owner_user_id)
 
 
 def _ensure_state(
@@ -143,7 +154,9 @@ def _evaluate_scope(
     # Environments with enabled env-level alerts own their own events; project-level
     # scope should not double-send for those environments.
     env_owned_scopes: set[str] = set()
-    if not _env_key(environment):
+    owner = _project_owner(db, project)
+    owner_has_teams_plan = owner is not None and _is_teams_plan(owner.plan)
+    if not _env_key(environment) and owner_has_teams_plan:
         owned_env_rows = (
             db.execute(
                 select(ProjectAlertEnvironmentSetting.environment).where(
@@ -256,23 +269,26 @@ def evaluate_due_alerts(limit_projects: int = 200, now: datetime | None = None) 
             project = db.get(Project, project_id)
             if project is None:
                 continue
+            owner = _project_owner(db, project)
+            owner_has_teams_plan = owner is not None and _is_teams_plan(owner.plan)
 
             if _evaluate_scope(db, project=project, environment=None, now=now_ts):
                 enqueued += 1
 
-            env_rows = (
-                db.execute(
-                    select(ProjectAlertEnvironmentSetting.environment).where(
-                        ProjectAlertEnvironmentSetting.project_id == project_id,
-                        ProjectAlertEnvironmentSetting.enabled.is_(True),
+            if owner_has_teams_plan:
+                env_rows = (
+                    db.execute(
+                        select(ProjectAlertEnvironmentSetting.environment).where(
+                            ProjectAlertEnvironmentSetting.project_id == project_id,
+                            ProjectAlertEnvironmentSetting.enabled.is_(True),
+                        )
                     )
+                    .scalars()
+                    .all()
                 )
-                .scalars()
-                .all()
-            )
-            for env in sorted({e.strip() for e in env_rows if isinstance(e, str) and e.strip()}):
-                if _evaluate_scope(db, project=project, environment=env, now=now_ts):
-                    enqueued += 1
+                for env in sorted({e.strip() for e in env_rows if isinstance(e, str) and e.strip()}):
+                    if _evaluate_scope(db, project=project, environment=env, now=now_ts):
+                        enqueued += 1
         return enqueued
     finally:
         db.close()

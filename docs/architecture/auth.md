@@ -15,13 +15,13 @@ The dashboard (user-facing web app) uses email/password authentication with a si
 7. **Forgot password:** `POST /auth/forgot-password` — Accepts `{ "email": "..." }`. If user exists, generates a secure token, sets `password_reset_token` and `password_reset_expires_at` (1 hour), and sends a reset email via Resend. Always returns 200 with a generic message to avoid email enumeration.
 8. **Reset password:** `POST /auth/reset-password` — Accepts `{ "token": "...", "new_password": "..." }`. Validates token and expiry, updates `password_hash`, clears token and expiry. Returns 400 for invalid/expired token.
 9. **Logout:** `POST /auth/logout` — Clears `xrayradar_session` and `xrayradar_user_session` cookies.
-10. **Current user:** `GET /api/me` — Returns the logged-in user (id, email, plan, email_verified, created_at).
+10. **Current user:** `GET /api/me` — When authenticated, returns the logged-in user (id, email, plan, email_verified, created_at). When unauthenticated, returns `200` with body `null` (no 401), so the marketing site can check auth without failing. Implemented via optional user dependency (`get_optional_user`).
 
 ## Key components
 
 - **Router:** `src/xrayradar_server/routers/user_auth.py` — signup, login, logout, verify-email, resend-verification, forgot-password, reset-password, `/api/me`
 - **Auth helpers:** `src/xrayradar_server/auth.py` — `hash_password`, `verify_password`, `get_session_serializer`, `get_user_session_email`, `cookie_secure`
-- **Deps:** `src/xrayradar_server/deps.py` — `require_user`, `require_verified_user`
+- **Deps:** `src/xrayradar_server/deps.py` — `require_user`, `require_verified_user`, `get_optional_user` (returns `None` when unauthenticated; used by `/api/me`).
 - **Models:** `src/xrayradar_server/models.py` — `User` (email, password_hash, plan, email_verified, verification_token, password_reset_token, password_reset_expires_at, last_login_at)
 - **Config:** `XRAYRADAR_SESSION_SECRET` (session signing), `RESEND_API_KEY` / `RESEND_FROM_EMAIL` / `XRAYRADAR_BASE_URL` (verification and password reset emails)
 

@@ -89,6 +89,33 @@ def test_get_project_alert_settings_with_row(db_session, project_with_owner):
     assert cooldown == 30
 
 
+def test_get_project_alert_settings_ignores_environment_override_for_basic(db_session, project_with_owner):
+    project, _ = project_with_owner
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=30,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentSetting(
+            project_id=project.id,
+            environment="production",
+            enabled=False,
+            cooldown_minutes=1,
+        )
+    )
+    db_session.commit()
+    enabled, level_filter, cooldown = get_project_alert_settings(
+        db_session, project.id, environment="production"
+    )
+    assert enabled is True
+    assert level_filter == "error"
+    assert cooldown == 30
+
+
 def test_get_alert_recipients_owner_only(db_session, project_with_owner):
     """Recipients include owner email when no additional recipients."""
     project, user = project_with_owner
@@ -143,6 +170,21 @@ def test_get_alert_recipients_owner_plus_additional(db_session, project_with_own
     project = db_session.get(models.Project, project.id)
     recipients = get_alert_recipients(db_session, project)
     assert set(recipients) == {user.email, "extra@x.com"}
+
+
+def test_get_alert_recipients_ignores_environment_recipients_for_basic(db_session, project_with_owner):
+    project, user = project_with_owner
+    db_session.add(
+        models.ProjectAlertEnvironmentRecipient(
+            project_id=project.id,
+            environment="development",
+            email="dev-team@example.com",
+        )
+    )
+    db_session.commit()
+    project = db_session.get(models.Project, project.id)
+    recipients = get_alert_recipients(db_session, project, environment="development")
+    assert set(recipients) == {user.email}
 
 
 def test_should_send_alert_disabled(db_session, project_with_owner):

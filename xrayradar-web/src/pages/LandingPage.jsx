@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from '../components/Link'
 import { SectionHeader } from '../components/SectionHeader'
 import { Check } from '../components/Check'
+import { CopyButton } from '../components/CopyButton'
 import { Logo } from '../components/Logo'
 import { FrameworkLogo } from '../components/FrameworkLogo'
 import { FEATURES } from '../utils/constants'
@@ -10,19 +11,35 @@ import {
   QUICK_SETUP_SNIPPETS,
   PYPI_URL,
   NPM_URL,
+  NPM_URL_BY_FRAMEWORK,
 } from '../utils/sdkFrameworks'
+import Prism from 'prismjs'
+import 'prismjs/components/prism-javascript'
+import 'prismjs/components/prism-python'
+import 'prismjs/themes/prism-tomorrow.css'
 
 const DEFAULT_LANG = 'python'
 const DEFAULT_FRAMEWORK = { python: 'fastapi', js: 'node' }
+const TEAMS_ONLY_FEATURES = new Set([
+  'Environment views + ACL',
+  'Token environment scoping',
+])
 
 export function LandingPage({ me, onSignupOpen, onLogout }) {
   const [logoError, setLogoError] = useState(false)
   const [quickLang, setQuickLang] = useState(DEFAULT_LANG)
   const [quickFramework, setQuickFramework] = useState(DEFAULT_FRAMEWORK[DEFAULT_LANG])
+  const codeRef = useRef(null)
 
   const frameworks = SDK_FRAMEWORKS[quickLang]
   const snippetKey = `${quickLang}_${quickFramework}`
   const snippet = QUICK_SETUP_SNIPPETS[snippetKey]
+  const prismLang = quickLang === 'python' ? 'python' : 'javascript'
+  const npmUrl = quickLang === 'js' ? (NPM_URL_BY_FRAMEWORK[quickFramework] || NPM_URL) : NPM_URL
+
+  useEffect(() => {
+    if (codeRef.current && snippet) Prism.highlightElement(codeRef.current)
+  }, [snippetKey, snippet])
 
   const setLang = (lang) => {
     setQuickLang(lang)
@@ -33,7 +50,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
     <>
       <header className="nav">
         <div className="container navInner">
-          <a className="brand" href="#top">
+          <a className="brand" href="#top" aria-label="XrayRadar, go to top">
             {!logoError && (
               <span className="logo" aria-hidden="true">
                 <Logo width={230} height={44} onError={() => setLogoError(true)} />
@@ -94,9 +111,9 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
             </div>
 
             <div className="panel heroCard">
-              <div className="quickSetupTabs" role="tablist" aria-label="Quick setup tech stack">
+              <div className="quickSetupTabs" role="group" aria-label="Quick setup tech stack">
                 <div className="quickSetupLevel quickSetupLevelLang">
-                  <div className="quickSetupLangTabs">
+                  <div className="quickSetupLangTabs" role="tablist" aria-label="Language">
                     <button
                       type="button"
                       role="tab"
@@ -122,7 +139,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                   </div>
                 </div>
                 <div className="quickSetupLevel quickSetupLevelFramework">
-                  <div className="quickSetupFrameworkTabs" role="tablist">
+                  <div className="quickSetupFrameworkTabs" role="tablist" aria-label="Framework">
                     {frameworks.map((fw) => (
                       <button
                         key={fw.id}
@@ -140,11 +157,25 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                   </div>
                 </div>
               </div>
-              <div className="kbd" style={{ marginTop: 12 }} id="quick-setup-panel" role="tabpanel" aria-labelledby={`tab-${quickFramework}`}>
-                Quick setup — {snippet?.label ?? ''}
+              <div className="quickSetupHeader" style={{ marginTop: 4 }} id="quick-setup-panel" role="tabpanel" aria-labelledby={`tab-${quickFramework}`}>
+                <span className="kbd">Quick setup — {snippet?.label ?? ''}</span>
+                {snippet && (
+                  <CopyButton
+                    textToCopy={snippet.code}
+                    ariaLabel="Copy code"
+                    title="Copy code"
+                    className="codeCopy"
+                  />
+                )}
               </div>
               {snippet && (
-                <pre className="code" style={{ marginTop: 12 }}>{snippet.code}</pre>
+                <div className="codeWrap" style={{ marginTop: 4 }}>
+                  <pre className="code">
+                    <code ref={codeRef} className={`language-${prismLang}`}>
+                      {snippet.code}
+                    </code>
+                  </pre>
+                </div>
               )}
               <div style={{ marginTop: 12, fontSize: 13, color: 'var(--muted)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                 {quickLang === 'python' ? (
@@ -156,7 +187,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                   </>
                 ) : (
                   <>
-                    <a href={NPM_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+                    <a href={npmUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
                       View on npm →
                     </a>
                     <span style={{ opacity: 0.7 }}>Also: Remix, Vite</span>
@@ -191,7 +222,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
               </div>
               <div className="sdkCard panel">
                 <h3 className="sdkCardTitle">JavaScript / TypeScript</h3>
-                <p className="sdkCardDesc">Packages on npm — Node, browser, React, Next.js, Remix.</p>
+                <p className="sdkCardDesc">Packages on npm — Node, Express, Koa, React, Next.js, Remix.</p>
                 <div className="sdkFrameworks" role="list">
                   {SDK_FRAMEWORKS.js.map((fw) => (
                     <span key={fw.id} className="sdkFrameworkChip" role="listitem">
@@ -218,7 +249,12 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
             <div className="grid3">
               {FEATURES.map((f) => (
                 <div className="card" key={f.title}>
-                  <h3 className="cardTitle">{f.title}</h3>
+                  <div className="featureTitleRow">
+                    <h3 className="cardTitle">{f.title}</h3>
+                    {TEAMS_ONLY_FEATURES.has(f.title) && (
+                      <span className="planTagTeams">Teams</span>
+                    )}
+                  </div>
                   <p className="cardText">{f.text}</p>
                 </div>
               ))}

@@ -205,7 +205,8 @@ def test_login_after_signup_sets_session(app_and_client):
     client.post("/auth/logout")
 
     r = client.get("/api/me")
-    assert r.status_code == 401
+    assert r.status_code == 200
+    assert r.json() is None
 
     r = client.post(
         "/auth/login",
@@ -232,7 +233,8 @@ def test_logout_clears_user_session_cookie(app_and_client):
     assert r.status_code == 200
 
     r = client.get("/api/me")
-    assert r.status_code == 401
+    assert r.status_code == 200
+    assert r.json() is None
 
 
 def test_verify_email_invalid_token(app_and_client):

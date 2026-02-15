@@ -96,6 +96,22 @@ def _deliver_job(db: Session, job: EmailJob) -> None:
             window_end = datetime.fromisoformat(trigger_raw) if trigger_raw else datetime.now(timezone.utc).replace(tzinfo=None)
         except Exception:  # noqa: BLE001
             window_end = datetime.now(timezone.utc).replace(tzinfo=None)
+        # Dedupe: if we already sent a digest for this project+env very recently, skip (avoids duplicate emails from race).
+        env_key = (environment or "").strip()
+        state_row = (
+            db.execute(
+                select(AlertScheduleState).where(
+                    AlertScheduleState.project_id == project_id,
+                    AlertScheduleState.environment == env_key,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if state_row is not None and state_row.last_sent_at is not None:
+            delta_seconds = abs((window_end - state_row.last_sent_at).total_seconds())
+            if delta_seconds < 90:
+                return
         sent_ats = [
             get_last_alert_sent_at(
                 db,
@@ -134,20 +150,21 @@ def _deliver_job(db: Session, job: EmailJob) -> None:
                 success=True,
                 project_id=project_id or None,
             )
-        env_key = (environment or "").strip()
-        state = (
-            db.execute(
-                select(AlertScheduleState).where(
-                    AlertScheduleState.project_id == project_id,
-                    AlertScheduleState.environment == env_key,
+        state_to_update = state_row
+        if state_to_update is None:
+            state_to_update = (
+                db.execute(
+                    select(AlertScheduleState).where(
+                        AlertScheduleState.project_id == project_id,
+                        AlertScheduleState.environment == env_key,
+                    )
                 )
+                .scalars()
+                .first()
             )
-            .scalars()
-            .first()
-        )
-        if state is not None:
-            state.last_sent_at = window_end
-            db.add(state)
+        if state_to_update is not None:
+            state_to_update.last_sent_at = window_end
+            db.add(state_to_update)
         return
 
     if not recipient:

@@ -1,20 +1,8 @@
-import { useState, useCallback } from 'react'
 import { BreadcrumbTimeline } from './BreadcrumbTimeline'
+import { CopyButton } from './CopyButton'
 
 export function EventDetailView({ event }) {
-  const [copied, setCopied] = useState(false)
   const payload = event.payload || {}
-
-  const copyPayload = useCallback(() => {
-    const json = JSON.stringify(payload, null, 2)
-    navigator.clipboard.writeText(json).then(
-      () => {
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      },
-      () => setCopied(false)
-    )
-  }, [payload])
   const exception = payload.exception
   const breadcrumbs = payload.breadcrumbs || []
   const contexts = payload.contexts || {}
@@ -228,15 +216,12 @@ export function EventDetailView({ event }) {
               <CodeBlock>{JSON.stringify(payload, null, 2)}</CodeBlock>
             </div>
           </details>
-          <button
-            type="button"
-            className="button"
-            onClick={copyPayload}
+          <CopyButton
+            textToCopy={JSON.stringify(payload, null, 2)}
+            ariaLabel="Copy JSON payload"
+            className="button codeCopy"
             style={{ flexShrink: 0 }}
-            aria-label="Copy JSON payload"
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
+          />
         </div>
       </Section>
     </div>

@@ -37,7 +37,7 @@ describe('LandingPage', () => {
 
   it('renders Teams and Teams Pro pricing cards and Choose buttons', () => {
     render(<LandingPage me={null} onSignupOpen={mockOnSignupOpen} onLogout={mockOnLogout} />)
-    expect(screen.getByText('Teams')).toBeInTheDocument()
+    expect(screen.getAllByText('Teams').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Teams Pro')).toBeInTheDocument()
     expect(screen.getByText(/Up to 25,000 events storage/)).toBeInTheDocument()
     expect(screen.getByText(/Up to 50,000 events storage/)).toBeInTheDocument()

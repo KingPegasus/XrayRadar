@@ -22,6 +22,10 @@ from ._helpers import require_owned_project
 router = APIRouter()
 
 
+def _is_teams_plan(plan: str | None) -> bool:
+    return (plan or "").strip() in {"Teams", "Teams Pro"}
+
+
 @router.get("/api/user/projects/{project_id}/alert-settings", response_model=AlertSettingsOut)
 def user_get_alert_settings(
     project_id: int,
@@ -60,36 +64,38 @@ def user_get_alert_settings(
         .scalars().all()
     )
     additional_emails = [r for r in recipients if r]
-    env_settings_rows = (
-        db.execute(
-            select(ProjectAlertEnvironmentSetting).where(
-                ProjectAlertEnvironmentSetting.project_id == project_id
+    env_settings: list[dict] = []
+    if _is_teams_plan(user.plan):
+        env_settings_rows = (
+            db.execute(
+                select(ProjectAlertEnvironmentSetting).where(
+                    ProjectAlertEnvironmentSetting.project_id == project_id
+                )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
-    env_rec_rows = (
-        db.execute(
-            select(ProjectAlertEnvironmentRecipient).where(
-                ProjectAlertEnvironmentRecipient.project_id == project_id
+        env_rec_rows = (
+            db.execute(
+                select(ProjectAlertEnvironmentRecipient).where(
+                    ProjectAlertEnvironmentRecipient.project_id == project_id
+                )
             )
+            .scalars()
+            .all()
         )
-        .scalars()
-        .all()
-    )
-    by_env_recipients: dict[str, list[str]] = {}
-    for row in env_rec_rows:
-        by_env_recipients.setdefault(row.environment, []).append(row.email)
-    env_settings = [
-        {
-            "environment": row.environment,
-            "enabled": row.enabled,
-            "cooldown_minutes": row.cooldown_minutes,
-            "additional_emails": sorted(set(by_env_recipients.get(row.environment, []))),
-        }
-        for row in env_settings_rows
-    ]
+        by_env_recipients: dict[str, list[str]] = {}
+        for row in env_rec_rows:
+            by_env_recipients.setdefault(row.environment, []).append(row.email)
+        env_settings = [
+            {
+                "environment": row.environment,
+                "enabled": row.enabled,
+                "cooldown_minutes": row.cooldown_minutes,
+                "additional_emails": sorted(set(by_env_recipients.get(row.environment, []))),
+            }
+            for row in env_settings_rows
+        ]
     cooldown = settings.cooldown_minutes
     if cooldown is not None and min_cooldown is not None and cooldown < min_cooldown:
         cooldown = min_cooldown
@@ -161,6 +167,11 @@ def user_update_alert_settings(
         for email in normalized:
             db.add(ProjectAlertRecipient(project_id=project_id, email=email))
     if payload.environment_settings is not None:
+        if not _is_teams_plan(user.plan):
+            raise HTTPException(
+                status_code=400,
+                detail="Environment-based alert settings are available only on Teams and Teams Pro plans.",
+            )
         existing_env_settings = (
             db.execute(
                 select(ProjectAlertEnvironmentSetting).where(

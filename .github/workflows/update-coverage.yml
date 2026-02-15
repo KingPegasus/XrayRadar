@@ -152,19 +152,6 @@ jobs:
               content
           )
           
-          # Update coverage text
-          content = re.sub(
-              r'- \*\*Backend \(Python\)\*\*: [0-9.]+%',
-              f'- **Backend (Python)**: {BACKEND_COV}%',
-              content
-          )
-          
-          content = re.sub(
-              r'- \*\*Frontend \(React\)\*\*: [0-9.]+%',
-              f'- **Frontend (React)**: {FRONTEND_COV}%',
-              content
-          )
-          
           with open('README.md', 'w') as f:
               f.write(content)
           EOF
