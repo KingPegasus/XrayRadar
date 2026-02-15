@@ -17,13 +17,15 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
   const [envAccessError, setEnvAccessError] = useState('')
   const [envAccessSuccess, setEnvAccessSuccess] = useState('')
 
+  const hasTeamsPlan = me?.plan === 'Teams' || me?.plan === 'Teams Pro'
+
   useEffect(() => {
     if (open) {
       setNameValue(projectName ?? '')
       setNameError('')
       setEnvAccessError('')
       setEnvAccessSuccess('')
-      if (isOwner) {
+      if (isOwner && hasTeamsPlan) {
         Promise.resolve(fetchJson('/api/user/team/members'))
           .then((rows) => {
             const scoped = (Array.isArray(rows) ? rows : []).filter((m) => Array.isArray(m.project_ids) && m.project_ids.includes(projectId))
@@ -36,17 +38,17 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
           .catch(() => setEnvironmentOptions([]))
       }
     }
-  }, [open, projectName, isOwner, projectId])
+  }, [open, projectName, isOwner, projectId, hasTeamsPlan])
 
   useEffect(() => {
-    if (!open || !selectedMemberId) {
+    if (!open || !selectedMemberId || !hasTeamsPlan) {
       setMemberEnvSelection(new Set())
       return
     }
     Promise.resolve(fetchJson(`/api/user/projects/${projectId}/members/${selectedMemberId}/environments`))
       .then((rows) => setMemberEnvSelection(new Set(Array.isArray(rows) ? rows : [])))
       .catch(() => setMemberEnvSelection(new Set()))
-  }, [open, selectedMemberId, projectId])
+  }, [open, selectedMemberId, projectId, hasTeamsPlan])
 
   return (
     <>
@@ -178,7 +180,7 @@ export function ProjectSettingsModal({ projectId, me, projectName, isOwner, onPr
               </CollapsibleSection>
             )}
 
-            {isOwner && (
+            {isOwner && hasTeamsPlan && (
               <CollapsibleSection
                 title="Environment access"
                 open={sectionOpen.environmentAccess}

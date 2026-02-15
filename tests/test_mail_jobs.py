@@ -216,6 +216,62 @@ def test_deliver_job_missing_recipient_raises(db_session):
         _deliver_job(db_session, job)
 
 
+def test_deliver_job_error_alert_skips_duplicate_within_90_seconds(db_session, monkeypatch):
+    """Second digest for same project+env within 90s is skipped to avoid duplicate emails."""
+    project = _create_project_with_owner(db_session)
+    owner = db_session.get(models.User, project.owner_user_id)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    window_end = now
+    last_sent = now - timedelta(seconds=30)
+    db_session.add(
+        models.AlertScheduleState(
+            project_id=project.id,
+            environment="development",
+            last_sent_at=last_sent,
+        )
+    )
+    db_session.add(
+        models.Event(
+            project_id=project.id,
+            timestamp=now - timedelta(minutes=5),
+            level="error",
+            message="err",
+            environment="development",
+            release=None,
+            server_name=None,
+            fingerprint="fp",
+            payload={"message": "err"},
+        )
+    )
+    db_session.commit()
+
+    sent_called = []
+
+    def _fake_send(**kw):
+        sent_called.append(1)
+
+    monkeypatch.setattr("xrayradar_server.mail_jobs._send_via_resend", _fake_send)
+    job = models.EmailJob(
+        job_type="error_alert",
+        payload={
+            "recipient_emails": [owner.email],
+            "project_name": project.name,
+            "project_id": project.id,
+            "environment": "development",
+            "triggered_at": window_end.isoformat(),
+        },
+        status="pending",
+        attempts=0,
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+
+    _deliver_job(db_session, job)
+
+    assert sent_called == [], "should not send when we already sent for this project+env within 90s"
+
+
 def test_deliver_job_error_alert_skips_empty_digest(db_session, monkeypatch):
     """Empty digest (no issues in window) is not sent - avoids duplicate empty emails."""
     project = _create_project_with_owner(db_session)

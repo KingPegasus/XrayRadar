@@ -79,8 +79,8 @@ flowchart LR
 ## Plan limits
 
 - **Free:** No email alerts. `get_alert_recipients` returns no one for projects owned by a Free user; GET alert-settings returns `enabled=False`, `min_cooldown_minutes=None`; PATCH with `enabled=True` returns 400.
-- **Basic:** Email alerts allowed; minimum cooldown **10 minutes**.
-- **Teams / Teams Pro:** Email alerts allowed; minimum cooldown **1 minute**.
+- **Basic:** Email alerts allowed (project-level only); minimum cooldown **10 minutes**. Environment-specific alert settings are not available.
+- **Teams / Teams Pro:** Email alerts allowed; minimum cooldown **1 minute**. Environment-specific alert settings (env-level enabled, cooldown, recipients) are available; only these plans can access or configure `environment_settings` in GET/PATCH alert-settings.
 
 ## User API
 

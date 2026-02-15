@@ -7,10 +7,6 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 ![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
 ![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98%65-brightgreen?style=flat-square)
 
-**Current Coverage:**
-- **Backend (Python)**: 99% - All tests passing ✓
-- **Frontend (React)**: 97.87% - All tests passing ✓
-
 > Coverage is calculated in CI. To check locally (from repo root):  
 > **Backend:** `uv run pytest --cov=src/xrayradar_server --cov-report=term`  
 > **Frontend:** `cd xrayradar-web && npm run test:coverage`  
@@ -449,7 +445,9 @@ Endpoints:
 - `POST /auth/reset-password` — Set new password with token from email (body: `{"token":"...","new_password":"..."}`)
 - `GET /auth/verify-email?token=...` — Verify email from signup/resend link
 - `POST /auth/resend-verification` — Resend verification email (requires session)
-- `GET /api/me` — Current user info (requires session cookie)
+- `GET /api/me` — Current user info when logged in (returns user object); returns `200` with body `null` when unauthenticated (no 401).
+
+The marketing site is served from the backend and includes `robots.txt` (Allow /) for crawler guidance.
 
 ## Client dashboard
 

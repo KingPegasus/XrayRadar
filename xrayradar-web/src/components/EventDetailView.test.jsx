@@ -222,7 +222,6 @@ describe('EventDetailView', () => {
     }
     render(<EventDetailView event={event} />)
     expect(screen.getByRole('button', { name: /Copy JSON payload/i })).toBeInTheDocument()
-    expect(screen.getByText('Copy')).toBeInTheDocument()
   })
 
   it('copies payload to clipboard when Copy is clicked', async () => {
@@ -237,7 +236,7 @@ describe('EventDetailView', () => {
     fireEvent.click(screen.getByRole('button', { name: /Copy JSON payload/i }))
     expect(writeText).toHaveBeenCalledWith(JSON.stringify(event.payload, null, 2))
     await waitFor(() => {
-      expect(screen.getByText('Copied!')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Copied/i })).toBeInTheDocument()
     })
   })
 
@@ -252,9 +251,9 @@ describe('EventDetailView', () => {
     render(<EventDetailView event={event} />)
     fireEvent.click(screen.getByRole('button', { name: /Copy JSON payload/i }))
     expect(writeText).toHaveBeenCalled()
-    // Should revert to "Copy" on failure
+    // Should revert to copy state on failure (button shows original aria-label again)
     await waitFor(() => {
-      expect(screen.getByText('Copy')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Copy JSON payload/i })).toBeInTheDocument()
     })
   })
 

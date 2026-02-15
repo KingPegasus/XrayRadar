@@ -11,6 +11,8 @@ export const SDK_FRAMEWORKS = {
   ],
   js: [
     { id: 'node', name: 'Node.js', logoId: 'node' },
+    { id: 'express', name: 'Express', logoId: 'express' },
+    { id: 'koa', name: 'Koa', logoId: 'koa' },
     { id: 'react', name: 'React', logoId: 'react' },
     { id: 'nextjs', name: 'Next.js', logoId: 'nextjs' },
   ],
@@ -92,7 +94,48 @@ init({
   authToken: "<token>",
 });
 
-captureException(new Error("Something broke"));`,
+captureException(new Error("Something broke"));
+// Optional: Express/Koa middleware — init then
+//   app.use(expressRequestHandler(client)),
+//   app.use(expressErrorHandler(client))
+// or koaMiddleware(client). See docs.`,
+  },
+  js_express: {
+    label: 'Express',
+    code: `npm install @xrayradar/node
+
+import express from "express";
+import { init, expressRequestHandler, expressErrorHandler } from "@xrayradar/node";
+
+const app = express();
+const client = init({
+  dsn: "https://xrayradar.com/<project_id>",
+  authToken: "<token>",
+});
+
+app.use(expressRequestHandler(client));
+// ... your routes ...
+app.use(expressErrorHandler(client));
+
+app.listen(3000);`,
+  },
+  js_koa: {
+    label: 'Koa',
+    code: `npm install @xrayradar/node
+
+import Koa from "koa";
+import { init, koaMiddleware } from "@xrayradar/node";
+
+const app = new Koa();
+const client = init({
+  dsn: "https://xrayradar.com/<project_id>",
+  authToken: "<token>",
+});
+
+app.use(koaMiddleware(client));
+// ... your other middleware and routes ...
+
+app.listen(3000);`,
   },
   js_react: {
     label: 'React',
@@ -141,3 +184,12 @@ export default function RootLayout({ children }) {
 
 export const PYPI_URL = 'https://pypi.org/project/xrayradar/'
 export const NPM_URL = 'https://www.npmjs.com/package/@xrayradar/node'
+
+/** NPM package page per JS framework (for "View on npm" link). */
+export const NPM_URL_BY_FRAMEWORK = {
+  node: 'https://www.npmjs.com/package/@xrayradar/node',
+  express: 'https://www.npmjs.com/package/@xrayradar/node',
+  koa: 'https://www.npmjs.com/package/@xrayradar/node',
+  react: 'https://www.npmjs.com/package/@xrayradar/react',
+  nextjs: 'https://www.npmjs.com/package/@xrayradar/nextjs',
+}

@@ -112,7 +112,7 @@ sequenceDiagram
 ## Alert routing by environment
 
 - Base alert settings remain project-level (`project_alert_settings`).
-- Optional environment-level overrides:
+- Optional environment-level overrides (available only for **Teams** and **Teams Pro** plans):
   - `project_alert_environment_settings` (enabled, cooldown override)
   - `project_alert_environment_recipients` (extra env-scoped recipients)
 - Alert subject/body can include environment context to reduce operator confusion.

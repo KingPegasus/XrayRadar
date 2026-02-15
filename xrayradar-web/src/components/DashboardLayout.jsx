@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import '../styles/dashboard.css'
 import { Link } from './Link'
 import { Logo } from './Logo'
 import { EmailVerificationBanner } from './EmailVerificationBanner'
@@ -10,7 +11,7 @@ export function DashboardLayout({ me, onLogout, children }) {
       <EmailVerificationBanner me={me} />
       <header className="nav">
         <div className="container navInner">
-          <Link className="brand" to="/">
+          <Link className="brand" to="/" aria-label="XrayRadar, home">
             {!logoError && (
               <span className="logo" aria-hidden="true">
                 <Logo width={230} height={44} onError={() => setLogoError(true)} />

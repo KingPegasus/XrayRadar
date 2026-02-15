@@ -896,7 +896,7 @@ describe('TokensPage', () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith('secret-xyz')
     })
-    expect(screen.getByText('Copied')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Copied/i })).toBeInTheDocument()
   })
 
   it('shows error when clipboard copy fails', async () => {

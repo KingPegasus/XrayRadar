@@ -80,7 +80,8 @@ def test_require_user_unauthorized_when_user_row_missing(client_and_db, monkeypa
     client.cookies.set("xrayradar_user_session", cookie)
 
     r = client.get("/api/me")
-    assert r.status_code == 401
+    assert r.status_code == 200
+    assert r.json() is None
 
 
 def test_user_auth_invalid_inputs(client_and_db):

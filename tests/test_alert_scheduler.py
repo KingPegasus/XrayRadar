@@ -54,6 +54,14 @@ def _create_project(db):
     return project
 
 
+def _set_project_owner_plan(db, project, plan):
+    owner = db.get(models.User, project.owner_user_id)
+    assert owner is not None
+    owner.plan = plan
+    db.add(owner)
+    db.commit()
+
+
 def test_scheduler_enqueues_when_cooldown_elapsed_and_new_events_exist(db_session):
     project = _create_project(db_session)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -177,6 +185,7 @@ def test_scheduler_dedupes_repeated_runs_same_window(db_session):
 
 def test_scheduler_enqueues_environment_specific_scope(db_session):
     project = _create_project(db_session)
+    _set_project_owner_plan(db_session, project, "Teams")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     db_session.add(
         models.ProjectAlertSettings(
@@ -411,6 +420,7 @@ def test_enqueue_error_alert_job_stores_event_seen_at(db_session):
 
 def test_scheduler_project_scope_excludes_events_owned_by_enabled_env_scope(db_session):
     project = _create_project(db_session)
+    _set_project_owner_plan(db_session, project, "Teams")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     db_session.add(
         models.ProjectAlertSettings(
@@ -479,6 +489,7 @@ def test_scheduler_project_scope_excludes_events_owned_by_enabled_env_scope(db_s
 
 def test_scheduler_project_scope_still_includes_events_without_environment(db_session):
     project = _create_project(db_session)
+    _set_project_owner_plan(db_session, project, "Teams")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     db_session.add(
         models.ProjectAlertSettings(
@@ -538,6 +549,7 @@ def test_scheduler_project_scope_still_includes_events_without_environment(db_se
 
 def test_scheduler_project_scope_includes_events_for_env_without_own_config(db_session):
     project = _create_project(db_session)
+    _set_project_owner_plan(db_session, project, "Teams")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     db_session.add(
         models.ProjectAlertSettings(
@@ -593,4 +605,64 @@ def test_scheduler_project_scope_includes_events_for_env_without_own_config(db_s
     ).scalars().first()
     assert job is not None
     assert job.payload.get("environment") is None
+
+
+def test_scheduler_ignores_environment_scopes_for_basic_plan(db_session):
+    project = _create_project(db_session)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentSetting(
+            project_id=project.id,
+            environment="development",
+            enabled=True,
+            cooldown_minutes=1,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentRecipient(
+            project_id=project.id,
+            environment="development",
+            email="dev@example.com",
+        )
+    )
+    db_session.add(
+        models.AlertScheduleState(
+            project_id=project.id,
+            environment="",
+            last_sent_at=now - timedelta(minutes=10),
+            last_evaluated_at=now - timedelta(minutes=9),
+            last_event_seen_at=now - timedelta(minutes=10),
+        )
+    )
+    db_session.add(
+        models.Event(
+            project_id=project.id,
+            timestamp=now - timedelta(seconds=10),
+            level="error",
+            message="dev only",
+            environment="development",
+            release=None,
+            server_name=None,
+            fingerprint="fp-dev-basic",
+            payload={"message": "dev only"},
+        )
+    )
+    db_session.commit()
+
+    enqueued = evaluate_due_alerts(now=now)
+    assert enqueued == 1
+    jobs = db_session.execute(
+        select(models.EmailJob).where(models.EmailJob.job_type == "error_alert")
+    ).scalars().all()
+    assert len(jobs) == 1
+    # Basic users get project-level digests only (no environment-scoped email)
+    assert jobs[0].payload.get("environment") is None
 

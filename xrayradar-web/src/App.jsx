@@ -1,18 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { usePathname } from './hooks/usePathname'
 import { navigate } from './utils/navigation'
 import { fetchMe } from './utils/api'
-import { LoginPage } from './pages/LoginPage'
-import { LandingPage } from './pages/LandingPage'
-import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
-import { TermsOfServicePage } from './pages/TermsOfServicePage'
-import { VerifyEmailPage } from './pages/VerifyEmailPage'
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
-import { ResetPasswordPage } from './pages/ResetPasswordPage'
-import { AcceptInvitePage } from './pages/AcceptInvitePage'
-import { DashboardLayout } from './components/DashboardLayout'
-import { DashboardRouter } from './routes/DashboardRouter'
-import { SignupModal } from './components/SignupModal'
+
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })))
+const LandingPage = lazy(() => import('./pages/LandingPage').then((m) => ({ default: m.LandingPage })))
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage').then((m) => ({ default: m.PrivacyPolicyPage })))
+const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage').then((m) => ({ default: m.TermsOfServicePage })))
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })))
+const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage').then((m) => ({ default: m.AcceptInvitePage })))
+const DashboardLayout = lazy(() => import('./components/DashboardLayout').then((m) => ({ default: m.DashboardLayout })))
+const DashboardRouter = lazy(() => import('./routes/DashboardRouter').then((m) => ({ default: m.DashboardRouter })))
+const SignupModal = lazy(() => import('./components/SignupModal').then((m) => ({ default: m.SignupModal })))
 
 export default function App() {
   const path = usePathname()
@@ -29,8 +30,8 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
-    let idleId = null
     let timeoutId = null
+    let loadHandlerRef = null
 
     const loadMe = () => {
       fetchMe()
@@ -48,26 +49,28 @@ export default function App() {
       setMeLoaded(false)
       loadMe()
     } else {
-      // Keep first paint focused on marketing/public pages and hydrate auth in idle time.
+      // Defer /api/me until after load so it's not on the critical request chain (network dependency tree).
       setMeLoaded(true)
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        idleId = window.requestIdleCallback(() => {
+      if (typeof window !== 'undefined') {
+        const onDone = () => {
           if (!cancelled) fetchMe().then((m) => !cancelled && setMe(m))
-        }, { timeout: 2500 })
-      } else {
-        timeoutId = window.setTimeout(() => {
-          if (!cancelled) fetchMe().then((m) => !cancelled && setMe(m))
-        }, 1200)
+        }
+        if (document.readyState === 'complete') {
+          timeoutId = window.setTimeout(onDone, 0)
+        } else {
+          window.addEventListener('load', onDone, { once: true })
+          loadHandlerRef = onDone
+        }
       }
     }
 
     return () => {
       cancelled = true
-      if (typeof window !== 'undefined' && idleId !== null && 'cancelIdleCallback' in window) {
-        window.cancelIdleCallback(idleId)
-      }
       if (timeoutId !== null) {
         window.clearTimeout(timeoutId)
+      }
+      if (loadHandlerRef !== null && typeof window !== 'undefined') {
+        window.removeEventListener('load', loadHandlerRef)
       }
     }
   }, [path])

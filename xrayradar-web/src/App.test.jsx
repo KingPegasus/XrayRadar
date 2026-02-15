@@ -1,7 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Suspense } from 'react'
 import App from './App'
+
+// Wrap App in Suspense so lazy-loaded routes (DashboardLayout, LoginPage, etc.) don't throw
+// "A component suspended while responding to synchronous input"
+function renderApp(ui = <App />, options = {}) {
+  return render(ui, {
+    wrapper: ({ children }) => <Suspense fallback={null}>{children}</Suspense>,
+    ...options,
+  })
+}
 
 // Mock fetch globally
 global.fetch = vi.fn()
@@ -35,7 +45,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for fetch to complete
     await waitFor(() => {
@@ -52,7 +62,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for fetch and use more specific query
     await waitFor(() => {
@@ -67,7 +77,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for initial render
     await waitFor(() => {
@@ -94,7 +104,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     await waitFor(() => {
       expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
@@ -116,7 +126,7 @@ describe('App', () => {
       json: async () => ({ id: 1, email: 'test@example.com' }),
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
@@ -147,7 +157,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Sign out/i })).toBeInTheDocument()
@@ -186,7 +196,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Sign out/i })).toBeInTheDocument()
@@ -223,7 +233,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith('/login')
@@ -244,7 +254,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    const { container } = render(<App />)
+    const { container } = renderApp()
 
     // Should render nothing while loading
     await waitFor(() => {
@@ -271,7 +281,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /Projects/i })).toBeInTheDocument()
@@ -295,7 +305,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText(/Forgot password/i)).toBeInTheDocument()
@@ -321,7 +331,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText(/Set new password/i)).toBeInTheDocument()
@@ -345,7 +355,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Privacy Policy/i })).toBeInTheDocument()
@@ -369,7 +379,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Terms of Service/i })).toBeInTheDocument()
@@ -403,7 +413,7 @@ describe('App', () => {
       return Promise.reject(new Error('Unexpected fetch'))
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText(/Verifying your email/i)).toBeInTheDocument()
@@ -433,7 +443,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith('/login?next=' + encodeURIComponent('/accept-invite'))
@@ -456,7 +466,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(navigate).toHaveBeenCalledWith('/login?next=' + encodeURIComponent('/accept-invite?token=abc'))
@@ -482,7 +492,7 @@ describe('App', () => {
       configurable: true,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText(/Accepting invite/i)).toBeInTheDocument()
@@ -496,7 +506,7 @@ describe('App', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
 
     await waitFor(() => {
       expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
@@ -540,7 +550,7 @@ describe('SignupModal', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for initial render
     await waitFor(() => {
@@ -573,7 +583,7 @@ describe('SignupModal', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for initial render
     await waitFor(() => {
@@ -625,7 +635,7 @@ describe('LoginPage', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for fetch to complete and form to render
     await waitFor(() => {
@@ -649,7 +659,7 @@ describe('LoginPage', () => {
       status: 401,
     })
 
-    render(<App />)
+    renderApp()
     
     // Wait for form to render
     await waitFor(() => {

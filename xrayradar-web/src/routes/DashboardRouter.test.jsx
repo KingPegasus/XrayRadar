@@ -41,48 +41,48 @@ vi.mock('../pages/DashboardHome', () => ({
 describe('DashboardRouter', () => {
   const me = { email: 'test@example.com' }
 
-  it('renders DashboardHome (overview) for /dashboard', () => {
+  it('renders DashboardHome (overview) for /dashboard', async () => {
     render(<DashboardRouter path="/dashboard" me={me} />)
-    expect(screen.getByText(/DashboardHome:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/DashboardHome:/i)).toBeInTheDocument()
   })
 
-  it('renders ProjectsPage for /dashboard/projects', () => {
+  it('renders ProjectsPage for /dashboard/projects', async () => {
     render(<DashboardRouter path="/dashboard/projects" me={me} />)
-    expect(screen.getByText(/ProjectsPage:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/ProjectsPage:/i)).toBeInTheDocument()
   })
 
-  it('renders TokensPage for /dashboard/tokens', () => {
+  it('renders TokensPage for /dashboard/tokens', async () => {
     render(<DashboardRouter path="/dashboard/tokens" me={me} />)
-    expect(screen.getByText(/TokensPage:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/TokensPage:/i)).toBeInTheDocument()
   })
 
-  it('renders SettingsPage for /dashboard/settings', () => {
+  it('renders SettingsPage for /dashboard/settings', async () => {
     render(<DashboardRouter path="/dashboard/settings" me={me} />)
-    expect(screen.getByText(/SettingsPage:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/SettingsPage:/i)).toBeInTheDocument()
   })
 
-  it('renders TeamPage for /dashboard/team', () => {
+  it('renders TeamPage for /dashboard/team', async () => {
     render(<DashboardRouter path="/dashboard/team" me={me} />)
-    expect(screen.getByText(/TeamPage:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/TeamPage:/i)).toBeInTheDocument()
   })
 
-  it('renders ProjectIssuesPage for /dashboard/projects/:id', () => {
+  it('renders ProjectIssuesPage for /dashboard/projects/:id', async () => {
     render(<DashboardRouter path="/dashboard/projects/123" me={me} />)
-    expect(screen.getByText(/ProjectIssuesPage: 123/i)).toBeInTheDocument()
+    expect(await screen.findByText(/ProjectIssuesPage: 123/i)).toBeInTheDocument()
   })
 
-  it('renders IssueDetailPage for /dashboard/projects/:id/issues/:fingerprint', () => {
+  it('renders IssueDetailPage for /dashboard/projects/:id/issues/:fingerprint', async () => {
     render(<DashboardRouter path="/dashboard/projects/123/issues/abc123" me={me} />)
-    expect(screen.getByText(/IssueDetailPage: 123 - abc123/i)).toBeInTheDocument()
+    expect(await screen.findByText(/IssueDetailPage: 123 - abc123/i)).toBeInTheDocument()
   })
 
-  it('renders EventDetailPage for /dashboard/projects/:id/issues/:fingerprint/events/:eventId', () => {
+  it('renders EventDetailPage for /dashboard/projects/:id/issues/:fingerprint/events/:eventId', async () => {
     render(<DashboardRouter path="/dashboard/projects/123/issues/abc123/events/event456" me={me} />)
-    expect(screen.getByText(/EventDetailPage: 123 - abc123 - event456/i)).toBeInTheDocument()
+    expect(await screen.findByText(/EventDetailPage: 123 - abc123 - event456/i)).toBeInTheDocument()
   })
 
-  it('renders DashboardHome as fallback', () => {
+  it('renders DashboardHome as fallback', async () => {
     render(<DashboardRouter path="/dashboard/unknown" me={me} />)
-    expect(screen.getByText(/DashboardHome:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/DashboardHome:/i)).toBeInTheDocument()
   })
 })

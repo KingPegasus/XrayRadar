@@ -29,6 +29,10 @@ MAX_BREADCRUMBS = 100
 MAX_BREADCRUMB_MESSAGE_LENGTH = 1024
 
 
+def _is_teams_plan(plan: str | None) -> bool:
+    return (plan or "").strip() in {"Teams", "Teams Pro"}
+
+
 def normalize_breadcrumbs(event: dict) -> dict:
     """Normalize breadcrumbs in event payload: limit count, truncate messages."""
     breadcrumbs = event.get("breadcrumbs")
@@ -191,13 +195,14 @@ def store_event(
 
     # Email alerts: non-blocking, only for error level
     if level == "error":
-        recipients = get_alert_recipients(db, project, environment=env)
-        if recipients and should_send_alert(db, project_id, fp, str(level), environment=env):
+        alert_environment = env if (user is not None and _is_teams_plan(user.plan)) else None
+        recipients = get_alert_recipients(db, project, environment=alert_environment)
+        if recipients and should_send_alert(db, project_id, fp, str(level), environment=alert_environment):
             enqueued = enqueue_error_alert_job(
                 db,
                 project=project,
                 recipients=recipients,
-                environment=env,
+                environment=alert_environment,
                 triggered_at=datetime.now(timezone.utc).replace(tzinfo=None),
             )
             if enqueued:

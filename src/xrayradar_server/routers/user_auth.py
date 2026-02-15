@@ -13,7 +13,7 @@ from ..email_templates import render_password_reset_email, render_verification_e
 from ..email_log import log_email
 from ..mail_jobs import enqueue_email_job, process_pending_email_jobs
 from ..rate_limit import get_rate_limit_key_auth, limiter
-from ..deps import require_user
+from ..deps import get_optional_user, require_user
 from ..models import User
 from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin, UserOut, UserSignup
 
@@ -348,8 +348,10 @@ def resend_verification(
     return {"ok": True, "message": "Verification email sent"}
 
 
-@router.get("/api/me", response_model=UserOut)
-def me(user: User = Depends(require_user)) -> UserOut:
+@router.get("/api/me", response_model=UserOut | None)
+def me(user: User | None = Depends(get_optional_user)) -> UserOut | None:
+    if user is None:
+        return None
     return UserOut(
         id=user.id,
         email=user.email,

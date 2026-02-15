@@ -37,6 +37,19 @@ def require_user(
     return row
 
 
+def get_optional_user(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Return current user if logged in, else None. Does not raise 401."""
+    email = get_user_session_email(request)
+    if not email:
+        return None
+    q = select(User).where(User.email == email)
+    row = db.execute(q).scalars().first()
+    return row
+
+
 def require_verified_user(user: User = Depends(require_user)) -> User:
     """Require the user to have a verified email for sensitive actions."""
     if not user.email_verified:
