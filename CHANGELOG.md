@@ -5,7 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.0] - 2026-02-08
+## [0.14.0] - 2026-02-17
+
+### Added
+
+- **User onboarding guidance**
+  - Added a richer "Getting started" checklist on Dashboard Home for signed-up users with direct actions to Projects and Tokens.
+- **Post-verification onboarding email**
+  - Added a one-time onboarding email sent immediately after successful email verification with setup steps (create project, request token, assign token access).
+
+### Fixed
+
+- **Alert settings (Basic plan)**
+  - PATCH alert-settings no longer returns "Environment-based alert settings are available only on Teams and Teams Pro plans" when a Basic user saves project-level settings (e.g. additional emails). Sending an empty `environment_settings` list is now allowed; only non-empty environment settings are restricted to Teams/Teams Pro.
+- **Post-verification “Go to dashboard”**
+  - `GET /auth/verify-email` now sets the session cookie so the user is logged in after verifying their email; “Go to dashboard” on the success page works without signing in again. Dashboard route redirect to login when unauthenticated is performed in a `useEffect` to avoid a blank frame.
+
+## [0.13.0] - 2026-02-15
 
 ### Added
 
@@ -322,6 +338,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.14.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.10.0...v0.11.0

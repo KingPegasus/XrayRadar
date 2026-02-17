@@ -8,7 +8,9 @@ vi.mock('../utils/api')
 
 describe('EmailAlertSettings', () => {
   const me = { email: 'test@example.com', email_verified: true }
+  const meBasic = { ...me, plan: 'Basic' }
   const meTeams = { ...me, plan: 'Teams' }
+  const meTeamsPro = { ...me, plan: 'Teams Pro' }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -185,10 +187,30 @@ describe('EmailAlertSettings', () => {
     expect(screen.queryByRole('button', { name: /Save alert settings/i })).not.toBeInTheDocument()
   })
 
+  it('Teams Pro plan: shows 1 min cooldown and environment-specific section when envs exist', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([{ environment: 'production' }])
+      }
+      return Promise.resolve({
+        enabled: false,
+        cooldown_minutes: null,
+        additional_emails: [],
+        min_cooldown_minutes: 1,
+        environment_settings: [],
+      })
+    })
+    render(<EmailAlertSettings projectId={1} me={meTeamsPro} projectName="Proj" />)
+    await waitFor(() => {
+      expect(screen.getByText(/Minimum 1 minute for your plan/i)).toBeInTheDocument()
+      expect(screen.getByText(/Environment-specific alerts/i)).toBeInTheDocument()
+    })
+  })
+
   it('renders compact mode when compact=true (Basic plan)', async () => {
     api.fetchJson.mockResolvedValue({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
 
-    render(<EmailAlertSettings projectId={1} me={me} compact />)
+    render(<EmailAlertSettings projectId={1} me={meBasic} compact />)
 
     await waitFor(() => expect(screen.getByText(/Email alerts for errors/i)).toBeInTheDocument())
     expect(screen.queryByText(/^Email alerts$/)).not.toBeInTheDocument()
@@ -501,6 +523,134 @@ describe('EmailAlertSettings', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Cooldown minimum for your plan is 10 minutes/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows loading state with compact=true', async () => {
+    let resolveSettings
+    const settingsPromise = new Promise((resolve) => {
+      resolveSettings = () => resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/alert-settings') return settingsPromise
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      return Promise.resolve({})
+    })
+
+    render(<EmailAlertSettings projectId={1} me={meBasic} compact />)
+
+    expect(screen.getByText(/Loading…/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^Email alerts$/)).not.toBeInTheDocument()
+
+    resolveSettings()
+    await waitFor(() => expect(screen.getByText(/Email alerts for errors/i)).toBeInTheDocument())
+  })
+
+  it('loads with enabled true from API', async () => {
+    api.fetchJson.mockResolvedValue({
+      enabled: true,
+      cooldown_minutes: 15,
+      additional_emails: [],
+      min_cooldown_minutes: 10,
+    })
+
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/Email alerts for errors/i)).toBeChecked()
+      expect(screen.getByDisplayValue('15')).toBeInTheDocument()
+    })
+  })
+
+  it('does not add empty email via Add button', async () => {
+    const user = userEvent.setup()
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
+
+    await waitFor(() => expect(screen.getByPlaceholderText(/Add email/i)).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: /Add/i }))
+
+    expect(screen.queryByText(/@/)).not.toBeInTheDocument()
+  })
+
+  it('shows non-compact header and project-wide digest text when compact is false', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
+
+    render(<EmailAlertSettings projectId={1} me={meTeams} projectName="MyProject" />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/^Email alerts$/)).toBeInTheDocument()
+      expect(screen.getByText(/Project-wide alerts \(all events\)/i)).toBeInTheDocument()
+      expect(screen.getByText(/Sends: \[XrayRadar\] MyProject: Error digest/i)).toBeInTheDocument()
+    })
+  })
+
+  it('save success shows saved message and clears error', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url, opts) => {
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([])
+      if (opts?.method === 'PATCH') return Promise.resolve({})
+      return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
+
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: /Save alert settings/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Alert settings saved\./i)).toBeInTheDocument()
+    })
+  })
+
+  it('filters out empty environment names from options', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') {
+        return Promise.resolve([
+          { environment: 'prod' },
+          { environment: '' },
+          { environment: '  ' },
+        ])
+      }
+      return Promise.resolve({
+        enabled: false,
+        cooldown_minutes: null,
+        additional_emails: [],
+        min_cooldown_minutes: 10,
+        environment_settings: [],
+      })
+    })
+
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Environment-specific alerts/i)).toBeInTheDocument()
+      expect(screen.getByPlaceholderText(/Add email for prod/i)).toBeInTheDocument()
+    })
+  })
+
+  it('handles environments fetch failure and still loads settings', async () => {
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/environments') return Promise.reject(new Error('Network error'))
+      return Promise.resolve({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: 10 })
+    })
+
+    render(<EmailAlertSettings projectId={1} me={meTeams} />)
+
+    await waitFor(() => expect(screen.getByText(/Email alerts for errors/i)).toBeInTheDocument())
+  })
+
+  it('Free plan upgrade link uses empty string when me has no email', async () => {
+    api.fetchJson.mockResolvedValue({ enabled: false, cooldown_minutes: null, additional_emails: [], min_cooldown_minutes: null })
+
+    render(<EmailAlertSettings projectId={1} me={{}} />)
+
+    await waitFor(() => {
+      const link = screen.getByRole('link', { name: /Contact to Upgrade/i })
+      expect(link).toHaveAttribute('href', expect.stringContaining('Email:%20'))
     })
   })
 })

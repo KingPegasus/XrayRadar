@@ -7,6 +7,10 @@ def _safe_logo_url(base_url: str) -> str | None:
     base = (base_url or "").strip().rstrip("/")
     if not (base.startswith("http://") or base.startswith("https://")):
         return None
+    # Don't embed logo for localhost — recipients can't load it; avoids broken image in email
+    lower = base.lower()
+    if "localhost" in lower or "127.0.0.1" in lower:
+        return None
     return f"{base}/logo.svg"
 
 
@@ -101,6 +105,30 @@ def render_verification_email(*, base_url: str, token: str) -> tuple[str, str]:
         body_html=body,
         cta_text="Verify email",
         cta_href=link,
+        base_url=base_url,
+    )
+
+
+def render_post_verification_getting_started_email(*, base_url: str) -> tuple[str, str]:
+    dashboard_url = f"{base_url.rstrip('/')}/dashboard"
+    projects_url = f"{base_url.rstrip('/')}/dashboard/projects"
+    tokens_url = f"{base_url.rstrip('/')}/dashboard/tokens"
+    subject = "[XrayRadar] Getting started in 3 steps"
+    body = (
+        '<p style="margin:0 0 12px;color:#cbd5e1;">Your email is verified. You are ready to start tracking errors.</p>'
+        '<ol style="margin:0 0 12px 18px;color:#cbd5e1;">'
+        '<li style="margin-bottom:6px;">Create your first project.</li>'
+        '<li style="margin-bottom:6px;">Request an API token from your admin.</li>'
+        '<li style="margin-bottom:6px;">Grant token access to your project from the Tokens page.</li>'
+        '</ol>'
+        f'<p style="margin:0;color:#94a3b8;">Projects: <a href="{projects_url}" style="color:#93c5fd;">{projects_url}</a></p>'
+        f'<p style="margin:6px 0 0;color:#94a3b8;">Tokens: <a href="{tokens_url}" style="color:#93c5fd;">{tokens_url}</a></p>'
+    )
+    return subject, _shell(
+        title="Set up XrayRadar",
+        body_html=body,
+        cta_text="Open dashboard",
+        cta_href=dashboard_url,
         base_url=base_url,
     )
 

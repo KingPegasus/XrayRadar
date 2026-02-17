@@ -14,6 +14,7 @@ from .db import SessionLocal
 from .email_templates import (
     render_error_digest_email,
     render_password_reset_email,
+    render_post_verification_getting_started_email,
     render_team_invite_email,
     render_verification_email,
 )
@@ -197,6 +198,15 @@ def _deliver_job(db: Session, job: EmailJob) -> None:
         )
         _send_via_resend(to_email=recipient, subject=subject, html=html)
         log_email(db, "team_invite", recipient, success=True, user_id=user_id)
+        return
+
+    if job_type == "post_verification_onboarding":
+        user_id = payload.get("user_id")
+        subject, html = render_post_verification_getting_started_email(
+            base_url=XRAYRADAR_BASE_URL,
+        )
+        _send_via_resend(to_email=recipient, subject=subject, html=html)
+        log_email(db, "post_verification_onboarding", recipient, success=True, user_id=user_id)
         return
 
     raise RuntimeError(f"Unknown email job type: {job_type}")

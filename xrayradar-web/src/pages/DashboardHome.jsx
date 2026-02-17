@@ -166,11 +166,21 @@ export function DashboardHome({ me }) {
               <div className="dashboardEmptyCard card">
                 <div className="cardTitle">Getting started</div>
                 <p className="cardText">
-                  Create a project, request a token from an admin, then send test events and inspect grouped issues.
+                  Set up your first project in three steps.
                 </p>
-                <Link to="/dashboard/projects" className="button" style={{ marginTop: 12, display: 'inline-block' }}>
-                  Go to Projects
-                </Link>
+                <ol className="cardText" style={{ marginTop: 10, marginBottom: 0, paddingLeft: 18 }}>
+                  <li>Create a project in Projects.</li>
+                  <li>Request a token from an admin in Tokens.</li>
+                  <li>Assign token access to your project from Tokens.</li>
+                </ol>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                  <Link to="/dashboard/projects" className="button" style={{ display: 'inline-block' }}>
+                    Create project
+                  </Link>
+                  <Link to="/dashboard/tokens" className="button" style={{ display: 'inline-block' }}>
+                    Request and assign token
+                  </Link>
+                </div>
               </div>
             )}
           </>

@@ -159,9 +159,9 @@ Cookie security note:
 
 - `RESEND_API_KEY` — Resend API key. If unset, no emails are sent (verification, password reset, or alerts); the app continues to work.
 - `RESEND_FROM_EMAIL` — From address for all emails (e.g. `alerts@xrayradar.com`); must be a verified sending domain in Resend.
-- `XRAYRADAR_BASE_URL` — Base URL for links in emails (verification, password reset, alert links). Defaults to `http://localhost:8001` if unset. In production set to e.g. `https://xrayradar.com`.
+- `XRAYRADAR_BASE_URL` — Base URL for links and the logo in emails (verification, password reset, alert links). Defaults to `http://localhost:8001` if unset. **In production set this to your public app URL** (e.g. `https://xrayradar.com`) so the logo and links work when recipients open the email; a localhost URL will not load in their client.
 
-When Resend is not configured, signup and password reset still work; users just won't receive verification or reset emails.
+When Resend is not configured, signup and password reset still work; users just won't receive verification/reset emails or the post-verification onboarding email.
 
 **Alert scheduler (in-process by default):**
 
@@ -434,7 +434,7 @@ The marketing site (`/`) includes signup and login:
 - **Login**: Click "Sign in" in the top navbar → `/login`
 - **Forgot password**: From the login page, use "Forgot password?" → `/forgot-password`. A reset link is sent by email (if Resend is configured).
 - **Reset password**: Users open the link from the email → `/reset-password?token=...` and set a new password. Links expire in 1 hour.
-- **Email verification**: After signup, users can verify their email via the link in the verification email → `/verify-email?token=...`
+- **Email verification**: After signup, users can verify their email via the link in the verification email → `/verify-email?token=...`. On first verification they also receive a one-time “getting started” email with setup steps (create project, request token, assign token). See [Onboarding](docs/architecture/onboarding.md) for details.
 
 Endpoints:
 

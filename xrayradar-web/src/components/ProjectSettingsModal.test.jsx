@@ -9,7 +9,9 @@ vi.mock('../utils/api')
 
 describe('ProjectSettingsModal', () => {
   const me = { email: 'test@example.com', email_verified: true }
+  const meBasic = { ...me, plan: 'Basic' }
   const meTeams = { ...me, plan: 'Teams' }
+  const meTeamsPro = { ...me, plan: 'Teams Pro' }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -90,6 +92,55 @@ describe('ProjectSettingsModal', () => {
 
     expect(screen.queryByText(/Environment access/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Save environment access/i })).not.toBeInTheDocument()
+  })
+
+  it('Basic plan: no Environment access section, Email alerts section shown', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/projects/1/alert-settings') {
+        return Promise.resolve({
+          enabled: false,
+          cooldown_minutes: null,
+          additional_emails: [],
+          min_cooldown_minutes: 10,
+          environment_settings: [],
+        })
+      }
+      return Promise.reject(new Error('Unexpected'))
+    })
+    render(<ProjectSettingsModal projectId={1} me={meBasic} projectName="My Project" isOwner />)
+    await user.click(screen.getByRole('button', { name: /Project settings/i }))
+    await waitFor(() => expect(screen.getByText('Project settings')).toBeInTheDocument())
+    expect(screen.queryByText(/Environment access/i)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/Email alerts/i).length).toBeGreaterThanOrEqual(1)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Save alert settings/i })).toBeInTheDocument()
+    })
+  })
+
+  it('Teams Pro plan: shows Environment access section like Teams', async () => {
+    const user = userEvent.setup()
+    api.fetchJson.mockImplementation((url) => {
+      if (url === '/api/user/team/members') return Promise.resolve([{ user_id: 2, email: 'member@example.com', project_ids: [1] }])
+      if (url === '/api/user/projects/1/environments') return Promise.resolve([{ environment: 'production' }])
+      if (url === '/api/user/projects/1/members/2/environments') return Promise.resolve(['production'])
+      if (url === '/api/user/projects/1/alert-settings') {
+        return Promise.resolve({
+          enabled: false,
+          cooldown_minutes: null,
+          additional_emails: [],
+          min_cooldown_minutes: 1,
+          environment_settings: [],
+        })
+      }
+      return Promise.reject(new Error('Unexpected'))
+    })
+    render(<ProjectSettingsModal projectId={1} me={meTeamsPro} projectName="My Project" isOwner />)
+    await user.click(screen.getByRole('button', { name: /Project settings/i }))
+    await waitFor(() => expect(screen.getByText('Project settings')).toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Save environment access/i })).toBeInTheDocument()
+    })
   })
 
   it('does not show email alert settings for non-owner', async () => {

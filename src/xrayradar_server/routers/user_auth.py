@@ -40,6 +40,23 @@ def _get_user_id_by_email(db: Session, email: str) -> int | None:
         return None
 
 
+def _set_session_cookie(response: Response, user: User) -> None:
+    """Set the session cookie so the user is logged in."""
+    s = get_session_serializer()
+    session_cookie = s.dumps(
+        {"email": user.email, "ts": int(datetime.now(timezone.utc).timestamp())}
+    )
+    response.set_cookie(
+        "xrayradar_user_session",
+        session_cookie,
+        httponly=True,
+        samesite="lax",
+        secure=cookie_secure(),
+        path="/",
+        max_age=60 * 60 * 24 * 30,
+    )
+
+
 def _send_verification_email(email: str, token: str) -> None:
     """Legacy direct sender kept for compatibility tests."""
     if not RESEND_API_KEY or not RESEND_FROM_EMAIL:
@@ -115,6 +132,17 @@ def _enqueue_password_reset_email(db: Session, *, email: str, token: str, user_i
         {
             "recipient_email": email,
             "token": token,
+            "user_id": user_id,
+        },
+    )
+
+
+def _enqueue_post_verification_onboarding_email(db: Session, *, email: str, user_id: int) -> None:
+    enqueue_email_job(
+        db,
+        "post_verification_onboarding",
+        {
+            "recipient_email": email,
             "user_id": user_id,
         },
     )
@@ -211,20 +239,7 @@ def login(
     row.last_login_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.commit()
 
-    s = get_session_serializer()
-    session_cookie = s.dumps(
-        {"email": row.email, "ts": int(datetime.now(timezone.utc).timestamp())}
-    )
-    response.set_cookie(
-        "xrayradar_user_session",
-        session_cookie,
-        httponly=True,
-        samesite="lax",
-        secure=cookie_secure(),
-        path="/",
-        max_age=60 * 60 * 24 * 30,
-    )
-
+    _set_session_cookie(response, row)
     return UserOut(
         id=row.id,
         email=row.email,
@@ -300,10 +315,12 @@ def reset_password(
 @limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def verify_email(
     request: Request,
+    response: Response,
     token: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Verify email using the token from the verification email."""
+    """Verify email using the token from the verification email. Sets session so user is logged in."""
     if not token or len(token) < 10:
         raise HTTPException(status_code=400, detail="Invalid verification token")
 
@@ -315,12 +332,16 @@ def verify_email(
         raise HTTPException(status_code=400, detail="Invalid or expired verification token")
 
     if user.email_verified:
+        _set_session_cookie(response, user)
         return {"ok": True, "message": "Email already verified"}
 
     user.email_verified = True
     user.verification_token = None  # Clear token after use
     db.commit()
+    _enqueue_post_verification_onboarding_email(db, email=user.email, user_id=user.id)
+    background_tasks.add_task(process_pending_email_jobs)
 
+    _set_session_cookie(response, user)
     return {"ok": True, "message": "Email verified successfully"}
 
 

@@ -202,6 +202,38 @@ def test_deliver_job_team_invite(db_session, monkeypatch):
     assert "accept" in sent["html"].lower()
 
 
+def test_deliver_job_post_verification_onboarding(db_session, monkeypatch):
+    sent = {}
+
+    def _fake_send(*, to_email, subject, html):
+        sent["to_email"] = to_email
+        sent["subject"] = subject
+        sent["html"] = html
+
+    monkeypatch.setattr("xrayradar_server.mail_jobs._send_via_resend", _fake_send)
+    job = models.EmailJob(
+        job_type="post_verification_onboarding",
+        payload={"recipient_email": "new@test.com", "user_id": 9},
+        status="pending",
+        attempts=0,
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    _deliver_job(db_session, job)
+    assert sent["to_email"] == "new@test.com"
+    assert "getting started" in sent["subject"].lower()
+    assert "Create your first project" in sent["html"]
+    logs = db_session.execute(
+        select(models.EmailLog).where(
+            models.EmailLog.email_type == "post_verification_onboarding",
+            models.EmailLog.recipient_email == "new@test.com",
+            models.EmailLog.success.is_(True),
+        )
+    ).scalars().all()
+    assert len(logs) >= 1
+
+
 def test_deliver_job_missing_recipient_raises(db_session):
     job = models.EmailJob(
         job_type="verification",

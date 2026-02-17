@@ -10,7 +10,7 @@ The dashboard (user-facing web app) uses email/password authentication with a si
 2. **Login:** `POST /auth/login` — Validates credentials, updates `last_login_at`, sets `xrayradar_user_session` cookie.
 3. **Session:** Protected routes use the cookie to resolve the user via `require_user` (reads `get_user_session_email`, loads `User` from DB).
 4. **Verified user:** Sensitive actions (e.g. token requests, deletion request) use `require_verified_user`; unverified users get 403 with a message to verify email.
-5. **Verify email:** `GET /auth/verify-email?token=...` — One-time link from email; sets `User.email_verified = True` and clears `verification_token`.
+5. **Verify email:** `GET /auth/verify-email?token=...` — One-time link from email; sets `User.email_verified = True` and clears `verification_token`, and sets `xrayradar_user_session` so the user is logged in (no need to sign in again; “Go to dashboard” works). On first successful verification, a one-time onboarding email (“getting started in 3 steps”) is enqueued and sent in the background (see [Onboarding](onboarding.md)).
 6. **Resend verification:** `POST /auth/resend-verification` — Requires login; sends a new verification email in the background.
 7. **Forgot password:** `POST /auth/forgot-password` — Accepts `{ "email": "..." }`. If user exists, generates a secure token, sets `password_reset_token` and `password_reset_expires_at` (1 hour), and sends a reset email via Resend. Always returns 200 with a generic message to avoid email enumeration.
 8. **Reset password:** `POST /auth/reset-password` — Accepts `{ "token": "...", "new_password": "..." }`. Validates token and expiry, updates `password_hash`, clears token and expiry. Returns 400 for invalid/expired token.
@@ -27,5 +27,6 @@ The dashboard (user-facing web app) uses email/password authentication with a si
 
 ## Related
 
+- [Onboarding](onboarding.md) — Getting started guidance in the dashboard and post-verification email
 - [Email alerts](email-alerts.md) — Resend is also used for error alerts
 - [Account deletion](account-deletion.md) — Deletion request requires verified user

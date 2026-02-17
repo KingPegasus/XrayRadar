@@ -16,6 +16,7 @@ This folder documents the architecture of XrayRadar features. Each document desc
 | [Environments, Env ACL, and notifications](environments-acl-notifications.md) | Per-project environment views, environment access control, and durable email delivery |
 | [Issue status](issue-status.md) | Issue lifecycle management: status tracking, release-based resolution, auto-reopen |
 | [Auth](auth.md) | User authentication: signup, login, session, email verification, password reset |
+| [Onboarding](onboarding.md) | Getting started guidance: dashboard card and post-verification email |
 | [Account deletion](account-deletion.md) | User deletion requests and admin fulfillment |
 | [Admin](admin.md) | Admin UI (GitHub OAuth) and admin API (tokens, users, token requests, deletion requests) |
 | [Teams / Teams Pro access](pro-team-access.md) | Teams plans: team members, project assignment, invites, accept-invite flow, multi-team membership |

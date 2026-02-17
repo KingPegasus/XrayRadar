@@ -276,10 +276,25 @@ def test_verify_email_success(app_and_client):
     r = client.get(f"/auth/verify-email?token={token}")
     assert r.status_code == 200
     assert r.json().get("message", "").lower().find("verified") >= 0
+    # Verify-email sets session cookie so user is logged in (Go to dashboard works without re-login)
+    assert "xrayradar_user_session" in (r.headers.get("set-cookie") or "").lower()
 
     r = client.get("/api/me")
     assert r.status_code == 200
     assert r.json().get("email_verified") is True
+    db = dbmod.SessionLocal()
+    try:
+        onboarding_jobs = db.execute(
+            select(models.EmailJob).where(
+                models.EmailJob.job_type == "post_verification_onboarding",
+            )
+        ).scalars().all()
+        assert any(
+            (job.payload or {}).get("recipient_email") == "verify@example.com"
+            for job in onboarding_jobs
+        )
+    finally:
+        db.close()
 
 
 def test_verify_email_already_verified(app_and_client):
@@ -310,6 +325,59 @@ def test_verify_email_already_verified(app_and_client):
     r = client.get(f"/auth/verify-email?token={token}")
     assert r.status_code == 200
     assert "already verified" in r.json().get("message", "").lower()
+    # Already-verified path also sets session so user stays logged in
+    assert "xrayradar_user_session" in (r.headers.get("set-cookie") or "").lower()
+    db = dbmod.SessionLocal()
+    try:
+        onboarding_jobs = db.execute(
+            select(models.EmailJob).where(
+                models.EmailJob.job_type == "post_verification_onboarding",
+            )
+        ).scalars().all()
+        assert all(
+            (job.payload or {}).get("recipient_email") != "already@example.com"
+            for job in onboarding_jobs
+        )
+    finally:
+        db.close()
+
+
+def test_verify_email_logs_in_fresh_client(app_and_client):
+    """Verify-email sets session so a client with no prior cookies (e.g. new tab) is logged in."""
+    from sqlalchemy import select
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    mainmod, client = app_and_client
+    client.post(
+        "/auth/signup",
+        json={"email": "fresh@example.com", "password": "password123", "plan": "Free"},
+    )
+    db = dbmod.SessionLocal()
+    try:
+        u = db.execute(
+            select(models.User).where(models.User.email == "fresh@example.com")
+        ).scalars().first()
+        assert u is not None
+        token = u.verification_token
+        assert token is not None
+    finally:
+        db.close()
+
+    # New client simulates opening the verify link in a new tab (no signup/login cookies)
+    fresh_client = _ClientWithIP(TestClient(mainmod.app), _unique_auth_ip())
+    r = fresh_client.get(f"/auth/verify-email?token={token}")
+    assert r.status_code == 200
+    assert "verified" in r.json().get("message", "").lower()
+
+    # Same client now has session; /api/me returns the user
+    r = fresh_client.get("/api/me")
+    assert r.status_code == 200
+    data = r.json()
+    assert data is not None
+    assert data.get("email") == "fresh@example.com"
+    assert data.get("email_verified") is True
 
 
 def test_resend_verification_already_verified(app_and_client):
