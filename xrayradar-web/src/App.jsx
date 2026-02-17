@@ -75,6 +75,14 @@ export default function App() {
     }
   }, [path])
 
+  const refreshMe = useCallback(() => fetchMe().then((m) => setMe(m)), [])
+
+  // Redirect to login when on dashboard but not authenticated (e.g. after full-page load)
+  const isDashboard = path === '/dashboard' || path.startsWith('/dashboard/')
+  useEffect(() => {
+    if (isDashboard && meLoaded && !me) navigate('/login')
+  }, [isDashboard, meLoaded, me])
+
   const doLogout = async () => {
     try {
       await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
@@ -120,18 +128,13 @@ export default function App() {
     return <TermsOfServicePage />
   }
 
-  const refreshMe = useCallback(() => fetchMe().then((m) => setMe(m)), [])
-
   if (path === '/verify-email') {
     return <VerifyEmailPage onVerified={refreshMe} />
   }
 
   if (path === '/dashboard' || path.startsWith('/dashboard/')) {
     if (!meLoaded) return null
-    if (!me) {
-      navigate('/login')
-      return null
-    }
+    if (!me) return null
     return (
       <DashboardLayout me={me} onLogout={doLogout}>
         <DashboardRouter path={path} me={me} />

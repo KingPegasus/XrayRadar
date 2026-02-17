@@ -58,8 +58,12 @@ describe('DashboardHome', () => {
     render(<DashboardHome me={me} />)
     await waitFor(() => {
       expect(screen.getByText('Getting started')).toBeInTheDocument()
-      expect(screen.getByText(/Create a project, request a token/i)).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: /Go to Projects/i })).toBeInTheDocument()
+      expect(screen.getByText(/Set up your first project in three steps/i)).toBeInTheDocument()
+      expect(screen.getByText(/Create a project in Projects/i)).toBeInTheDocument()
+      expect(screen.getByText(/Request a token from an admin in Tokens/i)).toBeInTheDocument()
+      expect(screen.getByText(/Assign token access to your project from Tokens/i)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Create project/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /Request and assign token/i })).toBeInTheDocument()
     })
   })
 
@@ -143,6 +147,33 @@ describe('DashboardHome', () => {
       expect(screen.getByText(/↓ -20%/)).toBeInTheDocument()
       expect(screen.getByText(/↓ -10%/)).toBeInTheDocument()
     })
+  })
+
+  it('getting started links point to projects and tokens', async () => {
+    const me = { email: 'test@example.com' }
+    render(<DashboardHome me={me} />)
+    await waitFor(() => {
+      expect(screen.getByText('Getting started')).toBeInTheDocument()
+    })
+    const createLink = screen.getByRole('link', { name: /Create project/i })
+    const tokenLink = screen.getByRole('link', { name: /Request and assign token/i })
+    expect(createLink).toHaveAttribute('href', '/dashboard/projects')
+    expect(tokenLink).toHaveAttribute('href', '/dashboard/tokens')
+  })
+
+  it('shows trend same when direction is same', async () => {
+    vi.mocked(fetchJson).mockResolvedValueOnce({
+      ...emptyStats,
+      trend_7d: { current: 100, previous: 100, percent_change: 0, direction: 'same' },
+      trend_30d: { current: 100, previous: 100, percent_change: 0, direction: 'same' },
+    })
+    render(<DashboardHome me={{ email: 'u@x.com' }} />)
+    await waitFor(() => {
+      expect(screen.getByText(/7d trend/i)).toBeInTheDocument()
+      expect(screen.getByText(/30d trend/i)).toBeInTheDocument()
+    })
+    const zeroPct = screen.getAllByText(/0%/)
+    expect(zeroPct.length).toBeGreaterThanOrEqual(1)
   })
 
   it('shows trend up with positive percent change', async () => {

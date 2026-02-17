@@ -451,3 +451,75 @@ def test_user_update_alert_settings_environment_settings_rejected_for_basic(app_
     )
     assert r.status_code == 400
     assert "teams" in r.json().get("detail", "").lower()
+
+
+def test_user_get_alert_settings_teams_pro_returns_min_cooldown_1(app_and_client_with_user):
+    """GET alert-settings as Teams Pro returns min_cooldown_minutes=1 (same as Teams)."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Teams Pro")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    r = client.get(f"/api/user/projects/{project_id}/alert-settings")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["min_cooldown_minutes"] == 1
+
+
+def test_user_update_alert_settings_teams_pro_environment_settings(app_and_client_with_user):
+    """Teams Pro plan can set environment-based alert settings (same as Teams)."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Teams Pro")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={
+            "enabled": True,
+            "environment_settings": [
+                {
+                    "environment": "production",
+                    "enabled": True,
+                    "cooldown_minutes": 1,
+                    "additional_emails": ["prod@example.com"],
+                },
+            ],
+        },
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["environment_settings"]) == 1
+    assert data["environment_settings"][0]["environment"] == "production"
+    assert data["environment_settings"][0]["cooldown_minutes"] == 1
+    assert "prod@example.com" in data["environment_settings"][0]["additional_emails"]
+
+
+def test_user_basic_plan_can_save_additional_emails_without_environment_settings(app_and_client_with_user):
+    """Basic plan can save project-level additional_emails; no environment_settings sent."""
+    mainmod, client, user = app_and_client_with_user
+    db = dbmod.SessionLocal()
+    try:
+        _set_plan(db, user["id"], "Basic")
+    finally:
+        db.close()
+    r1 = client.post("/api/user/projects", json={"name": "P"})
+    assert r1.status_code == 200
+    project_id = r1.json()["id"]
+    r = client.patch(
+        f"/api/user/projects/{project_id}/alert-settings",
+        json={"enabled": True, "cooldown_minutes": 15, "additional_emails": ["alerts@example.com"]},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["enabled"] is True
+    assert data["additional_emails"] == ["alerts@example.com"]
+    assert data["environment_settings"] == []

@@ -1,8 +1,11 @@
 """Utility for logging email send attempts to the EmailLog table."""
 
+import logging
 from sqlalchemy.orm import Session
 
 from .models import EmailLog
+
+logger = logging.getLogger(__name__)
 
 
 def log_email(
@@ -26,5 +29,12 @@ def log_email(
         )
         db.add(log_entry)
         db.commit()
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         db.rollback()
+        logger.warning(
+            "Failed to write email_log (email_type=%s, recipient=%s): %s",
+            email_type,
+            recipient_email[:50] if recipient_email else "",
+            e,
+            exc_info=True,
+        )

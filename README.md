@@ -4,7 +4,7 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 ## Test Coverage
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-97%25-brightgreen?style=flat-square)
 ![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98%65-brightgreen?style=flat-square)
 
 > Coverage is calculated in CI. To check locally (from repo root):  
@@ -133,6 +133,16 @@ Example start command:
 alembic -c alembic.ini upgrade head && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
+**How to check that migrations run on Render:**
+
+1. In the [Render Dashboard](https://dashboard.render.com), open your **Web Service** (the xrayradar-server app).
+2. Go to the **Settings** tab.
+3. **Start Command** (under "Build & Deploy"):
+   - **If you use Docker:** Leave Start Command **empty**. The image uses a default `CMD` that runs `alembic upgrade head` then `uvicorn`. If you set a custom Start Command, it **overrides** the Dockerfile `CMD` — so it must include migrations, e.g. `alembic -c alembic.ini upgrade head && uvicorn ...`.
+   - **If you do not use Docker:** Set Start Command to the example above (`alembic -c alembic.ini upgrade head && uvicorn ...`). The `alembic upgrade head` part must run before `uvicorn` so the DB schema is up to date at startup.
+4. **Environment:** Ensure `XRAYRADAR_DATABASE_URL` is set (and points to your Render Postgres or external DB). Migrations run against this database.
+5. After a deploy, open the **Logs** tab and look for Alembic output at startup (e.g. `INFO  [alembic.runtime.migration] Running upgrade ...`). If you see that, migrations ran. If the app starts without any migration lines, either the Start Command doesn’t include `alembic` or the Docker image’s default CMD was overridden.
+
 Required environment variables (typical):
 
 - `XRAYRADAR_DATABASE_URL`
@@ -159,9 +169,9 @@ Cookie security note:
 
 - `RESEND_API_KEY` — Resend API key. If unset, no emails are sent (verification, password reset, or alerts); the app continues to work.
 - `RESEND_FROM_EMAIL` — From address for all emails (e.g. `alerts@xrayradar.com`); must be a verified sending domain in Resend.
-- `XRAYRADAR_BASE_URL` — Base URL for links in emails (verification, password reset, alert links). Defaults to `http://localhost:8001` if unset. In production set to e.g. `https://xrayradar.com`.
+- `XRAYRADAR_BASE_URL` — Base URL for links and the logo in emails (verification, password reset, alert links). Defaults to `http://localhost:8001` if unset. **In production set this to your public app URL** (e.g. `https://xrayradar.com`) so the logo and links work when recipients open the email; a localhost URL will not load in their client.
 
-When Resend is not configured, signup and password reset still work; users just won't receive verification or reset emails.
+When Resend is not configured, signup and password reset still work; users just won't receive verification/reset emails or the post-verification onboarding email.
 
 **Alert scheduler (in-process by default):**
 
@@ -332,6 +342,8 @@ You can authenticate as admin using a DB token with `is_admin=true`:
 
 - header `X-Xrayradar-Token: <admin token>`
 
+**Admin dashboard email count:** The dashboard shows total and per-type email counts from the `email_logs` table. If emails are delivered but the count does not increase: (1) Ensure the `email_logs` table exists — run Alembic migrations (`alembic upgrade head`); migration `0007_email_log` adds it. (2) Ensure the admin UI and the app use the same database (`XRAYRADAR_DATABASE_URL`). (3) Check server logs for `Failed to write email_log` — if present, the DB insert is failing (e.g. missing table or connection issue).
+
 ### Create an admin token
 
 `POST /api/admin/tokens`
@@ -434,7 +446,7 @@ The marketing site (`/`) includes signup and login:
 - **Login**: Click "Sign in" in the top navbar → `/login`
 - **Forgot password**: From the login page, use "Forgot password?" → `/forgot-password`. A reset link is sent by email (if Resend is configured).
 - **Reset password**: Users open the link from the email → `/reset-password?token=...` and set a new password. Links expire in 1 hour.
-- **Email verification**: After signup, users can verify their email via the link in the verification email → `/verify-email?token=...`
+- **Email verification**: After signup, users can verify their email via the link in the verification email → `/verify-email?token=...`. On first verification they also receive a one-time “getting started” email with setup steps (create project, request token, assign token). See [Onboarding](docs/architecture/onboarding.md) for details.
 
 Endpoints:
 

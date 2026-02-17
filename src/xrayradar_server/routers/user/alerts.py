@@ -166,7 +166,7 @@ def user_update_alert_settings(
             db.delete(row)
         for email in normalized:
             db.add(ProjectAlertRecipient(project_id=project_id, email=email))
-    if payload.environment_settings is not None:
+    if payload.environment_settings is not None and len(payload.environment_settings) > 0:
         if not _is_teams_plan(user.plan):
             raise HTTPException(
                 status_code=400,

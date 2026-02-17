@@ -59,6 +59,7 @@ Goals:
   - `verification`
   - `password_reset`
   - `team_invite`
+  - `post_verification_onboarding` — one-time “getting started” email sent after successful email verification (see [Onboarding](onboarding.md)).
 
 ## Data model additions
 

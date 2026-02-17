@@ -187,6 +187,53 @@ def test_get_alert_recipients_ignores_environment_recipients_for_basic(db_sessio
     assert set(recipients) == {user.email}
 
 
+def test_get_alert_recipients_includes_environment_recipients_for_teams(db_session, project_with_owner):
+    """When owner is Teams and environment is passed, env-specific recipients are included."""
+    project, user = project_with_owner
+    user.plan = "Teams"
+    db_session.add(user)
+    db_session.add(
+        models.ProjectAlertEnvironmentRecipient(
+            project_id=project.id,
+            environment="production",
+            email="prod@example.com",
+        )
+    )
+    db_session.commit()
+    project = db_session.get(models.Project, project.id)
+    recipients = get_alert_recipients(db_session, project, environment="production")
+    assert set(recipients) == {user.email, "prod@example.com"}
+
+
+def test_get_project_alert_settings_uses_environment_override_for_teams(db_session, project_with_owner):
+    """When owner is Teams/Teams Pro and env row exists, return env-level enabled/cooldown."""
+    project, user = project_with_owner
+    user.plan = "Teams"
+    db_session.add(user)
+    db_session.add(
+        models.ProjectAlertSettings(
+            project_id=project.id,
+            enabled=True,
+            level_filter="error",
+            cooldown_minutes=30,
+        )
+    )
+    db_session.add(
+        models.ProjectAlertEnvironmentSetting(
+            project_id=project.id,
+            environment="staging",
+            enabled=False,
+            cooldown_minutes=5,
+        )
+    )
+    db_session.commit()
+    enabled, level_filter, cooldown = get_project_alert_settings(
+        db_session, project.id, environment="staging"
+    )
+    assert enabled is False
+    assert cooldown == 5
+
+
 def test_should_send_alert_disabled(db_session, project_with_owner):
     """When alerts disabled, should_send_alert returns False."""
     project, _ = project_with_owner
