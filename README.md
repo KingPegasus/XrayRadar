@@ -133,6 +133,16 @@ Example start command:
 alembic -c alembic.ini upgrade head && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
+**How to check that migrations run on Render:**
+
+1. In the [Render Dashboard](https://dashboard.render.com), open your **Web Service** (the xrayradar-server app).
+2. Go to the **Settings** tab.
+3. **Start Command** (under "Build & Deploy"):
+   - **If you use Docker:** Leave Start Command **empty**. The image uses a default `CMD` that runs `alembic upgrade head` then `uvicorn`. If you set a custom Start Command, it **overrides** the Dockerfile `CMD` — so it must include migrations, e.g. `alembic -c alembic.ini upgrade head && uvicorn ...`.
+   - **If you do not use Docker:** Set Start Command to the example above (`alembic -c alembic.ini upgrade head && uvicorn ...`). The `alembic upgrade head` part must run before `uvicorn` so the DB schema is up to date at startup.
+4. **Environment:** Ensure `XRAYRADAR_DATABASE_URL` is set (and points to your Render Postgres or external DB). Migrations run against this database.
+5. After a deploy, open the **Logs** tab and look for Alembic output at startup (e.g. `INFO  [alembic.runtime.migration] Running upgrade ...`). If you see that, migrations ran. If the app starts without any migration lines, either the Start Command doesn’t include `alembic` or the Docker image’s default CMD was overridden.
+
 Required environment variables (typical):
 
 - `XRAYRADAR_DATABASE_URL`
@@ -331,6 +341,8 @@ Admin endpoints live under `/api/admin/...`.
 You can authenticate as admin using a DB token with `is_admin=true`:
 
 - header `X-Xrayradar-Token: <admin token>`
+
+**Admin dashboard email count:** The dashboard shows total and per-type email counts from the `email_logs` table. If emails are delivered but the count does not increase: (1) Ensure the `email_logs` table exists — run Alembic migrations (`alembic upgrade head`); migration `0007_email_log` adds it. (2) Ensure the admin UI and the app use the same database (`XRAYRADAR_DATABASE_URL`). (3) Check server logs for `Failed to write email_log` — if present, the DB insert is failing (e.g. missing table or connection issue).
 
 ### Create an admin token
 

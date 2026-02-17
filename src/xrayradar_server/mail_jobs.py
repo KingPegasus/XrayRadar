@@ -236,11 +236,27 @@ def process_pending_email_jobs(limit: int = 25) -> None:
                 return
             raise
         for job in jobs:
+            payload = job.payload or {}
+            recipient = payload.get("recipient_email")
+            if recipient is None and payload.get("recipient_emails"):
+                recipient = f"{len(payload.get('recipient_emails', []))} recipients"
+            logger.info(
+                "Processing email job: job_id=%s type=%s recipient=%s",
+                job.id,
+                job.job_type,
+                recipient,
+            )
             try:
                 _deliver_job(db, job)
                 job.status = "sent"
                 job.processed_at = now
                 job.last_error = None
+                logger.info(
+                    "Email sent: job_id=%s type=%s recipient=%s",
+                    job.id,
+                    job.job_type,
+                    recipient,
+                )
             except Exception as e:  # noqa: BLE001
                 logger.warning("Failed to process email job %s: %s", job.id, e)
                 job.attempts = int(job.attempts or 0) + 1
