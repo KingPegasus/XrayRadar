@@ -4,7 +4,7 @@ Minimal FastAPI + Postgres backend for the `xrayradar` Python SDK.
 
 ## Test Coverage
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-99%25-brightgreen?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-97%25-brightgreen?style=flat-square)
 ![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-98%65-brightgreen?style=flat-square)
 
 > Coverage is calculated in CI. To check locally (from repo root):  
