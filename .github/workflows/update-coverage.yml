@@ -1,10 +1,7 @@
 name: Update Coverage Badges
 
+# Run manually to refresh badges (e.g. on main). PRs get badges updated by CI's update-badges job.
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -14,39 +11,12 @@ permissions:
 jobs:
   update-badges:
     runs-on: ubuntu-latest
-    # Only run if CI succeeded, or if it's a manual dispatch
-    if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'workflow_dispatch'
     steps:
-      - name: Get PR branch info
-        id: pr-info
-        if: github.event_name == 'workflow_run'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const workflowRun = context.payload.workflow_run;
-            const prNumber = workflowRun.pull_requests?.[0]?.number;
-            
-            if (prNumber) {
-              const pr = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-              });
-              core.setOutput('branch', pr.data.head.ref);
-              core.setOutput('is_pr', 'true');
-            } else {
-              core.setOutput('branch', workflowRun.head_branch || 'main');
-              core.setOutput('is_pr', 'false');
-            }
-
       - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # For PRs, checkout the PR branch; for workflow_run, use the branch from pr-info or head_branch
-          ref: ${{ github.event_name == 'pull_request' && github.head_ref || (github.event_name == 'workflow_run' && steps.pr-info.outputs.branch) || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch) || 'main' }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -130,25 +100,23 @@ jobs:
           import os
           import re
           
-          BACKEND_COV = os.environ['BACKEND_COV']
-          FRONTEND_COV = os.environ['FRONTEND_COV']
-          BACKEND_COLOR = os.environ['BACKEND_COLOR']
-          FRONTEND_COLOR = os.environ['FRONTEND_COLOR']
+          backend_cov = int(round(float(os.environ.get('BACKEND_COV', 0))))
+          frontend_cov = int(round(float(os.environ.get('FRONTEND_COV', 0))))
+          backend_color = os.environ.get('BACKEND_COLOR', 'red')
+          frontend_color = os.environ.get('FRONTEND_COLOR', 'red')
+          pct = '%25'  # percent sign in URL
           
           with open('README.md', 'r') as f:
               content = f.read()
           
-          # Update backend badge
           content = re.sub(
               r'!\[Backend Coverage\]\(https://img\.shields\.io/badge/backend%20coverage-[0-9.]+%25-[a-z]+\?style=flat-square\)',
-              f'![Backend Coverage](https://img.shields.io/badge/backend%20coverage-{BACKEND_COV}%25-{BACKEND_COLOR}?style=flat-square)',
+              f'![Backend Coverage](https://img.shields.io/badge/backend%20coverage-{backend_cov}{pct}-{backend_color}?style=flat-square)',
               content
           )
-          
-          # Update frontend badge
           content = re.sub(
               r'!\[Frontend Coverage\]\(https://img\.shields\.io/badge/frontend%20coverage-[0-9.]+%25-[a-z]+\?style=flat-square\)',
-              f'![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-{FRONTEND_COV}%25-{FRONTEND_COLOR}?style=flat-square)',
+              f'![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-{frontend_cov}{pct}-{frontend_color}?style=flat-square)',
               content
           )
           
@@ -156,31 +124,12 @@ jobs:
               f.write(content)
           EOF
 
-      - name: Determine branch and PR status
-        id: branch-info
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_run" ]; then
-            # Use pr-info output if available (for PRs), otherwise fall back to workflow_run head_branch
-            BRANCH="${{ steps.pr-info.outputs.branch }}"
-            if [ -z "$BRANCH" ]; then
-              BRANCH="${{ github.event.workflow_run.head_branch }}"
-            fi
-            echo "branch=${BRANCH:-main}" >> $GITHUB_OUTPUT
-            IS_PR="${{ steps.pr-info.outputs.is_pr }}"
-            echo "is_pr=${IS_PR:-false}" >> $GITHUB_OUTPUT
-          else
-            # For workflow_dispatch, use the actual branch (refs/heads/branch -> branch)
-            BRANCH="${{ github.ref_name }}"
-            echo "branch=${BRANCH:-main}" >> $GITHUB_OUTPUT
-            echo "is_pr=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Skip if main branch
         id: skip-main
         run: |
-          BRANCH="${{ steps.branch-info.outputs.branch }}"
+          BRANCH="${{ github.ref_name }}"
           if [ "$BRANCH" == "main" ] || [ "$BRANCH" == "master" ]; then
-            echo "Skipping README update on main branch"
+            echo "Skipping README update on main (use a branch to update badges via this workflow)"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
             echo "skip=false" >> $GITHUB_OUTPUT
@@ -201,7 +150,6 @@ jobs:
           git add README.md
           git commit -m "chore: update test coverage badges [skip ci]"
           
-          # Push to the PR branch
-          BRANCH="${{ steps.branch-info.outputs.branch }}"
-          echo "Pushing to PR branch: $BRANCH"
+          BRANCH="${{ github.ref_name }}"
+          echo "Pushing to branch: $BRANCH"
           git push origin HEAD:$BRANCH

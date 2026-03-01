@@ -37,12 +37,23 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml
 
+      - name: Extract backend coverage percentage
+        run: |
+          COV=$(python3 -c "import xml.etree.ElementTree as ET; r=ET.parse('coverage.xml').getroot(); print(round(float(r.get('line-rate',0))*100))")
+          echo "$COV" > backend-cov.txt
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: coverage-py3.12
           path: coverage.xml
           if-no-files-found: error
+
+      - name: Upload backend coverage percentage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-cov-txt
+          path: backend-cov.txt
 
   security:
     name: Security (pip-audit + bandit + npm audit)
@@ -107,7 +118,13 @@ jobs:
 
       - name: Run tests with coverage
         working-directory: xrayradar-web
-        run: npm run test:coverage -- --run
+        run: npm run test:coverage -- --run 2>&1 | tee coverage-out.txt
+
+      - name: Extract frontend coverage percentage
+        working-directory: xrayradar-web
+        run: |
+          COV=$(grep -E "All files" coverage-out.txt | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/,"",$2); print $2}' | head -1)
+          echo "${COV:-0}" > frontend-cov.txt
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -115,4 +132,100 @@ jobs:
           name: coverage-frontend
           path: xrayradar-web/coverage/
           if-no-files-found: warn
+
+      - name: Upload frontend coverage percentage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-cov-txt
+          path: xrayradar-web/frontend-cov.txt
+
+  update-badges:
+    name: Update coverage badges
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [tests, frontend-tests]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+
+      - name: Download backend coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-cov-txt
+
+      - name: Download frontend coverage percentage
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-cov-txt
+
+      - name: Update README with coverage badges
+        run: |
+          BACKEND_COV=$(cat backend-cov-txt/backend-cov.txt)
+          FRONTEND_COV=$(cat frontend-cov-txt/frontend-cov.txt)
+          # Default to 0 if empty
+          BACKEND_COV=${BACKEND_COV:-0}
+          FRONTEND_COV=${FRONTEND_COV:-0}
+
+          if (( $(echo "$BACKEND_COV >= 90" | bc -l) )); then
+            BACKEND_COLOR="brightgreen"
+          elif (( $(echo "$BACKEND_COV >= 75" | bc -l) )); then
+            BACKEND_COLOR="green"
+          elif (( $(echo "$BACKEND_COV >= 50" | bc -l) )); then
+            BACKEND_COLOR="yellow"
+          else
+            BACKEND_COLOR="red"
+          fi
+
+          if (( $(echo "$FRONTEND_COV >= 90" | bc -l) )); then
+            FRONTEND_COLOR="brightgreen"
+          elif (( $(echo "$FRONTEND_COV >= 75" | bc -l) )); then
+            FRONTEND_COLOR="green"
+          elif (( $(echo "$FRONTEND_COV >= 50" | bc -l) )); then
+            FRONTEND_COLOR="yellow"
+          else
+            FRONTEND_COLOR="red"
+          fi
+
+          BACKEND_COV="$BACKEND_COV" FRONTEND_COV="$FRONTEND_COV" \
+          BACKEND_COLOR="$BACKEND_COLOR" FRONTEND_COLOR="$FRONTEND_COLOR" \
+          python3 << 'PYEOF'
+          import os, re
+          backend_cov = int(round(float(os.environ.get('BACKEND_COV', 0))))
+          frontend_cov = int(round(float(os.environ.get('FRONTEND_COV', 0))))
+          backend_color = os.environ.get('BACKEND_COLOR', 'red')
+          frontend_color = os.environ.get('FRONTEND_COLOR', 'red')
+          # Percent sign in URL must be encoded as %25
+          pct = '%25'
+          with open('README.md', 'r') as f:
+              content = f.read()
+          content = re.sub(
+              r'!\[Backend Coverage\]\(https://img\.shields\.io/badge/backend%20coverage-[0-9.]+%25-[a-z]+\?style=flat-square\)',
+              f'![Backend Coverage](https://img.shields.io/badge/backend%20coverage-{backend_cov}{pct}-{backend_color}?style=flat-square)',
+              content
+          )
+          content = re.sub(
+              r'!\[Frontend Coverage\]\(https://img\.shields\.io/badge/frontend%20coverage-[0-9.]+%25-[a-z]+\?style=flat-square\)',
+              f'![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-{frontend_cov}{pct}-{frontend_color}?style=flat-square)',
+              content
+          )
+          with open('README.md', 'w') as f:
+              f.write(content)
+          PYEOF
+
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          if git diff --exit-code README.md; then
+            echo "No changes to README.md"
+            exit 0
+          fi
+          git add README.md
+          git commit -m "chore: update test coverage badges [skip ci]"
+          git push origin HEAD:${{ github.head_ref }}
 

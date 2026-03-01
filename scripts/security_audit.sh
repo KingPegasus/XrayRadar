@@ -167,8 +167,12 @@ else
     npm audit --json > "$NPM_AUDIT_REPORT" 2>&1 || true
     
     if [ -f "$NPM_AUDIT_REPORT" ] && [ -s "$NPM_AUDIT_REPORT" ]; then
-        # Check if it's valid JSON (not an error message)
-        if command -v jq &> /dev/null && jq -e '.metadata' "$NPM_AUDIT_REPORT" &> /dev/null 2>&1; then
+        # Check if it's valid JSON (not an error message); treat clean report as success even without jq
+        if grep -qE '"vulnerabilities":\s*\{\}' "$NPM_AUDIT_REPORT" 2>/dev/null && grep -qE '"total":\s*0' "$NPM_AUDIT_REPORT" 2>/dev/null; then
+            echo -e "${GREEN}✓ npm audit completed${NC}"
+            echo -e "${GREEN}  Found: 0 critical, 0 high, 0 moderate, 0 low${NC}"
+            echo "  Full report: $NPM_AUDIT_REPORT"
+        elif command -v jq &> /dev/null && jq -e '.metadata' "$NPM_AUDIT_REPORT" &> /dev/null 2>&1; then
             echo -e "${GREEN}✓ npm audit completed${NC}"
             CRITICAL=$(jq -r '.metadata.vulnerabilities.critical // 0' "$NPM_AUDIT_REPORT" 2>/dev/null || echo "0")
             HIGH=$(jq -r '.metadata.vulnerabilities.high // 0' "$NPM_AUDIT_REPORT" 2>/dev/null || echo "0")

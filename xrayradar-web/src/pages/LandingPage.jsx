@@ -12,14 +12,16 @@ import {
   PYPI_URL,
   NPM_URL,
   NPM_URL_BY_FRAMEWORK,
+  ANDROID_SDK_URL,
 } from '../utils/sdkFrameworks'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-javascript'
 import 'prismjs/components/prism-python'
+import 'prismjs/components/prism-java'
 import 'prismjs/themes/prism-tomorrow.css'
 
 const DEFAULT_LANG = 'python'
-const DEFAULT_FRAMEWORK = { python: 'fastapi', js: 'node' }
+const DEFAULT_FRAMEWORK = { python: 'fastapi', js: 'node', android: 'kotlin' }
 const TEAMS_ONLY_FEATURES = new Set([
   'Environment views + ACL',
   'Token environment scoping',
@@ -34,8 +36,8 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
   const frameworks = SDK_FRAMEWORKS[quickLang]
   const snippetKey = `${quickLang}_${quickFramework}`
   const snippet = QUICK_SETUP_SNIPPETS[snippetKey]
-  const prismLang = quickLang === 'python' ? 'python' : 'javascript'
-  const npmUrl = quickLang === 'js' ? (NPM_URL_BY_FRAMEWORK[quickFramework] || NPM_URL) : NPM_URL
+  const prismLang = quickLang === 'python' ? 'python' : (quickLang === 'android' ? 'java' : 'javascript')
+  const npmUrl = quickLang === 'js' ? (NPM_URL_BY_FRAMEWORK[quickFramework] || NPM_URL) : (quickLang === 'android' ? ANDROID_SDK_URL : NPM_URL)
 
   useEffect(() => {
     if (codeRef.current && snippet) Prism.highlightElement(codeRef.current)
@@ -136,6 +138,17 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                     >
                       JavaScript
                     </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={quickLang === 'android'}
+                      aria-controls="quick-setup-panel"
+                      id="tab-android"
+                      className={quickLang === 'android' ? 'quickSetupTab quickSetupTabLang quickSetupTabActive' : 'quickSetupTab quickSetupTabLang'}
+                      onClick={() => setLang('android')}
+                    >
+                      Android
+                    </button>
                   </div>
                 </div>
                 <div className="quickSetupLevel quickSetupLevelFramework">
@@ -185,6 +198,13 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                     </a>
                     <span style={{ opacity: 0.7 }}>Also works with Graphene Django</span>
                   </>
+                ) : quickLang === 'android' ? (
+                  <>
+                    <a href={ANDROID_SDK_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+                      View on GitHub →
+                    </a>
+                    <span style={{ opacity: 0.7 }}>Kotlin, minSdk 24+, Maven Central</span>
+                  </>
                 ) : (
                   <>
                     <a href={npmUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
@@ -202,7 +222,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
           <div className="container">
             <SectionHeader
               title="Integrate with your stack"
-              desc="Official SDKs for Python and JavaScript/TypeScript with first-class framework support."
+              desc="Official SDKs for Python, JavaScript/TypeScript, and Android with first-class framework support."
             />
             <div className="sdkGrid">
               <div className="sdkCard panel">
@@ -233,6 +253,21 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 </div>
                 <a href={NPM_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
                   View on npm →
+                </a>
+              </div>
+              <div className="sdkCard panel">
+                <h3 className="sdkCardTitle">Android / Kotlin</h3>
+                <p className="sdkCardDesc">Kotlin SDK on Maven Central — crash capture, breadcrumbs, offline queue, WorkManager retry.</p>
+                <div className="sdkFrameworks" role="list">
+                  {SDK_FRAMEWORKS.android.map((fw) => (
+                    <span key={fw.id} className="sdkFrameworkChip" role="listitem">
+                      <FrameworkLogo logoId={fw.logoId} size={24} alt={fw.name} />
+                      <span className="sdkFrameworkChipName">{fw.name}</span>
+                    </span>
+                  ))}
+                </div>
+                <a href={ANDROID_SDK_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
+                  View on GitHub →
                 </a>
               </div>
             </div>
@@ -386,6 +421,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 <a href="#pricing">Pricing</a>
                 <a href="https://pypi.org/project/xrayradar/" target="_blank" rel="noopener noreferrer">Python SDK</a>
                 <a href="https://www.npmjs.com/package/@xrayradar/node" target="_blank" rel="noopener noreferrer">JavaScript SDK</a>
+                <a href={ANDROID_SDK_URL} target="_blank" rel="noopener noreferrer">Android SDK</a>
                 <Link to="/privacy">Privacy Policy</Link>
                 <Link to="/terms">Terms of Service</Link>
                 <a href="mailto:dev@xrayradar.com">Contact</a>

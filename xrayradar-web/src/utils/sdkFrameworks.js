@@ -16,6 +16,9 @@ export const SDK_FRAMEWORKS = {
     { id: 'react', name: 'React', logoId: 'react' },
     { id: 'nextjs', name: 'Next.js', logoId: 'nextjs' },
   ],
+  android: [
+    { id: 'kotlin', name: 'Kotlin', logoId: 'kotlin' },
+  ],
 }
 
 /**
@@ -180,10 +183,36 @@ export default function RootLayout({ children }) {
   return <ErrorBoundary>{children}</ErrorBoundary>;
 }`,
   },
+  android_kotlin: {
+    label: 'Kotlin',
+    code: `// build.gradle.kts (app or library)
+dependencies {
+  implementation("com.xrayradar:xrayradar-android:0.2.0")
+}
+
+// Application.onCreate()
+import com.xrayradar.android.XrayRadar
+import com.xrayradar.android.XrayRadarOptions
+
+XrayRadar.init(
+  context = applicationContext,
+  options = XrayRadarOptions(
+    dsn = "https://xrayradar.com/<project_id>",
+    authToken = "<token>",
+    environment = "production",
+    release = BuildConfig.VERSION_NAME,
+    serverName = "android",
+  ),
+)
+
+XrayRadar.captureMessage("App started", level = "info")
+// Uncaught exceptions auto-captured. Optional: ActivityBreadcrumbsIntegration, NetworkBreadcrumbInterceptor`,
+  },
 }
 
 export const PYPI_URL = 'https://pypi.org/project/xrayradar/'
 export const NPM_URL = 'https://www.npmjs.com/package/@xrayradar/node'
+export const ANDROID_SDK_URL = 'https://github.com/KingPegasus/XrayRadar-Android-SDK'
 
 /** NPM package page per JS framework (for "View on npm" link). */
 export const NPM_URL_BY_FRAMEWORK = {
