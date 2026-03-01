@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-03-01
+
+### Added
+
+- **Android and Kotlin SDK support (frontend)**
+  - Landing page now includes Android/Kotlin as a supported SDK with quick-setup snippet, framework selector (Kotlin), and SDK card with feature summary and link to the [XrayRadar Android SDK](https://github.com/KingPegasus/XrayRadar-Android-SDK) repository.
+  - New Kotlin and Android logos in the framework picker and SDK section.
+- **CI coverage badge automation**
+  - CI workflow now extracts backend and frontend coverage percentages from test runs and uploads them as artifacts.
+  - New `update-badges` job (on pull requests) updates the README coverage badge URLs with the computed percentages and color, then commits the change to the PR branch.
+
+### Changed
+
+- **update-coverage.yml**
+  - Streamlined badge-update logic and removed unnecessary checks for a simpler manual refresh path.
+
+### Fixed
+
+- **Frontend coverage badge**
+  - Corrected the frontend coverage badge URL in README so it displays the proper shields.io badge.
+
 ## [0.14.0] - 2026-02-17
 
 ### Added
@@ -338,6 +359,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.15.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.11.0...v0.12.0
