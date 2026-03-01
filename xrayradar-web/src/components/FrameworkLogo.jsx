@@ -9,6 +9,8 @@ import expressLogo from '../assets/sdk-logos/Express.svg'
 import koaLogo from '../assets/sdk-logos/koa.svg'
 import reactLogo from '../assets/sdk-logos/react.svg'
 import nextjsLogo from '../assets/sdk-logos/nextjs.svg'
+import androidLogo from '../assets/sdk-logos/android.svg'
+import kotlinLogo from '../assets/sdk-logos/Kotlin.svg'
 
 const LOGOS = {
   fastapi: fastapiLogo,
@@ -19,6 +21,8 @@ const LOGOS = {
   koa: koaLogo,
   react: reactLogo,
   nextjs: nextjsLogo,
+  android: androidLogo,
+  kotlin: kotlinLogo,
 }
 
 export function FrameworkLogo({ logoId, size = 28, alt = '', className = '' }) {
