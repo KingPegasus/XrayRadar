@@ -165,8 +165,9 @@ jobs:
 
       - name: Update README with coverage badges
         run: |
-          BACKEND_COV=$(cat backend-cov-txt/backend-cov.txt)
-          FRONTEND_COV=$(cat frontend-cov-txt/frontend-cov.txt)
+          # download-artifact@v4 extracts to path (workspace); artifact content is at root
+          BACKEND_COV=$(cat backend-cov.txt)
+          FRONTEND_COV=$(cat frontend-cov.txt)
           # Default to 0 if empty
           BACKEND_COV=${BACKEND_COV:-0}
           FRONTEND_COV=${FRONTEND_COV:-0}
