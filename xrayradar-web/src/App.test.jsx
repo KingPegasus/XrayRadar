@@ -121,16 +121,24 @@ describe('App', () => {
   })
 
   it('shows dashboard link when authenticated', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ id: 1, email: 'test@example.com' }),
+    // Mock /api/me specifically so no other fetch steals the response
+    fetch.mockImplementation((url) => {
+      if (String(url).includes('/api/me')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 1, email: 'test@example.com' }),
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     })
-
-    renderApp()
-
-    await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Dashboard/i })).toBeInTheDocument()
-    })
+    try {
+      renderApp()
+      // findByRole retries until link appears (lazy LandingPage + me fetch)
+      const dashboardLink = await screen.findByRole('link', { name: /Dashboard/i }, { timeout: 5000 })
+      expect(dashboardLink).toBeInTheDocument()
+    } finally {
+      fetch.mockReset()
+    }
   })
 
   it('handles logout', async () => {
@@ -265,27 +273,34 @@ describe('App', () => {
   it('renders dashboard when authenticated', async () => {
     const mockMe = { id: 1, email: 'test@example.com' }
 
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockMe,
+    fetch.mockImplementation((url) => {
+      if (String(url).includes('/api/me')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockMe,
+        })
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`))
     })
+    try {
+      Object.defineProperty(window, 'location', {
+        value: {
+          pathname: '/dashboard',
+          href: '/dashboard',
+          assign: vi.fn(),
+          replace: vi.fn(),
+        },
+        writable: true,
+        configurable: true,
+      })
 
-    Object.defineProperty(window, 'location', {
-      value: {
-        pathname: '/dashboard',
-        href: '/dashboard',
-        assign: vi.fn(),
-        replace: vi.fn(),
-      },
-      writable: true,
-      configurable: true,
-    })
-
-    renderApp()
-
-    await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Projects/i })).toBeInTheDocument()
-    })
+      renderApp()
+      // findByRole retries until DashboardLayout + DashboardRouter lazy load and show Projects link
+      const projectsLink = await screen.findByRole('link', { name: /Projects/i }, { timeout: 5000 })
+      expect(projectsLink).toBeInTheDocument()
+    } finally {
+      fetch.mockReset()
+    }
   })
 
   it('renders ForgotPasswordPage when path is /forgot-password', async () => {

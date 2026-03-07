@@ -163,3 +163,69 @@ def render_team_invite_email(*, base_url: str, invite_token: str, inviter_email:
         cta_href=link,
         base_url=base_url,
     )
+
+
+def render_admin_new_user_email(
+    *,
+    base_url: str,
+    user_email: str,
+    plan: str,
+    user_id: int,
+    signed_up_at: datetime,
+) -> tuple[str, str]:
+    dashboard_url = f"{base_url.rstrip('/')}/admin"
+    signed_up_label = signed_up_at.isoformat(sep=" ", timespec="seconds")
+    subject = "[XrayRadar] New user signup"
+    body = (
+        '<p style="margin:0 0 12px;color:#cbd5e1;">A new user has signed up.</p>'
+        '<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;'
+        'background:#0f172a;border-radius:10px;overflow:hidden;">'
+        '<tbody>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Email</td><td style="padding:8px 10px;color:#e2e8f0;">{user_email}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Plan</td><td style="padding:8px 10px;color:#e2e8f0;">{plan}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">User ID</td><td style="padding:8px 10px;color:#e2e8f0;">{user_id}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Signed up at</td><td style="padding:8px 10px;color:#e2e8f0;">{signed_up_label}</td></tr>'
+        '</tbody></table>'
+    )
+    return subject, _shell(
+        title="New user signup",
+        body_html=body,
+        cta_text="Open admin dashboard",
+        cta_href=dashboard_url,
+        base_url=base_url,
+    )
+
+
+def render_admin_token_request_email(
+    *,
+    base_url: str,
+    user_email: str,
+    request_name: str,
+    request_note: str | None,
+    request_id: int,
+    requested_at: datetime,
+) -> tuple[str, str]:
+    """Email to admins when a user requests an API token."""
+    requests_url = f"{base_url.rstrip('/')}/admin#requests"
+    requested_label = requested_at.isoformat(sep=" ", timespec="seconds")
+    note_cell = (request_note or "").strip() or "—"
+    subject = "[XrayRadar] Token request"
+    body = (
+        '<p style="margin:0 0 12px;color:#cbd5e1;">A user has requested an API token.</p>'
+        '<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;'
+        'background:#0f172a;border-radius:10px;overflow:hidden;">'
+        '<tbody>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">User email</td><td style="padding:8px 10px;color:#e2e8f0;">{user_email}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Token name</td><td style="padding:8px 10px;color:#e2e8f0;">{request_name}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Note</td><td style="padding:8px 10px;color:#e2e8f0;">{note_cell}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Request ID</td><td style="padding:8px 10px;color:#e2e8f0;">{request_id}</td></tr>'
+        f'<tr><td style="padding:8px 10px;color:#93c5fd;">Requested at</td><td style="padding:8px 10px;color:#e2e8f0;">{requested_label}</td></tr>'
+        '</tbody></table>'
+    )
+    return subject, _shell(
+        title="Token request",
+        body_html=body,
+        cta_text="View token requests",
+        cta_href=requests_url,
+        base_url=base_url,
+    )

@@ -472,6 +472,112 @@ def test_signup_sends_verification_email_success(app_and_client):
             assert r.json()["email"] == "verifyemail@example.com"
 
 
+def test_signup_status_allowed_when_under_cap(app_and_client):
+    """GET /auth/signup-status returns allowed true when daily cap not reached."""
+    _, client = app_and_client
+    r = client.get("/auth/signup-status")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["allowed"] is True
+    assert data.get("message") is None
+
+
+def test_signup_status_not_allowed_when_cap_reached(app_and_client, monkeypatch):
+    """GET /auth/signup-status returns allowed false and message when daily cap reached."""
+    from datetime import datetime, timezone
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    monkeypatch.setattr("xrayradar_server.routers.user_auth.MAX_SIGNUPS_PER_DAY", 2)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db = dbmod.SessionLocal()
+    try:
+        for i in range(2):
+            u = models.User(
+                email=f"capstatus{i}@example.com",
+                password_hash="h",
+                plan="Free",
+                created_at=now,
+            )
+            db.add(u)
+        db.commit()
+    finally:
+        db.close()
+
+    _, client = app_and_client
+    r = client.get("/auth/signup-status")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["allowed"] is False
+    assert "daily" in (data.get("message") or "").lower()
+    assert "limit" in (data.get("message") or "").lower()
+
+
+def test_signup_503_when_max_signups_per_day_reached(app_and_client, monkeypatch):
+    """When MAX_SIGNUPS_PER_DAY is set and reached, signup returns 503."""
+    from datetime import datetime, timezone
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    monkeypatch.setattr("xrayradar_server.routers.user_auth.MAX_SIGNUPS_PER_DAY", 2)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    db = dbmod.SessionLocal()
+    try:
+        for i in range(2):
+            u = models.User(
+                email=f"cap{i}@example.com",
+                password_hash="h",
+                plan="Free",
+                created_at=now,
+            )
+            db.add(u)
+        db.commit()
+    finally:
+        db.close()
+
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "third@example.com", "password": "password123", "plan": "Free"},
+    )
+    assert r.status_code == 503
+    assert "daily" in r.json().get("detail", "").lower() or "limit" in r.json().get("detail", "").lower()
+
+
+def test_signup_enqueues_admin_new_user_job_when_admin_emails_configured(app_and_client, monkeypatch):
+    """When ADMIN_EMAILS is set, signup creates an admin_new_user email job."""
+    from sqlalchemy import select
+
+    import xrayradar_server.db as dbmod
+    import xrayradar_server.models as models
+
+    monkeypatch.setattr("xrayradar_server.mail_jobs.ADMIN_EMAILS", ["admin@test.com"])
+    _, client = app_and_client
+    r = client.post(
+        "/auth/signup",
+        json={"email": "newuser@example.com", "password": "password123", "plan": "Basic"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["email"] == "newuser@example.com"
+    assert body["plan"] == "Basic"
+
+    db = dbmod.SessionLocal()
+    try:
+        jobs = db.execute(
+            select(models.EmailJob).where(models.EmailJob.job_type == "admin_new_user")
+        ).scalars().all()
+        assert len(jobs) >= 1
+        job = next(j for j in jobs if (j.payload or {}).get("user_email") == "newuser@example.com")
+        assert job.payload["recipient_emails"] == ["admin@test.com"]
+        assert job.payload["plan"] == "Basic"
+        assert job.payload["user_id"] == body["id"]
+    finally:
+        db.close()
+
+
 def test_forgot_password_returns_200_always(app_and_client):
     """forgot_password always returns 200 to avoid email enumeration."""
     _, client = app_and_client

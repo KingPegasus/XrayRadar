@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 
 from xrayradar_server.email_templates import (
+    render_admin_new_user_email,
+    render_admin_token_request_email,
     render_error_digest_email,
     render_password_reset_email,
     render_post_verification_getting_started_email,
@@ -69,3 +71,49 @@ def test_render_post_verification_getting_started_email_content():
     assert f"{base}/dashboard/projects" in html
     assert f"{base}/dashboard/tokens" in html
     assert "Open dashboard" in html
+
+
+def test_render_admin_new_user_email():
+    """Admin new-user email includes subject, user email, plan, user ID, signed-up time, and admin dashboard CTA."""
+    base = "https://app.example.com"
+    signed_up_at = datetime(2025, 3, 7, 12, 0, 0, tzinfo=timezone.utc)
+    subject, html = render_admin_new_user_email(
+        base_url=base,
+        user_email="newuser@example.com",
+        plan="Teams",
+        user_id=42,
+        signed_up_at=signed_up_at,
+    )
+    assert subject == "[XrayRadar] New user signup"
+    assert "New user signup" in html
+    assert "newuser@example.com" in html
+    assert "Teams" in html
+    assert "42" in html
+    assert "2025-03-07 12:00:00" in html
+    assert f"{base}/admin" in html
+    assert "Open admin dashboard" in html
+    assert "A new user has signed up" in html
+
+
+def test_render_admin_token_request_email():
+    """Admin token-request email includes subject, user email, name, note, request ID, time, and CTA."""
+    base = "https://app.example.com"
+    requested_at = datetime(2025, 3, 7, 14, 30, 0, tzinfo=timezone.utc)
+    subject, html = render_admin_token_request_email(
+        base_url=base,
+        user_email="dev@example.com",
+        request_name="My SDK token",
+        request_note="For production backend",
+        request_id=5,
+        requested_at=requested_at,
+    )
+    assert subject == "[XrayRadar] Token request"
+    assert "Token request" in html
+    assert "dev@example.com" in html
+    assert "My SDK token" in html
+    assert "For production backend" in html
+    assert "5" in html
+    assert "2025-03-07 14:30:00" in html
+    assert f"{base}/admin#requests" in html
+    assert "View token requests" in html
+    assert "A user has requested an API token" in html

@@ -9,6 +9,7 @@ Public endpoints are rate limited to reduce abuse, brute force, and resource exh
 | Scope | Key function | Endpoints | Default limit |
 |-------|--------------|-----------|----------------|
 | Auth | `get_rate_limit_key_auth` (client IP) | signup, login, forgot-password, reset-password, verify-email, resend-verification | 5/minute |
+| Signup | `get_rate_limit_key_auth` (client IP) | signup only (stacked with auth limit) | 10/hour |
 | Event ingest | `get_rate_limit_key_token` (API token) | `POST /api/{project_id}/store/` | 100/minute |
 
 - **Auth**: Key is the client IP. IP is taken from `X-Forwarded-For` (first value) when behind a proxy, otherwise from `request.client.host`; fallback `127.0.0.1`. Each IP has its own bucket; different IPs do not share the auth limit.
@@ -44,6 +45,7 @@ sequenceDiagram
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `XRAYRADAR_RATE_LIMIT_AUTH` | Auth endpoints limit (e.g. `5/minute`, `10/hour`) | `5/minute` |
+| `XRAYRADAR_RATE_LIMIT_SIGNUP` | Signup-only limit per IP (stacked with auth limit to reduce mass signup). Increase for shared-IP use (e.g. office, testing). | `10/hour` |
 | `XRAYRADAR_RATE_LIMIT_EVENT_INGEST` | Event ingest limit per token | `100/minute` |
 
 Format is `N/minute`, `N/hour`, or `N/day` (slowapi format).
@@ -51,16 +53,17 @@ Format is `N/minute`, `N/hour`, or `N/day` (slowapi format).
 ## Key components
 
 - **Limiter and key functions:** `src/xrayradar_server/rate_limit.py` — `limiter`, `get_client_ip`, `get_rate_limit_key_auth`, `get_rate_limit_key_token`
-- **Constants:** `src/xrayradar_server/constants.py` — `RATE_LIMIT_AUTH`, `RATE_LIMIT_EVENT_INGEST` (from env)
+- **Constants:** `src/xrayradar_server/constants.py` — `RATE_LIMIT_AUTH`, `RATE_LIMIT_SIGNUP`, `RATE_LIMIT_EVENT_INGEST` (from env)
 - **App wiring:** `src/xrayradar_server/main.py` — `app.state.limiter = limiter`, `app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)`, `SlowAPIMiddleware`
-- **Auth decorators:** `src/xrayradar_server/routers/user_auth.py` — `@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)` on signup, login, forgot-password, reset-password, verify-email, resend-verification
+- **Auth decorators:** `src/xrayradar_server/routers/user_auth.py` — `@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)` on login, forgot-password, reset-password, verify-email, resend-verification; signup additionally has `@limiter.limit(RATE_LIMIT_SIGNUP, ...)` so both limits apply (stricter cap on new accounts per IP)
 - **Event ingest decorator:** `src/xrayradar_server/routers/api.py` — `@limiter.limit(RATE_LIMIT_EVENT_INGEST, key_func=get_rate_limit_key_token)` on `store_event`
 
 ## Endpoints covered
 
 | Method | Path | Key | Limit |
 |--------|------|-----|--------|
-| POST | `/auth/signup` | IP | RATE_LIMIT_AUTH |
+| GET | `/auth/signup-status` | IP | RATE_LIMIT_AUTH |
+| POST | `/auth/signup` | IP | RATE_LIMIT_AUTH + RATE_LIMIT_SIGNUP (both must pass) |
 | POST | `/auth/login` | IP | RATE_LIMIT_AUTH |
 | POST | `/auth/forgot-password` | IP | RATE_LIMIT_AUTH |
 | POST | `/auth/reset-password` | IP | RATE_LIMIT_AUTH |
@@ -83,3 +86,24 @@ Format is `N/minute`, `N/hour`, or `N/day` (slowapi format).
 
 - **Usage limiting** (see [usage-limiting.md](usage-limiting.md)): Plan-tier event caps (e.g. 1,000 for Free) are enforced **after** rate limiting. Rate limiting caps requests per minute; usage limiting caps total stored events per user.
 - **Auth** (see [auth.md](auth.md)): Rate limiting on auth endpoints mitigates brute force and credential stuffing; it does not replace strong passwords or optional 2FA.
+
+## Signup brute-force and mass registration
+
+Signup is a common target for brute force (mass account creation, enumeration). Mitigations in place:
+
+1. **Stricter signup limit** — In addition to the general auth limit (e.g. 5/minute), signup has a per-IP limit (default **10/hour**) via `XRAYRADAR_RATE_LIMIT_SIGNUP`. Both limits must pass. For shared-IP scenarios (e.g. office, testing), set a higher value (e.g. `20/hour` or `50/day`).
+2. **IP-based key** — Same as other auth; attackers need many IPs to scale.
+3. **Email verification** — New accounts are unverified until the user clicks the link; sensitive actions can require a verified user (`require_verified_user`).
+4. **Admin notification** — Admins receive an email on each new signup (see [auth](auth.md#signup-email-job-data-flow)) so abuse can be spotted.
+5. **Global daily cap** — `XRAYRADAR_MAX_SIGNUPS_PER_DAY` limits total signups in a rolling 24-hour window across all IPs. Default **100**; set to `0` for no limit. When exceeded, signup returns **503** with "Daily signup limit reached. Please try again later."
+
+Optional hardening not implemented: CAPTCHA (e.g. reCAPTCHA, Cloudflare Turnstile) on the signup form, or a shared rate-limit store (e.g. Redis) across workers for stricter global caps.
+
+## Multiple accounts from the same IP
+
+Legitimate cases (shared office, testing, agencies) may need several signups from one IP. Configure a higher signup limit via **`XRAYRADAR_RATE_LIMIT_SIGNUP`** so the per-IP cap is less strict, for example:
+
+- `20/hour` — e.g. small office
+- `50/day` — e.g. dev/staging with many test accounts
+
+The general auth limit (`XRAYRADAR_RATE_LIMIT_AUTH`, default 5/minute) still applies, so each IP is still limited in requests per minute; only the extra signup cap is relaxed.

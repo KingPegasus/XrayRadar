@@ -9,9 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from .constants import RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
+from .constants import ADMIN_EMAILS, RESEND_API_KEY, RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL
 from .db import SessionLocal
 from .email_templates import (
+    render_admin_new_user_email,
+    render_admin_token_request_email,
     render_error_digest_email,
     render_password_reset_email,
     render_post_verification_getting_started_email,
@@ -38,6 +40,49 @@ def enqueue_email_job(db: Session, job_type: str, payload: dict) -> EmailJob:
     db.commit()
     db.refresh(job)
     return job
+
+
+def enqueue_admin_new_user_email(
+    db: Session, *, user_email: str, plan: str, user_id: int, signed_up_at: datetime
+) -> EmailJob | None:
+    if not ADMIN_EMAILS:
+        return None
+    return enqueue_email_job(
+        db,
+        "admin_new_user",
+        {
+            "recipient_emails": ADMIN_EMAILS,
+            "user_email": user_email,
+            "plan": plan,
+            "user_id": user_id,
+            "signed_up_at": signed_up_at.isoformat(),
+        },
+    )
+
+
+def enqueue_admin_token_request_email(
+    db: Session,
+    *,
+    user_email: str,
+    request_name: str,
+    request_note: str | None,
+    request_id: int,
+    requested_at: datetime,
+) -> EmailJob | None:
+    if not ADMIN_EMAILS:
+        return None
+    return enqueue_email_job(
+        db,
+        "admin_token_request",
+        {
+            "recipient_emails": ADMIN_EMAILS,
+            "user_email": user_email,
+            "request_name": request_name,
+            "request_note": request_note or "",
+            "request_id": request_id,
+            "requested_at": requested_at.isoformat(),
+        },
+    )
 
 
 def _send_via_resend(
@@ -166,6 +211,76 @@ def _deliver_job(db: Session, job: EmailJob) -> None:
         if state_to_update is not None:
             state_to_update.last_sent_at = window_end
             db.add(state_to_update)
+        return
+
+    if job_type == "admin_new_user":
+        recipients = sorted(
+            {
+                str(e).strip().lower()
+                for e in (payload.get("recipient_emails") or [])
+                if isinstance(e, str) and str(e).strip()
+            }
+        )
+        if not recipients:
+            raise RuntimeError("Missing recipient_email")
+        user_email = str(payload.get("user_email") or "").strip().lower()
+        plan = str(payload.get("plan") or "").strip() or "Free"
+        user_id = int(payload.get("user_id") or 0)
+        signed_up_raw = str(payload.get("signed_up_at") or "").strip()
+        try:
+            signed_up_at = (
+                datetime.fromisoformat(signed_up_raw)
+                if signed_up_raw
+                else datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+        except Exception:  # noqa: BLE001
+            signed_up_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        subject, html = render_admin_new_user_email(
+            base_url=XRAYRADAR_BASE_URL,
+            user_email=user_email,
+            plan=plan,
+            user_id=user_id,
+            signed_up_at=signed_up_at,
+        )
+        _send_via_resend(to_emails=recipients, subject=subject, html=html)
+        for email in recipients:
+            log_email(db, "admin_new_user", email, success=True, user_id=user_id or None)
+        return
+
+    if job_type == "admin_token_request":
+        recipients = sorted(
+            {
+                str(e).strip().lower()
+                for e in (payload.get("recipient_emails") or [])
+                if isinstance(e, str) and str(e).strip()
+            }
+        )
+        if not recipients:
+            raise RuntimeError("Missing recipient_emails")
+        user_email = str(payload.get("user_email") or "").strip().lower()
+        request_name = str(payload.get("request_name") or "").strip() or "—"
+        request_note = (payload.get("request_note") or "").strip() or None
+        request_id = int(payload.get("request_id") or 0)
+        requested_raw = str(payload.get("requested_at") or "").strip()
+        try:
+            requested_at = (
+                datetime.fromisoformat(requested_raw)
+                if requested_raw
+                else datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+        except Exception:  # noqa: BLE001
+            requested_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        subject, html = render_admin_token_request_email(
+            base_url=XRAYRADAR_BASE_URL,
+            user_email=user_email,
+            request_name=request_name,
+            request_note=request_note,
+            request_id=request_id,
+            requested_at=requested_at,
+        )
+        _send_via_resend(to_emails=recipients, subject=subject, html=html)
+        for email in recipients:
+            log_email(db, "admin_token_request", email, success=True, user_id=None)
         return
 
     if not recipient:

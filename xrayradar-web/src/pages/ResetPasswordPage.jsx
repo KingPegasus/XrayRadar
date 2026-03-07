@@ -45,7 +45,8 @@ export function ResetPasswordPage() {
     } catch {
       setError('Something went wrong. Please try again.')
     } finally {
-      setSubmitting(false)
+      // Defer so setState runs in a tick where window is defined (avoids React 18 + jsdom in tests)
+      setTimeout(() => setSubmitting(false), 0)
     }
   }
 

@@ -8,6 +8,8 @@ from xrayradar_server import models
 from xrayradar_server.mail_jobs import (
     MAX_ATTEMPTS,
     _deliver_job,
+    enqueue_admin_new_user_email,
+    enqueue_admin_token_request_email,
     enqueue_email_job,
     process_pending_email_jobs,
 )
@@ -345,6 +347,215 @@ def test_deliver_job_error_alert_skips_empty_digest(db_session, monkeypatch):
     _deliver_job(db_session, job)
 
     assert sent_called == [], "should not send when digest has no issues"
+
+
+def test_enqueue_admin_new_user_email_returns_none_when_no_admin_emails(db_session, monkeypatch):
+    """When ADMIN_EMAILS is empty, enqueue_admin_new_user_email returns None and creates no job."""
+    monkeypatch.setattr("xrayradar_server.mail_jobs.ADMIN_EMAILS", [])
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    result = enqueue_admin_new_user_email(
+        db_session,
+        user_email="u@test.com",
+        plan="Free",
+        user_id=1,
+        signed_up_at=now,
+    )
+    assert result is None
+    jobs = db_session.execute(select(models.EmailJob).where(models.EmailJob.job_type == "admin_new_user")).scalars().all()
+    assert len(jobs) == 0
+
+
+def test_enqueue_admin_new_user_email_creates_job_when_admin_emails_set(db_session, monkeypatch):
+    """When ADMIN_EMAILS is set, enqueue_admin_new_user_email creates an admin_new_user job with correct payload."""
+    monkeypatch.setattr("xrayradar_server.mail_jobs.ADMIN_EMAILS", ["admin@test.com"])
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    job = enqueue_admin_new_user_email(
+        db_session,
+        user_email="newuser@test.com",
+        plan="Teams",
+        user_id=99,
+        signed_up_at=now,
+    )
+    assert job is not None
+    assert job.job_type == "admin_new_user"
+    assert job.status == "pending"
+    payload = job.payload or {}
+    assert payload.get("recipient_emails") == ["admin@test.com"]
+    assert payload.get("user_email") == "newuser@test.com"
+    assert payload.get("plan") == "Teams"
+    assert payload.get("user_id") == 99
+    assert payload.get("signed_up_at") == now.isoformat()
+
+
+def test_deliver_job_admin_new_user(db_session, monkeypatch):
+    """admin_new_user job sends to recipient_emails and logs each recipient."""
+    sent = {}
+
+    def _fake_send(*, to_email=None, to_emails=None, subject, html):
+        sent["to_emails"] = to_emails
+        sent["subject"] = subject
+        sent["html"] = html
+
+    monkeypatch.setattr("xrayradar_server.mail_jobs._send_via_resend", _fake_send)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    job = models.EmailJob(
+        job_type="admin_new_user",
+        payload={
+            "recipient_emails": ["admin1@test.com", "admin2@test.com"],
+            "user_email": "signup@test.com",
+            "plan": "Basic",
+            "user_id": 7,
+            "signed_up_at": now.isoformat(),
+        },
+        status="pending",
+        attempts=0,
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    _deliver_job(db_session, job)
+    assert sent["to_emails"] == ["admin1@test.com", "admin2@test.com"]
+    assert "New user signup" in sent["subject"]
+    assert "signup@test.com" in sent["html"]
+    assert "Basic" in sent["html"]
+    assert "7" in sent["html"]
+    logs = db_session.execute(
+        select(models.EmailLog).where(
+            models.EmailLog.email_type == "admin_new_user",
+            models.EmailLog.success.is_(True),
+        )
+    ).scalars().all()
+    assert {log.recipient_email for log in logs} >= {"admin1@test.com", "admin2@test.com"}
+
+
+def test_deliver_job_admin_new_user_missing_recipient_emails_raises(db_session):
+    """admin_new_user job with empty recipient_emails raises."""
+    job = models.EmailJob(
+        job_type="admin_new_user",
+        payload={
+            "recipient_emails": [],
+            "user_email": "u@test.com",
+            "plan": "Free",
+            "user_id": 1,
+            "signed_up_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        },
+        status="pending",
+        attempts=0,
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    with pytest.raises(RuntimeError, match="Missing recipient_email"):
+        _deliver_job(db_session, job)
+
+
+def test_enqueue_admin_token_request_email_returns_none_when_no_admin_emails(db_session, monkeypatch):
+    """When ADMIN_EMAILS is empty, enqueue_admin_token_request_email returns None and creates no job."""
+    monkeypatch.setattr("xrayradar_server.mail_jobs.ADMIN_EMAILS", [])
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    result = enqueue_admin_token_request_email(
+        db_session,
+        user_email="u@test.com",
+        request_name="My token",
+        request_note="For prod",
+        request_id=3,
+        requested_at=now,
+    )
+    assert result is None
+    jobs = db_session.execute(
+        select(models.EmailJob).where(models.EmailJob.job_type == "admin_token_request")
+    ).scalars().all()
+    assert len(jobs) == 0
+
+
+def test_enqueue_admin_token_request_email_creates_job_when_admin_emails_set(db_session, monkeypatch):
+    """When ADMIN_EMAILS is set, enqueue_admin_token_request_email creates an admin_token_request job."""
+    monkeypatch.setattr("xrayradar_server.mail_jobs.ADMIN_EMAILS", ["admin@test.com"])
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    job = enqueue_admin_token_request_email(
+        db_session,
+        user_email="dev@test.com",
+        request_name="SDK token",
+        request_note="Backend",
+        request_id=7,
+        requested_at=now,
+    )
+    assert job is not None
+    assert job.job_type == "admin_token_request"
+    assert job.status == "pending"
+    payload = job.payload or {}
+    assert payload.get("recipient_emails") == ["admin@test.com"]
+    assert payload.get("user_email") == "dev@test.com"
+    assert payload.get("request_name") == "SDK token"
+    assert payload.get("request_note") == "Backend"
+    assert payload.get("request_id") == 7
+    assert payload.get("requested_at") == now.isoformat()
+
+
+def test_deliver_job_admin_token_request(db_session, monkeypatch):
+    """admin_token_request job sends to recipient_emails and logs each recipient."""
+    sent = {}
+
+    def _fake_send(*, to_email=None, to_emails=None, subject, html):
+        sent["to_emails"] = to_emails
+        sent["subject"] = subject
+        sent["html"] = html
+
+    monkeypatch.setattr("xrayradar_server.mail_jobs._send_via_resend", _fake_send)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    job = models.EmailJob(
+        job_type="admin_token_request",
+        payload={
+            "recipient_emails": ["admin@test.com"],
+            "user_email": "dev@test.com",
+            "request_name": "My token",
+            "request_note": "For production",
+            "request_id": 12,
+            "requested_at": now.isoformat(),
+        },
+        status="pending",
+        attempts=0,
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    _deliver_job(db_session, job)
+    assert sent["to_emails"] == ["admin@test.com"]
+    assert "Token request" in sent["subject"]
+    assert "dev@test.com" in sent["html"]
+    assert "My token" in sent["html"]
+    assert "For production" in sent["html"]
+    assert "12" in sent["html"]
+    logs = db_session.execute(
+        select(models.EmailLog).where(
+            models.EmailLog.email_type == "admin_token_request",
+            models.EmailLog.success.is_(True),
+        )
+    ).scalars().all()
+    assert len(logs) >= 1
+    assert any(log.recipient_email == "admin@test.com" for log in logs)
+
+
+def test_deliver_job_admin_token_request_missing_recipient_emails_raises(db_session):
+    """admin_token_request job with empty recipient_emails raises."""
+    job = models.EmailJob(
+        job_type="admin_token_request",
+        payload={
+            "recipient_emails": [],
+            "user_email": "u@test.com",
+            "request_name": "x",
+            "request_note": "",
+            "request_id": 1,
+            "requested_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        },
+        status="pending",
+        attempts=0,
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    with pytest.raises(RuntimeError, match="Missing recipient_email"):
+        _deliver_job(db_session, job)
 
 
 def test_deliver_job_unknown_type_raises(db_session):

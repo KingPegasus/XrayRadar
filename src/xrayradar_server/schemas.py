@@ -113,6 +113,13 @@ class UserSignup(BaseModel):
     plan: str = Field(default="Free", min_length=1, max_length=32)
 
 
+class SignupStatusOut(BaseModel):
+    """Whether new signups are allowed (e.g. daily cap not reached). For UI to show message when allowed is False."""
+
+    allowed: bool
+    message: Optional[str] = None  # When allowed is False, reason to show the user
+
+
 class UserLogin(BaseModel):
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=200)

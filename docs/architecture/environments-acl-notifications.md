@@ -60,6 +60,8 @@ Goals:
   - `password_reset`
   - `team_invite`
   - `post_verification_onboarding` — one-time “getting started” email sent after successful email verification (see [Onboarding](onboarding.md)).
+  - `admin_new_user` — notification to admins when a new user signs up (see [Admin](admin.md)).
+  - `admin_token_request` — notification to admins when a user requests an API token (see [Admin](admin.md)).
 
 ## Data model additions
 

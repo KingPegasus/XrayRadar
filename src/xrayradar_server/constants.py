@@ -18,6 +18,14 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "")
 # Base URL for links in alert emails (e.g. https://app.example.com)
 XRAYRADAR_BASE_URL = os.environ.get("XRAYRADAR_BASE_URL", "http://localhost:8001")
+# Admin recipients for system notifications (comma-separated emails)
+ADMIN_EMAILS = sorted(
+    {
+        item.strip().lower()
+        for item in os.environ.get("XRAYRADAR_ADMIN_EMAILS", "").split(",")
+        if item.strip()
+    }
+)
 
 # Max additional alert recipients per project (besides owner)
 MAX_ALERT_RECIPIENTS = 20
@@ -38,7 +46,18 @@ MAX_TEAM_MEMBERS_BY_PLAN = {
 
 # Rate limiting (requests per window; format: "N/minute", "N/hour", "N/day")
 RATE_LIMIT_AUTH = os.environ.get("XRAYRADAR_RATE_LIMIT_AUTH", "5/minute")
+# Stricter limit for signup only (per IP) to reduce brute-force / mass account creation.
+# Increase (e.g. "20/hour") if many legitimate signups come from one IP (shared office, testing).
+RATE_LIMIT_SIGNUP = os.environ.get("XRAYRADAR_RATE_LIMIT_SIGNUP", "10/hour")
 RATE_LIMIT_EVENT_INGEST = os.environ.get("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "100/minute")
+
+# Global cap: max signups in a rolling 24-hour window. 0 = no limit.
+try:
+    MAX_SIGNUPS_PER_DAY = int(os.environ.get("XRAYRADAR_MAX_SIGNUPS_PER_DAY", "100"))
+except ValueError:
+    MAX_SIGNUPS_PER_DAY = 100
+if MAX_SIGNUPS_PER_DAY < 0:
+    MAX_SIGNUPS_PER_DAY = 0
 
 # In-process alert scheduler
 SCHEDULER_ENABLED = os.environ.get("XRAYRADAR_SCHEDULER_ENABLED", "1").strip().lower() in {
