@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 
+from sqlalchemy import select
+
 from xrayradar_server import models
 
 
@@ -323,6 +325,46 @@ def test_user_create_token_request_no_note(app_and_client_with_user):
     data = r.json()
     assert data["name"] == "My Token"
     assert data["note"] is None
+
+
+def test_user_create_token_request_enqueues_admin_email_when_admin_emails_configured(
+    app_and_client_with_user, monkeypatch
+):
+    """When ADMIN_EMAILS is set, creating a token request enqueues an admin_token_request email job."""
+    import xrayradar_server.db as dbmod
+
+    monkeypatch.setattr("xrayradar_server.mail_jobs.ADMIN_EMAILS", ["admin@test.com"])
+    mainmod, client, user = app_and_client_with_user
+
+    r = client.post(
+        "/api/user/token-requests",
+        json={"name": "SDK token", "note": "For production"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["name"] == "SDK token"
+    assert data["note"] == "For production"
+    request_id = data["id"]
+
+    db = dbmod.SessionLocal()
+    try:
+        jobs = db.execute(
+            select(models.EmailJob).where(
+                models.EmailJob.job_type == "admin_token_request"
+            )
+        ).scalars().all()
+        assert len(jobs) >= 1
+        job = next(
+            j
+            for j in jobs
+            if (j.payload or {}).get("user_email") == user["email"]
+            and (j.payload or {}).get("request_id") == request_id
+        )
+        assert job.payload["recipient_emails"] == ["admin@test.com"]
+        assert job.payload["request_name"] == "SDK token"
+        assert job.payload["request_note"] == "For production"
+    finally:
+        db.close()
 
 
 def test_user_list_token_project_environments(app_and_client_with_user):

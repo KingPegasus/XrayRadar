@@ -29,6 +29,13 @@ Administration is available via a web UI (GitHub OAuth) and via API using an adm
 
 Additional admin-only endpoints exist for listing project events and token–project access; see `admin_api.py`.
 
+## Admin email notifications
+
+Admins configured via `XRAYRADAR_ADMIN_EMAILS` receive emails for two events:
+
+- **New user signup** — When a new dashboard user signs up, admins get an email with the user's email, plan, and signup time. Delivered via the durable email job worker (`admin_new_user` job type). For the full flow, see [Auth](auth.md#signup-email-job-data-flow).
+- **Token request** — When a user requests an API token (`POST /api/user/token-requests`), admins get an email with the requester's email, token name, note, request ID, and requested-at time. Delivered via the same worker (`admin_token_request` job type). The email CTA links to `/admin#requests` so admins can fulfill the request.
+
 ## Key components
 
 - **Main:** `src/xrayradar_server/main.py` — `/auth/github/login`, `/auth/github/callback`, `/admin`, `/api/admin/me`

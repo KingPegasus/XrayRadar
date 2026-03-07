@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...db import get_db
+from ...mail_jobs import enqueue_admin_token_request_email, process_pending_email_jobs
 from ...models import Token, TokenProjectAccess, TokenProjectEnvironmentAccess, TokenRequest, User
 from ...deps import require_user, require_verified_user
 from ...schemas import (
@@ -230,6 +231,7 @@ def user_list_token_requests(user: User = Depends(require_user), db: Session = D
 @router.post("/api/user/token-requests", response_model=TokenRequestOut)
 def user_create_token_request(
     payload: TokenRequestCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(require_verified_user),
     db: Session = Depends(get_db),
 ):
@@ -237,6 +239,15 @@ def user_create_token_request(
     db.add(row)
     db.commit()
     db.refresh(row)
+    enqueue_admin_token_request_email(
+        db,
+        user_email=user.email,
+        request_name=row.name,
+        request_note=row.note,
+        request_id=row.id,
+        requested_at=row.created_at,
+    )
+    background_tasks.add_task(process_pending_email_jobs)
     return TokenRequestOut(
         id=row.id,
         name=row.name,

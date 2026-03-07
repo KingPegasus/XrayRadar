@@ -21,11 +21,13 @@ def app_and_client_rate_limited(database_url, monkeypatch, request):
     monkeypatch.setenv("XRAYRADAR_DATABASE_URL", database_url)
     monkeypatch.setenv("XRAYRADAR_SESSION_SECRET", "secret")
     monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_AUTH", "2/minute")
+    monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_SIGNUP", "10/minute")
     monkeypatch.setenv("XRAYRADAR_RATE_LIMIT_EVENT_INGEST", "2/minute")
     import xrayradar_server.constants as constants_mod
     importlib.reload(constants_mod)
     # Patch constants so limits are 2/min regardless of env/cache
     monkeypatch.setattr(constants_mod, "RATE_LIMIT_AUTH", "2/minute")
+    monkeypatch.setattr(constants_mod, "RATE_LIMIT_SIGNUP", "10/minute")
     monkeypatch.setattr(constants_mod, "RATE_LIMIT_EVENT_INGEST", "2/minute")
     # Pop only these so api/user_auth re-import with patched constants; avoid popping
     # routers package so we don't leave main in a state that affects other tests.
@@ -71,6 +73,7 @@ def app_and_client_rate_limited(database_url, monkeypatch, request):
         client.__exit__(None, None, None)
         # Restore default limits so other tests (e.g. test_main_misc) don't see 2/min
         monkeypatch.setattr(constants_mod, "RATE_LIMIT_AUTH", "5/minute")
+        monkeypatch.setattr(constants_mod, "RATE_LIMIT_SIGNUP", "10/hour")  # default production value
         monkeypatch.setattr(constants_mod, "RATE_LIMIT_EVENT_INGEST", "100/minute")
         for mod in (
             "xrayradar_server.main",

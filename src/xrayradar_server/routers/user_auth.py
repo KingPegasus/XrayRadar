@@ -3,19 +3,38 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import cookie_secure, get_session_serializer, hash_password, unauthorized, verify_password
-from ..constants import RATE_LIMIT_AUTH, RESEND_API_KEY as DEFAULT_RESEND_API_KEY, RESEND_FROM_EMAIL as DEFAULT_RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL as DEFAULT_XRAYRADAR_BASE_URL
+from ..constants import MAX_SIGNUPS_PER_DAY, RATE_LIMIT_AUTH, RATE_LIMIT_SIGNUP, RESEND_API_KEY as DEFAULT_RESEND_API_KEY, RESEND_FROM_EMAIL as DEFAULT_RESEND_FROM_EMAIL, XRAYRADAR_BASE_URL as DEFAULT_XRAYRADAR_BASE_URL
 from ..db import get_db, SessionLocal
 from ..email_templates import render_password_reset_email, render_verification_email
 from ..email_log import log_email
-from ..mail_jobs import enqueue_email_job, process_pending_email_jobs
+from ..mail_jobs import enqueue_admin_new_user_email, enqueue_email_job, process_pending_email_jobs
 from ..rate_limit import get_rate_limit_key_auth, limiter
 from ..deps import get_optional_user, require_user
 from ..models import User
-from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, UserLogin, UserOut, UserSignup
+from ..schemas import ForgotPasswordRequest, ResetPasswordRequest, SignupStatusOut, UserLogin, UserOut, UserSignup
+
+# User-facing message when the global daily signup cap is reached (503 and GET signup-status).
+DAILY_SIGNUP_LIMIT_MESSAGE = (
+    "We've reached our daily signup limit. Please try again tomorrow."
+)
+
+
+def _get_signup_status(db: Session) -> tuple[bool, str | None]:
+    """Return (allowed, message). When allowed is False, message is the reason for the UI."""
+    if MAX_SIGNUPS_PER_DAY <= 0:
+        return True, None
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=24)
+    total_last_24h = db.execute(
+        select(func.count(User.id)).where(User.created_at >= cutoff)
+    ).scalar() or 0
+    if total_last_24h >= MAX_SIGNUPS_PER_DAY:
+        return False, DAILY_SIGNUP_LIMIT_MESSAGE
+    return True, None
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -148,6 +167,16 @@ def _enqueue_post_verification_onboarding_email(db: Session, *, email: str, user
     )
 
 
+def _enqueue_admin_new_user_email(db: Session, *, email: str, plan: str, user_id: int) -> None:
+    enqueue_admin_new_user_email(
+        db,
+        user_email=email,
+        plan=plan,
+        user_id=user_id,
+        signed_up_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+
+
 @router.post("/auth/logout")
 def logout(_: Request, response: Response) -> dict:
     response.delete_cookie("xrayradar_session", path="/")
@@ -156,6 +185,7 @@ def logout(_: Request, response: Response) -> dict:
 
 
 @router.post("/auth/signup", response_model=UserOut)
+@limiter.limit(RATE_LIMIT_SIGNUP, key_func=get_rate_limit_key_auth)
 @limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
 def signup(
     request: Request,
@@ -177,6 +207,10 @@ def signup(
     if exists is not None:
         raise HTTPException(status_code=409, detail="Email already registered")
 
+    signup_allowed, limit_message = _get_signup_status(db)
+    if not signup_allowed:
+        raise HTTPException(status_code=503, detail=limit_message)
+
     verification_token = _generate_verification_token()
 
     row = User(
@@ -193,6 +227,7 @@ def signup(
 
     # Send verification email in background
     _enqueue_verification_email(db, email=email, token=verification_token, user_id=row.id)
+    _enqueue_admin_new_user_email(db, email=email, plan=plan, user_id=row.id)
     background_tasks.add_task(process_pending_email_jobs)
 
     s = get_session_serializer()
@@ -216,6 +251,17 @@ def signup(
         email_verified=row.email_verified,
         created_at=row.created_at,
     )
+
+
+@router.get("/auth/signup-status", response_model=SignupStatusOut)
+@limiter.limit(RATE_LIMIT_AUTH, key_func=get_rate_limit_key_auth)
+def signup_status(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> SignupStatusOut:
+    """Return whether new signups are allowed. When allowed is False, frontend can show message before user submits."""
+    allowed, message = _get_signup_status(db)
+    return SignupStatusOut(allowed=allowed, message=message)
 
 
 @router.post("/auth/login", response_model=UserOut)

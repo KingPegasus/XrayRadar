@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-03-08
+
+### Added
+
+- **Admin new-user signup notification**
+  - When a new user signs up, all admins listed in `XRAYRADAR_ADMIN_EMAILS` receive an email notification with the new user's email, plan, and signup time. Uses the existing durable email job queue (`admin_new_user` job type). Architecture docs updated (auth, admin) with data-flow diagram.
+- **Admin token-request notification**
+  - When a user requests an API token (`POST /api/user/token-requests`), all admins in `XRAYRADAR_ADMIN_EMAILS` receive an email with the requester's email, token name, note, request ID, and requested-at time. Uses the durable email job queue (`admin_token_request` job type). CTA links to the admin Token requests view (`/admin#requests`).
+
+
 ## [0.15.0] - 2026-03-01
 
 ### Added
@@ -359,6 +369,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.16.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.12.0...v0.13.0
