@@ -27,8 +27,9 @@ dependencies = [
 dev = [
   "pytest>=8.4.2,<9.0",
   "pytest-cov>=6.3.0,<7.0",
-  # CVE-2026-4539: PyPI still on 2.19.2; fix is merged upstream (#3064). Replace with pygments>=2.19.3 when released.
-  "pygments @ git+https://github.com/pygments/pygments.git@24b8aa76c6cd6d70f39c6dd605cce319c98e2ccc",
+  "pip-audit>=2.9,<3.0",
+  # CVE-2026-4539: PyPI still on 2.19.2; track upstream master until a patched PyPI release. uv.lock pins the resolved commit.
+  "pygments @ git+https://github.com/pygments/pygments.git@master",
 ]
 
 [tool.setuptools.packages.find]

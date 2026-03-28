@@ -78,7 +78,9 @@ jobs:
           uv pip install pip-audit bandit
 
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit
+        run: |
+          # pygments: dev dep is installed from git (fix merged); wheel metadata is still 2.19.2 until PyPI > 2.19.2
+          uv run pip-audit --ignore-vuln CVE-2026-4539
 
       - name: Static security scan (bandit)
         run: uv run bandit -q -r src

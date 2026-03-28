@@ -23,8 +23,8 @@ The repository uses automated security scanning in CI/CD:
 # Backend static analysis
 uv run bandit -r src
 
-# Backend dependency audit
-uv run pip-audit
+# Backend dependency audit (see pip-audit notes below for --ignore-vuln)
+uv run pip-audit --ignore-vuln CVE-2026-4539
 
 # Frontend dependency audit
 cd xrayradar-web && npm audit
@@ -65,6 +65,8 @@ cd xrayradar-web && npm audit
 ### 6. pip-audit Notes
 - **Expected Warning**: `pip-audit` may report that the local package name `xrayradar-server` (from `pyproject.toml`) cannot be audited because it is not published on PyPI. This is expected and harmless: only dependencies need vulnerability scanning, not the application package entry itself.
 - **Local Packages**: If you see "Dependency not found on PyPI" for `xrayradar-server`, this is normal for a project installed from a checkout.
+- **Use the project environment**: Run audits after `uv sync --extra dev` so `uv run pip-audit` uses this repo’s `.venv` (and the dev extra includes `pip-audit` + `pip`). If you see a warning about auditing a different Python than your venv, set `PIPAPI_PYTHON_LOCATION` to your `.venv/bin/python` (see [pip-audit](https://github.com/pypa/pip-audit) / pip-api docs).
+- **Pygments / CVE-2026-4539**: The `dev` extra installs **Pygments from git** (`master` branch; `uv.lock` pins the resolved commit) including the upstream fix ([pygments#3064](https://github.com/pygments/pygments/pull/3064)) while PyPI remains on **2.19.2**. Installed metadata still reports version **2.19.2**, so `pip-audit` would flag the CVE even though the code is patched. Use `--ignore-vuln CVE-2026-4539` until a fixed release is published on PyPI (then drop the git dependency and remove this flag).
 
 ## Known Security Considerations
 
@@ -112,4 +114,4 @@ If you discover a security vulnerability, please report it responsibly:
 
 ## Security Updates
 
-This document is updated as security practices evolve. Last updated: 2026-01-23
+This document is updated as security practices evolve. Last updated: 2026-03-28
