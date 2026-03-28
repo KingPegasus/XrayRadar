@@ -90,7 +90,7 @@ def register_web(app: FastAPI, register_catch_all: bool = True) -> None:
         return True
 
     # Root static files (favicon, robots, etc.) - serve from dist if present
-    _root_static = ("favicon.ico", "robots.txt", "manifest.json", "apple-touch-icon.png", "og-image.webp", "logo.svg", "logo_square.svg")
+    _root_static = ("favicon.ico", "robots.txt", "manifest.json", "apple-touch-icon.png", "og-image.webp", "logo.svg", "logo_square.svg", "xray-logo.png")
 
     @app.get("/{path:path}", include_in_schema=False)
     def handle_spa_routes(path: str, request: Request):

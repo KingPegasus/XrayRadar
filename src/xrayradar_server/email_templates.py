@@ -3,24 +3,32 @@ from __future__ import annotations
 from datetime import datetime
 
 
-def _safe_logo_url(base_url: str) -> str | None:
+def _logo_png_url(base_url: str) -> str | None:
     base = (base_url or "").strip().rstrip("/")
     if not (base.startswith("http://") or base.startswith("https://")):
         return None
-    # Don't embed logo for localhost — recipients can't load it; avoids broken image in email
     lower = base.lower()
     if "localhost" in lower or "127.0.0.1" in lower:
         return None
-    return f"{base}/logo.svg"
+    return f"{base}/xray-logo.png"
+
+
+_TEXT_LOGO = (
+    '<div style="margin-bottom:16px;">'
+    '<span style="font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#f8fafc;'
+    'font-family:Inter,Arial,Helvetica,sans-serif;">'
+    'Xray<span style="color:#60a5fa;">Radar</span>'
+    '</span></div>'
+)
 
 
 def _shell(*, title: str, body_html: str, cta_text: str, cta_href: str, base_url: str) -> str:
-    logo_url = _safe_logo_url(base_url)
+    logo_url = _logo_png_url(base_url)
     logo_html = (
         f'<div style="margin-bottom:16px;"><img src="{logo_url}" alt="XrayRadar" width="160" '
         'style="display:block;border:0;outline:none;text-decoration:none;" /></div>'
         if logo_url
-        else ""
+        else _TEXT_LOGO
     )
     return (
         '<div style="background:#0b1220;padding:24px;color:#e2e8f0;font-family:Inter,Arial,sans-serif;">'

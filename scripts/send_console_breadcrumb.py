@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Send a test event with console-type breadcrumbs to xrayradar-server.
+Send a test event with console-type breadcrumbs to an XrayRadar server.
 
 Simulates what the Python SDK sends when using the logging integration
 with capture_as_breadcrumbs=True: log records become breadcrumbs with
@@ -32,7 +32,7 @@ def _utc_iso() -> str:
 
 def main() -> int:
     p = argparse.ArgumentParser(
-        description="Send a test event with console breadcrumbs to xrayradar-server.",
+        description="Send a test event with console breadcrumbs to an XrayRadar server.",
     )
     p.add_argument("--base-url", default="http://127.0.0.1:8001", help="Server base URL.")
     p.add_argument("--project-id", type=int, required=True, help="Project id (e.g. 1).")

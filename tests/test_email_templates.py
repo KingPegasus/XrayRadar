@@ -11,7 +11,7 @@ from xrayradar_server.email_templates import (
 )
 
 
-def test_render_error_digest_email_with_logo():
+def test_render_error_digest_email_with_png_logo():
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     subject, html = render_error_digest_email(
         base_url="https://xrayradar.com",
@@ -23,13 +23,15 @@ def test_render_error_digest_email_with_logo():
         issues=[{"count": 3, "latest_timestamp": now, "latest_message": "Boom"}],
     )
     assert "Error digest" in subject
-    assert "logo.svg" in html
+    assert "xray-logo.png" in html
+    assert "logo.svg" not in html
     assert "Latest at" in html
     assert "Boom" in html
     assert now.isoformat(sep=" ", timespec="seconds") in html
 
 
-def test_render_email_templates_without_logo():
+def test_render_email_templates_text_logo_fallback():
+    """When base_url is empty, emails use a text-based logo fallback (no external images)."""
     verify_subject, verify_html = render_verification_email(base_url="", token="abc")
     reset_subject, reset_html = render_password_reset_email(base_url="", token="abc")
     onboarding_subject, onboarding_html = render_post_verification_getting_started_email(base_url="")
@@ -42,19 +44,19 @@ def test_render_email_templates_without_logo():
     assert "Reset" in reset_subject
     assert "Getting started" in onboarding_subject
     assert "invited" in invite_subject
-    assert "logo.svg" not in verify_html
-    assert "logo.svg" not in reset_html
-    assert "logo.svg" not in onboarding_html
-    assert "logo.svg" not in invite_html
+    for html in (verify_html, reset_html, onboarding_html, invite_html):
+        assert "xray-logo.png" not in html
+        assert "Xray" in html and "Radar" in html
 
 
-def test_render_email_templates_no_logo_for_localhost():
-    """localhost / 127.0.0.1 base URLs must not embed logo (recipients cannot load it)."""
+def test_render_email_templates_no_image_for_localhost():
+    """localhost / 127.0.0.1 base URLs use text logo (no external image)."""
     for base in ("http://localhost:8001", "https://localhost", "http://127.0.0.1:8000"):
         _, verify_html = render_verification_email(base_url=base, token="x")
         _, onboarding_html = render_post_verification_getting_started_email(base_url=base)
-        assert "logo.svg" not in verify_html, base
-        assert "logo.svg" not in onboarding_html, base
+        assert "xray-logo.png" not in verify_html, base
+        assert "xray-logo.png" not in onboarding_html, base
+        assert "Xray" in verify_html and "Radar" in verify_html
 
 
 def test_render_post_verification_getting_started_email_content():

@@ -13,7 +13,7 @@ export const FEATURES = [
   },
   {
     title: 'Minimal server + ingestion API',
-    text: 'Store events, keep payloads searchable, and debug quickly. Built to stay simple and reliable.',
+    text: 'Store events, keep payloads searchable, and debug quickly. The stack is open source—run it yourself or use the hosted service.',
   },
   {
     title: 'Breadcrumb tracking',

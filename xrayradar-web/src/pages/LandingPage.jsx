@@ -13,6 +13,8 @@ import {
   NPM_URL,
   NPM_URL_BY_FRAMEWORK,
   ANDROID_SDK_URL,
+  SERVER_SOURCE_URL,
+  MAVEN_CENTRAL_ANDROID_URL,
 } from '../utils/sdkFrameworks'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-javascript'
@@ -96,7 +98,8 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 Error tracking that stays out of your way.
               </h1>
               <p className="lead">
-                XrayRadar is a minimal error tracking service: lightweight SDKs + a simple server.
+                XrayRadar is a minimal error tracking stack: the server and dashboard are open source,
+                with lightweight SDKs. Use xrayradar.com as a hosted service, or run your own instance.
                 Capture exceptions, keep context, and debug faster — without the bloat.
               </p>
 
@@ -106,8 +109,8 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
               </div>
 
               <div style={{ marginTop: 18, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <span className="badge">SDK + Server</span>
-                <span className="badge">Hosted service</span>
+                <span className="badge">Open source</span>
+                <span className="badge">Self-host or cloud</span>
                 <span className="badge">Fast to integrate</span>
               </div>
             </div>
@@ -266,9 +269,14 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                     </span>
                   ))}
                 </div>
-                <a href={ANDROID_SDK_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
-                  View on GitHub →
-                </a>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 4 }}>
+                  <a href={MAVEN_CENTRAL_ANDROID_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
+                    Maven Central →
+                  </a>
+                  <a href={ANDROID_SDK_URL} target="_blank" rel="noopener noreferrer" className="sdkLink">
+                    GitHub →
+                  </a>
+                </div>
               </div>
             </div>
           </div>
@@ -404,7 +412,11 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
               <div className="card">
                 <h3 className="cardTitle">Do you offer self-hosting?</h3>
                 <p className="cardText">
-                  XrayRadar is offered as a hosted service. If you need a dedicated deployment or on-prem setup, reach out and we'll discuss options.
+                  Yes. It's MIT open source on{' '}
+                  <a href={SERVER_SOURCE_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)', textDecoration: 'underline' }}>
+                    GitHub
+                  </a>
+                  . Contact us for dedicated or on-prem help.
                 </p>
               </div>
             </div>
@@ -422,6 +434,7 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
                 <a href="https://pypi.org/project/xrayradar/" target="_blank" rel="noopener noreferrer">Python SDK</a>
                 <a href="https://www.npmjs.com/package/@xrayradar/node" target="_blank" rel="noopener noreferrer">JavaScript SDK</a>
                 <a href={ANDROID_SDK_URL} target="_blank" rel="noopener noreferrer">Android SDK</a>
+                <a href={SERVER_SOURCE_URL} target="_blank" rel="noopener noreferrer">Server source</a>
                 <Link to="/privacy">Privacy Policy</Link>
                 <Link to="/terms">Terms of Service</Link>
                 <a href="mailto:dev@xrayradar.com">Contact</a>

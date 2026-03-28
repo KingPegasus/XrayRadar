@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xrayradar-server"
-version = "0.16.0"
+version = "0.17.0"
 description = "Backend server for xrayradar error tracking"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.128.0,<1.0",
@@ -18,6 +19,7 @@ dependencies = [
   "itsdangerous>=2.2.0,<3.0",
   "alembic>=1.18.3,<2.0",
   "resend>=2.21.0,<3.0",
+  "requests>=2.33.0,<3.0",
   "slowapi>=0.1.9,<1.0",
 ]
 
@@ -25,6 +27,9 @@ dependencies = [
 dev = [
   "pytest>=8.4.2,<9.0",
   "pytest-cov>=6.3.0,<7.0",
+  "pip-audit>=2.9,<3.0",
+  # CVE-2026-4539: PyPI still on 2.19.2; track upstream master until a patched PyPI release. uv.lock pins the resolved commit.
+  "pygments @ git+https://github.com/pygments/pygments.git@master",
 ]
 
 [tool.setuptools.packages.find]

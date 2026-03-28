@@ -51,7 +51,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText(/Error tracking that stays out of your way/i)).toBeInTheDocument()
     })
-    expect(screen.getByText(/XrayRadar is a minimal error tracking service/i)).toBeInTheDocument()
+    expect(screen.getByText(/XrayRadar is a minimal error tracking stack/i)).toBeInTheDocument()
   })
 
 

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-03-28
+
+### Changed
+
+- **Email templates**
+  - HTML emails now use the new PNG logo for branding in the header.
+  - When `XRAYRADAR_BASE_URL` is localhost (or otherwise unsuitable for loading remote images), templates show a **text “XrayRadar” fallback** instead of a broken logo image.
+- **Dependencies**
+  - `requests>=2.33.0,<3.0` for CVE-2026-25645 (transitive via `resend`).
+  - Dev extra: `pygments` installed from git **master** (includes Pygments [#3064](https://github.com/pygments/pygments/pull/3064) for CVE-2026-4539); `uv.lock` pins the resolved commit. Revert to a normal PyPI constraint when a patched release ships.
+  - Dev extra: `pip-audit` so `uv run pip-audit` audits the project `.venv`. CI and docs pass `--ignore-vuln CVE-2026-4539` because git-installed Pygments still reports version `2.19.2` in metadata until a patched PyPI release; remove the flag when switching back to PyPI Pygments.
+
 ## [0.16.0] - 2026-03-08
 
 ### Added
@@ -369,12 +381,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[0.16.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.15.0...v0.16.0
-[0.15.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.14.0...v0.15.0
-[0.14.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.13.0...v0.14.0
-[0.13.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.12.0...v0.13.0
-[0.12.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.11.0...v0.12.0
-[0.11.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.10.0...v0.11.0
-[0.10.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.9.0...v0.10.0
-[0.9.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.8.0...v0.9.0
-[0.8.0]: https://github.com/KingPegasus/xrayradar-server/compare/v0.7.0...v0.8.0
+[0.17.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.13.0...v0.14.0
+[0.13.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.7.0...v0.8.0
