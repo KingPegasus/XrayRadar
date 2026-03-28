@@ -2,8 +2,6 @@
   <img src="xrayradar-web/public/logo.svg" alt="XrayRadar" width="520" />
 </p>
 
-# XrayRadar
-
 **XrayRadar** is an error-monitoring platform: your applications send exceptions and context to a central server, which groups them into **issues**, surfaces them in a **dashboard**, and can **notify** you by email when something breaks. It is designed to stay simple to self-host while remaining comfortable for small teams and production workloads.
 
 This repository contains the **open-source backend and web app** (FastAPI + PostgreSQL + React) that powers ingestion, auth, projects, API tokens, alerts, and the marketing site. Client libraries (for example the [`xrayradar`](https://pypi.org/project/xrayradar/) Python SDK) send events to the HTTP API exposed here.
