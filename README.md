@@ -24,6 +24,28 @@ This repository contains the **open-source backend and web app** (FastAPI + Post
 
 ## Screenshots
 
+### User dashboard
+
+Signed-in experience for creating projects, triaging issues, and (on team plans) managing access.
+
+<p align="center">
+  <img src="docs/images/user-dashboard.png" alt="XrayRadar user dashboard home with stats and getting-started guidance" width="960" />
+</p>
+
+<p align="center">
+  <img src="docs/images/user-projects.png" alt="XrayRadar projects list in the user dashboard" width="960" />
+</p>
+
+<p align="center">
+  <img src="docs/images/user-project-issues.png" alt="XrayRadar project issues view: grouped errors and issue list" width="960" />
+</p>
+
+Team / environment access (Teams and Teams Pro plans):
+
+<p align="center">
+  <img src="docs/images/team-config.png" alt="XrayRadar team and environment access configuration" width="960" />
+</p>
+
 ### Admin panel (`/admin`)
 
 GitHub OAuth–protected operator UI: tokens, token requests, users, deletion requests, and project logs. The home view shows **system statistics** (projects, tokens, users by plan, events, and email delivery breakdown).
@@ -32,7 +54,7 @@ GitHub OAuth–protected operator UI: tokens, token requests, users, deletion re
   <img src="docs/images/admin-system-statistics.png" alt="XrayRadar admin panel: System Statistics dashboard with sidebar and metric cards for projects, tokens, users, events, and emails" width="960" />
 </p>
 
-More UI captures can be added under [`docs/images/`](docs/images/).
+Additional assets live under [`docs/images/`](docs/images/).
 
 ## Who it is for
 
