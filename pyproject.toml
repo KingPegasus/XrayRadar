@@ -7,6 +7,7 @@ name = "xrayradar-server"
 version = "0.16.0"
 description = "Backend server for xrayradar error tracking"
 readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.128.0,<1.0",

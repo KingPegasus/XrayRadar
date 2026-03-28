@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Send a real error event with actual exception and stack trace to xrayradar-server.
+Send a real error event with actual exception and stack trace to an XrayRadar server.
 
 This script simulates a real application error by:
 - Raising a real exception and capturing its stack trace (with source context)
@@ -166,7 +166,7 @@ def simulate_application_error() -> Exception:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Send a real error event with exception to xrayradar-server.")
+    p = argparse.ArgumentParser(description="Send a real error event with exception to an XrayRadar server.")
     p.add_argument("--base-url", default="http://127.0.0.1:8001", help="Server base URL.")
     p.add_argument("--project-id", type=int, required=True, help="Project id (e.g. 1).")
     p.add_argument("--token", required=True, help="Token value for X-Xrayradar-Token header.")

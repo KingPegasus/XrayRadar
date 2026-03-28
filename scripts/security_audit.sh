@@ -1,9 +1,9 @@
 #!/bin/bash
-# Comprehensive security audit script for xrayradar-server
+# Comprehensive security audit script for XrayRadar
 # Runs all security checks: bandit, pip-audit, npm audit
 
 echo "========================================="
-echo "Security Audit for xrayradar-server"
+echo "Security Audit for XrayRadar"
 echo "========================================="
 echo ""
 
@@ -109,7 +109,7 @@ if command -v uv &> /dev/null; then
                         echo -e "${GREEN}  Found: $VULNS vulnerabilities${NC}"
                     fi
                     
-                    # Note about skipped packages (like xrayradar-server itself)
+                    # Note about skipped packages (like the local xrayradar-server package)
                     if [ "$SKIPPED" != "0" ]; then
                         echo -e "${YELLOW}  Note: $SKIPPED package(s) skipped (local/private packages, expected)${NC}"
                     fi

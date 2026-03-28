@@ -76,7 +76,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="xrayradar-server",
+    title="XrayRadar",
     version="0.16.0",
     lifespan=lifespan,
     docs_url=None,  # Disable default docs
@@ -189,7 +189,7 @@ def github_callback(request: Request, code: str | None = None, state: str | None
         api_headers = {
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/vnd.github+json",
-            "User-Agent": "xrayradar-server",
+            "User-Agent": "XrayRadar",
         }
 
         emails = client.get(

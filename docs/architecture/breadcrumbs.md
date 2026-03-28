@@ -27,7 +27,7 @@ Breadcrumbs capture a trail of events that occurred before an error, providing c
                               │ HTTP POST /api/{project_id}/store/
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    Backend (xrayradar-server)                        │
+│                    Backend (XrayRadar)                             │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │  Event Ingestion (routers/api.py)                              │ │
 │  │  • Validates BreadcrumbIn schema                               │ │

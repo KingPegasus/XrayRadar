@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Send a test event to xrayradar-server ingestion endpoint.
+Send a test event to an XrayRadar server ingestion endpoint.
 
 Usage:
   python scripts/send_test_event.py \
@@ -25,7 +25,7 @@ def _utc_iso() -> str:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description="Send a test error event to xrayradar-server.")
+    p = argparse.ArgumentParser(description="Send a test error event to an XrayRadar server.")
     p.add_argument("--base-url", default="http://127.0.0.1:8001", help="Server base URL.")
     p.add_argument("--project-id", type=int, required=True, help="Project id (e.g. 1).")
     p.add_argument("--token", required=True, help="Token value for X-Xrayradar-Token header.")

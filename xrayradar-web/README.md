@@ -34,7 +34,7 @@ The app will show:
 **Note:** The frontend uses relative URLs for API calls, so it will connect to the same origin. For local development, you need to run the backend as well:
 
 ```bash
-# From the xrayradar-server root directory
+# From the XrayRadar repository root
 uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
 ```
 
@@ -181,6 +181,8 @@ npm install -D cypress
 
 ## Notes
 
-- Pricing tiers (displayed on landing page):
-  - Free: 5k errors stored
-  - Basic: $1/month, 50k errors stored
+- **Pricing / plans** (marketing copy lives in `src/pages/LandingPage.jsx`; storage caps match backend `src/xrayradar_server/constants.py` → `TIER_EVENT_LIMITS`):
+  - **Free** — $0/mo, 1,000 events stored, no email alerts
+  - **Basic** — $3/mo (early access; no automated billing yet), up to 15,000 events, email alerts (10 min cooldown)
+  - **Teams** — $5/mo, up to 25,000 events, up to 5 team members, env ACL + env-scoped alerts, 1 min alert cooldown
+  - **Teams Pro** — $7/mo, up to 50,000 events, up to 10 team members, same Teams features with higher caps

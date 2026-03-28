@@ -259,7 +259,7 @@ def test_require_admin_with_session_admin(app_and_client):
     
     # Set admin allowlist
     import os
-    os.environ["XRAYRADAR_ADMIN_ALLOWLIST"] = "admin@example.com"
+    os.environ["XRAYRADAR_ADMIN_EMAILS"] = "admin@example.com"
     
     # Login to create session
     r = client.post("/auth/login", json={"email": "admin@example.com", "password": "password123"})

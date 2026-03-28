@@ -1,6 +1,6 @@
 # Security Audit Report
 
-This document outlines the security practices and audit results for `xrayradar-server`.
+This document outlines the security practices and audit results for **XrayRadar**
 
 ## Automated Security Scanning
 
@@ -63,8 +63,8 @@ cd xrayradar-web && npm audit
 - ✅ **Pinned Versions**: Dependencies use version constraints to prevent unexpected updates
 
 ### 6. pip-audit Notes
-- **Expected Warning**: `pip-audit` may report that `xrayradar-server` itself cannot be audited because it's not published on PyPI. This is expected and harmless - the project code itself doesn't need vulnerability scanning, only its dependencies do.
-- **Local Packages**: If you see "Dependency not found on PyPI" for `xrayradar-server`, this is normal for local/private projects.
+- **Expected Warning**: `pip-audit` may report that the local package name `xrayradar-server` (from `pyproject.toml`) cannot be audited because it is not published on PyPI. This is expected and harmless: only dependencies need vulnerability scanning, not the application package entry itself.
+- **Local Packages**: If you see "Dependency not found on PyPI" for `xrayradar-server`, this is normal for a project installed from a checkout.
 
 ## Known Security Considerations
 
