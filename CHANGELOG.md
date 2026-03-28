@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Email templates**
   - HTML emails now use the new PNG logo for branding in the header.
   - When `XRAYRADAR_BASE_URL` is localhost (or otherwise unsuitable for loading remote images), templates show a **text “XrayRadar” fallback** instead of a broken logo image.
+- **Dependencies**
+  - `requests>=2.33.0,<3.0` for CVE-2026-25645 (transitive via `resend`).
+  - Dev extra: `pygments` installed from git at `24b8aa76` (Pygments [#3064](https://github.com/pygments/pygments/pull/3064)) to address CVE-2026-4539 while PyPI remains on 2.19.2; revert to a normal PyPI constraint when a patched release ships.
 
 ## [0.16.0] - 2026-03-08
 

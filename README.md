@@ -4,7 +4,7 @@
 
 **XrayRadar** is an error-monitoring platform: your applications send exceptions and context to a central server, which groups them into **issues**, surfaces them in a **dashboard**, and can **notify** you by email when something breaks. It is designed to stay simple to self-host while remaining comfortable for small teams and production workloads.
 
-This repository contains the **open-source backend and web app** (FastAPI + PostgreSQL + React) that powers ingestion, auth, projects, API tokens, alerts, and the marketing site. Client libraries (for example the [`xrayradar`](https://pypi.org/project/xrayradar/) Python SDK) send events to the HTTP API exposed here.
+This repository contains the **open-source backend and web app** (FastAPI + PostgreSQL + React) that powers ingestion, auth, projects, API tokens, alerts, and the marketing site. **Client SDKs** (below) send events to the HTTP API exposed here.
 
 > **GitHub:** The project is published under the repository name **XrayRadar**. The Python package metadata in `pyproject.toml` still uses the name `xrayradar-server` for installs from a local checkout (`uv sync` / tooling); that does not change how you run or brand the app.
 
@@ -19,6 +19,65 @@ This repository contains the **open-source backend and web app** (FastAPI + Post
 - **Alerts** — Project- and environment-level email digests with cooldowns; optional [Resend](https://resend.com/) integration for transactional mail (verification, password reset, alerts).
 - **Admin tools** — GitHub OAuth–backed admin UI and APIs for tokens, users, token requests, and operational visibility.
 - **Marketing site** — The `xrayradar-web` Vite/React app builds into static assets served by the backend in production.
+
+## Client SDKs
+
+Events are sent to `POST /api/{project_id}/store/` using a **DSN** and API token. Official libraries (same assets as the marketing site in [`xrayradar-web/src/assets/sdk-logos/`](xrayradar-web/src/assets/sdk-logos/)):
+
+<table>
+<tr valign="top">
+<td width="32%">
+
+**Python**
+
+<p align="left">Official SDK on PyPI — middleware for <strong>Django</strong>, <strong>FastAPI</strong>, <strong>Flask</strong>.</p>
+
+<p align="left">
+<a href="https://pypi.org/project/xrayradar/"><img src="xrayradar-web/src/assets/sdk-logos/fastapi.svg" width="22" height="22" alt="FastAPI" valign="middle" /> FastAPI</a><br /><br />
+<a href="https://pypi.org/project/xrayradar/"><img src="xrayradar-web/src/assets/sdk-logos/django.svg" width="22" height="22" alt="Django" valign="middle" /> Django</a><br /><br />
+<a href="https://pypi.org/project/xrayradar/"><img src="xrayradar-web/src/assets/sdk-logos/flask.svg" width="22" height="22" alt="Flask" valign="middle" /> Flask</a>
+</p>
+
+<p align="left"><a href="https://pypi.org/project/xrayradar/"><strong>View on PyPI →</strong></a></p>
+
+</td>
+<td width="36%">
+
+**JavaScript / TypeScript**
+
+<p align="left">Packages on npm — <strong>Node</strong>, <strong>Express</strong>, <strong>Koa</strong>, <strong>React</strong>, <strong>Next.js</strong>, <strong>Remix</strong>.</p>
+
+<p align="left">
+<a href="https://www.npmjs.com/package/@xrayradar/node"><img src="xrayradar-web/src/assets/sdk-logos/node.svg" width="22" height="22" alt="Node.js" valign="middle" /> Node.js</a><br /><br />
+<a href="https://www.npmjs.com/package/@xrayradar/node"><img src="xrayradar-web/src/assets/sdk-logos/Express.svg" width="22" height="22" alt="Express" valign="middle" /> Express</a><br /><br />
+<a href="https://www.npmjs.com/package/@xrayradar/node"><img src="xrayradar-web/src/assets/sdk-logos/koa.svg" width="22" height="22" alt="Koa" valign="middle" /> Koa</a><br /><br />
+<a href="https://www.npmjs.com/package/@xrayradar/react"><img src="xrayradar-web/src/assets/sdk-logos/react.svg" width="22" height="22" alt="React" valign="middle" /> React</a><br /><br />
+<a href="https://www.npmjs.com/package/@xrayradar/nextjs"><img src="xrayradar-web/src/assets/sdk-logos/nextjs.svg" width="22" height="22" alt="Next.js" valign="middle" /> Next.js</a><br /><br />
+<a href="https://www.npmjs.com/package/@xrayradar/node"><strong>Remix</strong></a> <sub>(via <code>@xrayradar/node</code>)</sub>
+</p>
+
+<p align="left"><a href="https://www.npmjs.com/package/@xrayradar/node"><strong>View on npm →</strong></a></p>
+
+</td>
+<td width="32%">
+
+**Android / Kotlin**
+
+<p align="left">Kotlin SDK on <strong>Maven Central</strong> — crash capture, breadcrumbs, offline queue, <strong>WorkManager</strong> retry. minSdk <strong>24+</strong>.</p>
+
+<p align="left">
+<a href="https://github.com/KingPegasus/XrayRadar-Android-SDK"><img src="xrayradar-web/src/assets/sdk-logos/android.svg" width="22" height="22" alt="Android" valign="middle" /> Android</a><br /><br />
+<a href="https://github.com/KingPegasus/XrayRadar-Android-SDK"><img src="xrayradar-web/src/assets/sdk-logos/Kotlin.svg" width="22" height="22" alt="Kotlin" valign="middle" /> Kotlin</a>
+</p>
+
+<p align="left">
+<a href="https://central.sonatype.com/artifact/com.xrayradar/xrayradar-android"><strong>Maven Central →</strong></a><br />
+<a href="https://github.com/KingPegasus/XrayRadar-Android-SDK"><strong>View on GitHub →</strong></a>
+</p>
+
+</td>
+</tr>
+</table>
 
 ## Screenshots
 

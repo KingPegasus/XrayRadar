@@ -213,6 +213,10 @@ XrayRadar.captureMessage("App started", level = "info")
 export const PYPI_URL = 'https://pypi.org/project/xrayradar/'
 export const NPM_URL = 'https://www.npmjs.com/package/@xrayradar/node'
 export const ANDROID_SDK_URL = 'https://github.com/KingPegasus/XrayRadar-Android-SDK'
+/** Backend + marketing web app (this monorepo). */
+export const SERVER_SOURCE_URL = 'https://github.com/KingPegasus/XrayRadar'
+export const MAVEN_CENTRAL_ANDROID_URL =
+  'https://central.sonatype.com/artifact/com.xrayradar/xrayradar-android'
 
 /** NPM package page per JS framework (for "View on npm" link). */
 export const NPM_URL_BY_FRAMEWORK = {
