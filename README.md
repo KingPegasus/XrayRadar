@@ -11,7 +11,7 @@ This repository contains the **open-source backend and web app** (FastAPI + Post
 > **GitHub:** The project is published under the repository name **XrayRadar**. The Python package metadata in `pyproject.toml` still uses the name `xrayradar-server` for installs from a local checkout (`uv sync` / tooling); that does not change how you run or brand the app.
 
 ![Backend Coverage](https://img.shields.io/badge/backend%20coverage-97%25-brightgreen?style=flat-square)
-![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-96.3%25-brightgreen?style=flat-square)
+![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-96%25-brightgreen?style=flat-square)
 
 ## What you get
 
