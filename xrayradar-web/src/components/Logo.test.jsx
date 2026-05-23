@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, waitFor } from '@testing-library/react'
 import { fireEvent } from '@testing-library/react'
 import { Logo } from './Logo'
 
@@ -9,18 +9,18 @@ describe('Logo', () => {
   })
 
   it('renders logo image with default props', () => {
-    render(<Logo />)
+    const { container } = render(<Logo />)
 
-    const img = screen.getByRole('img', { hidden: true })
+    const img = container.querySelector('img')
     expect(img).toBeInTheDocument()
     expect(img).toHaveAttribute('width', '120')
     expect(img).toHaveAttribute('height', '36')
   })
 
   it('renders logo image with custom props', () => {
-    render(<Logo width={200} height={50} className="custom-class" />)
+    const { container } = render(<Logo width={200} height={50} className="custom-class" />)
 
-    const img = screen.getByRole('img', { hidden: true })
+    const img = container.querySelector('img')
     expect(img).toHaveAttribute('width', '200')
     expect(img).toHaveAttribute('height', '50')
     expect(img).toHaveClass('custom-class')
