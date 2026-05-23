@@ -14,15 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           # Disable cache to avoid job failure when GitHub cache service is unavailable (post cleanup)
           enable-cache: false
@@ -43,14 +43,14 @@ jobs:
           echo "$COV" > backend-cov.txt
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-py3.12
           path: coverage.xml
           if-no-files-found: error
 
       - name: Upload backend coverage percentage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-cov-txt
           path: backend-cov.txt
@@ -60,15 +60,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           enable-cache: false
 
@@ -79,16 +79,15 @@ jobs:
 
       - name: Dependency audit (pip-audit)
         run: |
-          # pygments: dev dep is installed from git (fix merged); wheel metadata is still 2.19.2 until PyPI > 2.19.2
-          uv run pip-audit --ignore-vuln CVE-2026-4539
+          uv run pip-audit
 
       - name: Static security scan (bandit)
         run: uv run bandit -q -r src
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: xrayradar-web/package-lock.json
 
@@ -105,12 +104,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: xrayradar-web/package-lock.json
 
@@ -129,14 +128,14 @@ jobs:
           echo "${COV:-0}" > frontend-cov.txt
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-frontend
           path: xrayradar-web/coverage/
           if-no-files-found: warn
 
       - name: Upload frontend coverage percentage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-cov-txt
           path: xrayradar-web/frontend-cov.txt
@@ -150,18 +149,18 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.head_ref }}
 
       - name: Download backend coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: backend-cov-txt
 
       - name: Download frontend coverage percentage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-cov-txt
 
@@ -221,6 +220,8 @@ jobs:
           PYEOF
 
       - name: Commit and push if changed
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -230,5 +231,5 @@ jobs:
           fi
           git add README.md
           git commit -m "chore: update test coverage badges [skip ci]"
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin "HEAD:${HEAD_REF}"
 

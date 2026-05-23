@@ -1,4 +1,4 @@
-FROM node:20-slim AS web-build
+FROM node:22-slim AS web-build
 
 WORKDIR /web
 
