@@ -25,6 +25,7 @@ vi.mock('./utils/navigation', async (importOriginal) => {
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    global.fetch = vi.fn()
     // Reset window.location before each test
     Object.defineProperty(window, 'location', {
       value: {

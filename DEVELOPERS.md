@@ -14,7 +14,7 @@ Copy [`.env.example`](.env.example) to `.env` and adjust values (the real `.env`
 ## Security
 
 Security scanning is automated in CI and includes:
-- **Backend**: `bandit` (static analysis) + `pip-audit` (after `uv sync --extra dev`, use `uv run pip-audit --ignore-vuln CVE-2026-4539`; see [SECURITY.md](SECURITY.md))
+- **Backend**: `bandit` (static analysis) + `pip-audit` (after `uv sync --extra dev`, use `uv run pip-audit`; see [SECURITY.md](SECURITY.md))
 - **Frontend**: `npm audit` (dependency vulnerabilities)
 
 **Run security audit locally:**

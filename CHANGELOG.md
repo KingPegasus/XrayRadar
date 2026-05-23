@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-05-24
+
+### Changed
+
+- **Version**
+  - Bumped application version to **0.18.0** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
+- **Backend dependencies**
+  - Raised minimum constraints and refreshed `uv.lock`: FastAPI, Uvicorn, SQLAlchemy, psycopg2-binary, Pydantic, Alembic, Resend, and Requests.
+- **Frontend dependencies**
+  - **React 19** (`react` / `react-dom` 19.2.6).
+  - **Vite 8** and **Vitest 4.1** toolchain (`vite`, `@vitejs/plugin-react`, `@vitest/*`, `jsdom`, Testing Library packages).
+  - Kept `rollup>=4.59.0` override for known bundler advisories.
+- **Dev / CI tooling**
+  - **pytest 9** and **pytest-cov 7** (addresses CVE-2025-71176 in pytest 8.x).
+  - **pip-audit** minimum raised to `>=2.10.0`.
+  - **Pygments** dev dependency switched from git `master` to PyPI `>=2.20.0` (includes fix for CVE-2026-4539); removed `pip-audit --ignore-vuln CVE-2026-4539` from CI and security scripts.
+  - **Node.js 22** for Docker frontend build stage (`node:22-slim`), CI, and coverage workflow (was Node 20).
+  - GitHub Actions upgraded: `actions/checkout@v5`, `actions/setup-python@v6`, `actions/setup-node@v6`, `astral-sh/setup-uv@v8`, `actions/upload-artifact@v7`, `actions/download-artifact@v8`.
+
+### Fixed
+
+- **Frontend tests (React 19 / Vitest 4)**
+  - `App.test.jsx`: mock `global.fetch` in `beforeEach` to avoid unhandled network calls.
+  - `Logo.test.jsx`: query logo via `container` instead of `getByRole('img', { hidden: true })`.
+  - `main.test.jsx`: use per-test `vi.doMock` / `vi.resetModules` so `createRoot` mocking works under Vitest 4.
+  - `vite.config.js`: set `test.fileParallelism: false` for stable jsdom test runs.
+
 ## [0.17.0] - 2026-03-28
 
 ### Changed
@@ -381,6 +408,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.18.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.14.0...v0.15.0

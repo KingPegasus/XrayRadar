@@ -89,8 +89,7 @@ if command -v uv &> /dev/null; then
     uv pip install pip &> /dev/null || true
     
     # pip-audit may exit with non-zero if vulnerabilities found, but still produces valid output
-    # pygments: dev installs from git (CVE-2026-4539 fixed upstream); PKG-INFO still reports 2.19.2 until PyPI release
-    uv run pip-audit --ignore-vuln CVE-2026-4539 --format=json > "$PIP_AUDIT_REPORT" 2>&1 || true
+    uv run pip-audit --format=json > "$PIP_AUDIT_REPORT" 2>&1 || true
     
     if [ -f "$PIP_AUDIT_REPORT" ] && [ -s "$PIP_AUDIT_REPORT" ]; then
         # Check if the report contains valid JSON or is an error
@@ -134,7 +133,7 @@ if command -v uv &> /dev/null; then
                 echo -e "${YELLOW}⚠ pip-audit requires pip in uv environment${NC}"
                 echo -e "${YELLOW}  Attempting to install pip and retry...${NC}"
                 uv pip install pip &> /dev/null
-                uv run pip-audit --ignore-vuln CVE-2026-4539 --format=json > "$PIP_AUDIT_REPORT" 2>&1 || true
+                uv run pip-audit --format=json > "$PIP_AUDIT_REPORT" 2>&1 || true
                 if grep -q "^{" "$PIP_AUDIT_REPORT" 2>/dev/null; then
                     echo -e "${GREEN}✓ pip-audit completed (after pip install)${NC}"
                 else
