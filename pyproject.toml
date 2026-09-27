@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xrayradar-server"
-version = "0.20.0"
+version = "0.20.1"
 description = "Backend server for xrayradar error tracking"
 readme = "README.md"
 license = { text = "MIT" }
@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.141.1,<1.0",
   "uvicorn[standard]>=0.54.0,<1.0",
-  "sqlalchemy>=2.0.54,<3.0",
+  "sqlalchemy>=2.0.54,<2.1",
   "psycopg2-binary>=2.9.13,<3.0",
   "pydantic>=2.13.5,<3.0",
   "httpx>=0.28.1,<1.0",
