@@ -111,6 +111,28 @@ alembic -c alembic.ini upgrade head
 **Note:** Always use `uv run alembic` (not the system `alembic` command) to ensure the correct SQLAlchemy version is used.
 
 
+### SQLite (no Postgres)
+
+The app can run against a local SQLite file instead of Postgres, which is useful for single-instance, low-cost deployments.
+
+```bash
+export XRAYRADAR_DATABASE_URL="sqlite:///./xrayradar.db"
+uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
+```
+
+The schema is created automatically from the SQLAlchemy models at startup, so the Postgres-specific Alembic migrations are skipped for SQLite (both the Docker image and `scripts/run_migrations.py` detect this automatically).
+
+**Migrate existing Postgres data into SQLite:**
+
+```bash
+export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://user:pass@host:5432/xrayradar"
+uv run python scripts/migrate_postgres_to_sqlite.py --target sqlite:///./xrayradar.db
+```
+
+The script preserves primary keys and foreign-key relationships and prints a per-table row count. Run it while pointed at the source Postgres database, then redeploy with `XRAYRADAR_DATABASE_URL` set to the SQLite file path.
+
+> **Render caveat:** Render web services have an **ephemeral filesystem** by default — files written to disk are lost on redeploys and restarts. To keep SQLite data durable you must attach a Render **Persistent Disk** and point `XRAYRADAR_DATABASE_URL` at a path inside that mount (e.g. `sqlite:////var/data/xrayradar.db`). SQLite also only works for a **single-instance** service; do not use it with auto-scaling or multiple replicas.
+
 ### Render.com
 
 On Render, the recommended approach is to run migrations during deploy/startup.
@@ -131,7 +153,7 @@ cd xrayradar-web && npm ci && npm run build
 Example start command:
 
 ```bash
-alembic -c alembic.ini upgrade head && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}
+python scripts/run_migrations.py && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
 **How to check that migrations run on Render:**
@@ -139,10 +161,10 @@ alembic -c alembic.ini upgrade head && uvicorn --proxy-headers --forwarded-allow
 1. In the [Render Dashboard](https://dashboard.render.com), open your **Web Service** (your XrayRadar deployment).
 2. Go to the **Settings** tab.
 3. **Start Command** (under "Build & Deploy"):
-   - **If you use Docker:** Leave Start Command **empty**. The image uses a default `CMD` that runs `alembic upgrade head` then `uvicorn`. If you set a custom Start Command, it **overrides** the Dockerfile `CMD` — so it must include migrations, e.g. `alembic -c alembic.ini upgrade head && uvicorn ...`.
-   - **If you do not use Docker:** Set Start Command to the example above (`alembic -c alembic.ini upgrade head && uvicorn ...`). The `alembic upgrade head` part must run before `uvicorn` so the DB schema is up to date at startup.
-4. **Environment:** Ensure `XRAYRADAR_DATABASE_URL` is set (and points to your Render Postgres or external DB). Migrations run against this database.
-5. After a deploy, open the **Logs** tab and look for Alembic output at startup (e.g. `INFO  [alembic.runtime.migration] Running upgrade ...`). If you see that, migrations ran. If the app starts without any migration lines, either the Start Command doesn’t include `alembic` or the Docker image’s default CMD was overridden.
+   - **If you use Docker:** Leave Start Command **empty**. The image uses a default `CMD` that runs `python scripts/run_migrations.py` then `uvicorn`. If you set a custom Start Command, it **overrides** the Dockerfile `CMD` — so it must include the migration step, e.g. `python scripts/run_migrations.py && uvicorn ...`.
+   - **If you do not use Docker:** Set Start Command to the example above (`python scripts/run_migrations.py && uvicorn ...`). The migration step must run before `uvicorn` so the DB schema is up to date at startup.
+4. **Environment:** Ensure `XRAYRADAR_DATABASE_URL` is set (and points to your Render Postgres, external DB, or SQLite file). For Postgres, migrations run against this database; for SQLite the schema is created automatically at startup and `run_migrations.py` skips Alembic.
+5. After a deploy, open the **Logs** tab and look for Alembic output at startup (e.g. `INFO  [alembic.runtime.migration] Running upgrade ...`). If you see that, migrations ran. If the app starts without any migration lines, either the Start Command doesn’t include the migration step, the Docker image’s default CMD was overridden, or you are using SQLite (which skips Alembic by design).
 
 Required environment variables (typical):
 

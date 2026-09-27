@@ -19,6 +19,7 @@ WORKDIR /app
 COPY pyproject.toml README.md alembic.ini /app/
 COPY alembic /app/alembic
 COPY src /app/src
+COPY scripts /app/scripts
 COPY --from=web-build /web/dist /app/xrayradar-web/dist
 
 ENV XRAYRADAR_WEB_DIST=/app/xrayradar-web/dist
@@ -33,4 +34,4 @@ EXPOSE 8000
 
 USER app
 
-CMD ["sh","-c","alembic -c alembic.ini upgrade head && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh","-c","python scripts/run_migrations.py && uvicorn --proxy-headers --forwarded-allow-ips='*' --app-dir src xrayradar_server.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
