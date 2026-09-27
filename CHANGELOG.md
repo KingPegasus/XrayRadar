@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-09-27
+
+### Changed
+
+- **Version**
+  - Bumped application version to **0.20.0** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
+- **Backend dependencies**
+  - Raised minimum constraints and refreshed `uv.lock`: FastAPI 0.141.1, Uvicorn 0.54.0, SQLAlchemy 2.0.54 (2.1.1 on Python >=3.11), psycopg2-binary 2.9.13, Pydantic 2.13.5, Alembic 1.20.0, Resend 2.48.0, Pygments 2.21.0, and transitive updates.
+
 ## [0.19.0] - 2026-06-29
 
 ### Changed
@@ -419,6 +428,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.20.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.16.0...v0.17.0
