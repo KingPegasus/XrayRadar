@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Version**
   - Bumped application version to **0.20.0** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
 - **Backend dependencies**
-  - Raised minimum constraints and refreshed `uv.lock`: FastAPI 0.141.1, Uvicorn 0.54.0, SQLAlchemy 2.0.54 (2.1.1 on Python >=3.11), psycopg2-binary 2.9.13, Pydantic 2.13.5, Alembic 1.20.0, Resend 2.48.0, Pygments 2.21.0, and transitive updates.
+  - Raised minimum constraints and refreshed `uv.lock`: FastAPI 0.141.1, Uvicorn 0.54.0, SQLAlchemy 2.0.54 (pinned `<2.1` to keep the `psycopg2` default driver), psycopg2-binary 2.9.13, Pydantic 2.13.5, Alembic 1.20.0, Resend 2.48.0, Pygments 2.21.0, and transitive updates.
 
 ## [0.19.0] - 2026-06-29
 
