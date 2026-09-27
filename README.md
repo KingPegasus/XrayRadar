@@ -139,6 +139,15 @@ export XRAYRADAR_DATABASE_URL="postgresql+psycopg2://xrayradar:xrayradar@localho
 uv run alembic -c alembic.ini upgrade head
 ```
 
+You can also run without Postgres using SQLite:
+
+```bash
+export XRAYRADAR_DATABASE_URL="sqlite:///./xrayradar.db"
+uv run uvicorn --app-dir src xrayradar_server.main:app --reload --port 8001 --env-file .env
+```
+
+The SQLite schema is created automatically from the SQLAlchemy models at startup, so no Alembic migration step is needed.
+
 3. (Optional) Build the web UI: `cd xrayradar-web && npm ci && npm run build && cd ..`
 
 4. Run the API:
