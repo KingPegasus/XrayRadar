@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-09-27
+
+### Fixed
+
+- **PostgreSQL driver regression** — pinned SQLAlchemy to `<2.1` so the bare `postgresql://` scheme keeps resolving to the installed `psycopg2` driver. SQLAlchemy 2.1.x defaults it to `psycopg` (v3), which is not installed and broke Alembic at deploy time.
+
+### Changed
+
+- **Version**
+  - Bumped application version to **0.20.1** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
+
 ## [0.20.0] - 2026-09-27
 
 ### Changed
@@ -428,6 +439,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[0.20.1]: https://github.com/KingPegasus/XrayRadar/compare/v0.20.0...v0.20.1
 [0.20.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/KingPegasus/XrayRadar/compare/v0.17.0...v0.18.0
