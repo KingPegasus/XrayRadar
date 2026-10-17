@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-10-17
+
+### Changed
+
+- **Version**
+  - Bumped application version to **0.21.0** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
+- **Backend dependencies**
+  - Raised minimum constraints and refreshed `uv.lock`: FastAPI 0.143.3, SQLAlchemy 2.0.55 (still pinned `<2.1`), Pydantic 2.14.1, Resend 2.50.0, pytest-cov 7.1.0, and transitive updates (Starlette 1.8.0, pydantic-core 2.50.1, uvloop 0.23.0, httptools 0.9.0, websockets 17.2).
+  - `uv.lock` regenerated with uv 0.13 (lockfile revision 5).
+- **Frontend dependencies**
+  - React 19.3.1, Vite 8.3.4, `@vitejs/plugin-react` 6.1.2, Vitest 5.0.5 (major), `@vitest/coverage-v8` / `@vitest/ui` 5.0.5, jsdom 30.1.3 (major), `@testing-library/jest-dom` 7.0.1 (major), `@testing-library/react` 16.3.3, `@testing-library/user-event` 14.6.8.
+  - Raised the `rollup` override floor to 4.64.8.
+
 ## [0.20.1] - 2026-09-27
 
 ### Fixed
