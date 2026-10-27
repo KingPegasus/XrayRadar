@@ -41,9 +41,9 @@ def _mask_url(url: str) -> str:
 def migrate(source_url: str, target_url: str) -> dict[str, int]:
     """Copy every table from ``source_url`` to ``target_url`` and return row counts."""
     from xrayradar_server import models  # noqa: F401  (populates metadata)
-    from xrayradar_server.db import Base
+    from xrayradar_server.db import Base, normalize_database_url
 
-    source_engine = create_engine(source_url)
+    source_engine = create_engine(normalize_database_url(source_url))
     target_engine = create_engine(target_url)
 
     # Create the target schema from the models (cross-dialect safe).

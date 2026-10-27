@@ -4,7 +4,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from xrayradar_server.db import Base
+from xrayradar_server.db import Base, normalize_database_url
 
 
 config = context.config
@@ -17,7 +17,7 @@ def _get_database_url() -> str:
     url = os.getenv("XRAYRADAR_DATABASE_URL")
     if not url:
         raise RuntimeError("XRAYRADAR_DATABASE_URL is not set")
-    return url
+    return normalize_database_url(url)
 
 
 # Ensure models are imported so metadata is populated.
