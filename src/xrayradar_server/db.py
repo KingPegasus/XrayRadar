@@ -8,11 +8,25 @@ class Base(DeclarativeBase):
     pass
 
 
+def normalize_database_url(url: str) -> str:
+    """Pin bare Postgres URLs to the installed psycopg2 driver.
+
+    SQLAlchemy 2.1 resolves ``postgresql://`` to psycopg (v3), which is not
+    installed. Hosts like Render hand out bare ``postgres://`` /
+    ``postgresql://`` URLs, so rewrite those to ``postgresql+psycopg2://``.
+    URLs that already name a driver are left untouched.
+    """
+    for scheme in ("postgres://", "postgresql://"):
+        if url.startswith(scheme):
+            return "postgresql+psycopg2://" + url[len(scheme):]
+    return url
+
+
 def get_database_url() -> str:
     url = os.getenv("XRAYRADAR_DATABASE_URL")
     if not url:
         raise RuntimeError("XRAYRADAR_DATABASE_URL is not set")
-    return url
+    return normalize_database_url(url)
 
 
 _engine = None

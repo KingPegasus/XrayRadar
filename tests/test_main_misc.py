@@ -532,6 +532,40 @@ def test_db_get_database_url_missing(monkeypatch):
         dbmod.get_database_url()
 
 
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("postgresql://u:p@h:5432/db", "postgresql+psycopg2://u:p@h:5432/db"),
+        ("postgres://u:p@h:5432/db", "postgresql+psycopg2://u:p@h:5432/db"),
+        ("postgresql+psycopg2://u:p@h/db", "postgresql+psycopg2://u:p@h/db"),
+        ("postgresql+psycopg://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+        ("sqlite:///./x.db", "sqlite:///./x.db"),
+    ],
+)
+def test_db_normalize_database_url(url, expected):
+    import xrayradar_server.db as dbmod
+
+    assert dbmod.normalize_database_url(url) == expected
+
+
+def test_db_get_database_url_normalizes_bare_postgres(monkeypatch):
+    monkeypatch.setenv("XRAYRADAR_DATABASE_URL", "postgresql://u:p@h:5432/db")
+
+    import xrayradar_server.db as dbmod
+
+    assert dbmod.get_database_url() == "postgresql+psycopg2://u:p@h:5432/db"
+
+
+def test_db_bare_postgres_url_resolves_to_psycopg2_dialect():
+    """Regression for #19: SQLAlchemy 2.1 maps bare postgresql:// to psycopg v3."""
+    from sqlalchemy.engine import make_url
+
+    import xrayradar_server.db as dbmod
+
+    url = make_url(dbmod.normalize_database_url("postgresql://u:p@h/db"))
+    assert url.get_dialect().driver == "psycopg2"
+
+
 def test_db_engine_dispose_on_url_change(monkeypatch, tmp_path):
     """Test that engine is disposed when database URL changes (covers line 30 in db.py)."""
     import importlib

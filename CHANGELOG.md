@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-10-27
+
+### Changed
+
+- **Version**
+  - Bumped application version to **0.22.0** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
+- **SQLAlchemy 2.1**
+  - Lifted the `<2.1` pin added in 0.20.1; now `sqlalchemy>=2.1.6,<3.0`.
+  - Added `normalize_database_url()` in `xrayradar_server.db`: bare `postgres://` / `postgresql://` URLs are rewritten to `postgresql+psycopg2://`, so they keep using the installed psycopg2 driver instead of SQLAlchemy 2.1's psycopg (v3) default. Used by the app engine, Alembic `env.py`, and `scripts/migrate_postgres_to_sqlite.py`. URLs that name a driver are unchanged.
+  - `greenlet` is no longer pulled in (SQLAlchemy 2.1 makes it optional; the app does not use async SQLAlchemy).
+- **Python support**
+  - `requires-python` raised to **>=3.11** (SQLAlchemy 2.1 requires it; Python 3.10 reaches end-of-life in October 2026). CI and the Docker image already use 3.12.
+- **Backend dependencies**
+  - FastAPI 0.162.0 (from 0.143.3; reviewed the 0.145–0.162 breaking changes — form/file handling, `root_path`, `openapi_prefix`, `**extra` params, null-vs-omitted body values — none apply to this codebase), Alembic 1.20.1, Starlette 1.10.0, and transitive updates.
+- **Frontend dependencies**
+  - Vite 8.3.5; `rollup` override floor raised to 4.65.1.
+- **CI / build**
+  - Node.js **24** (Active LTS) in CI and the Docker web-build stage (was 22).
+  - `actions/checkout` v7, `actions/setup-python` v7, `actions/setup-node` v7, `astral-sh/setup-uv` v10.3.2 (SHA-pinned).
+
 ## [0.21.0] - 2026-10-17
 
 ### Changed
