@@ -51,6 +51,10 @@ export function DashboardLayout({ me, onLogout, children }) {
             <Link to="/terms">Terms</Link>
             <a href="mailto:dev@xrayradar.com">Contact</a>
           </div>
+          <div className="small">
+            Built by{' '}
+            <a href="https://rhymesolutions.com/" target="_blank" rel="noopener">Rhyme Solutions</a>
+          </div>
         </div>
       </footer>
     </>
