@@ -425,7 +425,10 @@ export function LandingPage({ me, onSignupOpen, onLogout }) {
 
         <footer className="footer">
           <div className="container footerInner">
-            <div className="small">© {new Date().getFullYear()} XrayRadar</div>
+            <div className="small">
+              © {new Date().getFullYear()} XrayRadar · Built by{' '}
+              <a href="https://rhymesolutions.com/" target="_blank" rel="noopener">Rhyme Solutions</a>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
               <div className="small" style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
                 <a href="#features">Features</a>

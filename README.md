@@ -175,6 +175,10 @@ CI runs backend (`bandit`, `pip-audit`) and frontend (`npm audit`) checks. Repor
 
 Issues and pull requests are welcome. Use [DEVELOPERS.md](DEVELOPERS.md) for setup, tests (`uv run pytest`, `cd xrayradar-web && npm test`), and conventions.
 
+## Maintainers
+
+XrayRadar is built and maintained by [Rhyme Solutions](https://rhymesolutions.com/).
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
