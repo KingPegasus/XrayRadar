@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { usePathname } from './hooks/usePathname'
 import { navigate } from './utils/navigation'
 import { fetchMe } from './utils/api'
+import { useSeo } from './hooks/useSeo'
+import { isKnownPath } from '../seo.config.js'
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })))
 const LandingPage = lazy(() => import('./pages/LandingPage').then((m) => ({ default: m.LandingPage })))
@@ -13,10 +15,12 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then((m
 const AcceptInvitePage = lazy(() => import('./pages/AcceptInvitePage').then((m) => ({ default: m.AcceptInvitePage })))
 const DashboardLayout = lazy(() => import('./components/DashboardLayout').then((m) => ({ default: m.DashboardLayout })))
 const DashboardRouter = lazy(() => import('./routes/DashboardRouter').then((m) => ({ default: m.DashboardRouter })))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 const SignupModal = lazy(() => import('./components/SignupModal').then((m) => ({ default: m.SignupModal })))
 
 export default function App() {
   const path = usePathname()
+  useSeo(path)
   const [signupOpen, setSignupOpen] = useState(false)
   const [signupPlan, setSignupPlan] = useState('Free')
   const [me, setMe] = useState(null)
@@ -140,6 +144,10 @@ export default function App() {
         <DashboardRouter path={path} me={me} />
       </DashboardLayout>
     )
+  }
+
+  if (!isKnownPath(path)) {
+    return <NotFoundPage />
   }
 
   return (

@@ -8,7 +8,7 @@ export function PrivacyPolicyPage() {
           <header className="pageHeader">
             <h1 className="pageTitle">Privacy Policy</h1>
             <p className="pageSubtitle">
-              Effective: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              Effective: February 15, 2026
             </p>
             <div style={{ marginTop: 12 }}>
               <Link to="/" className="small">Back to home</Link>

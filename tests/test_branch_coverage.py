@@ -231,8 +231,10 @@ def test_web_router_uncovered_branches(tmp_path, monkeypatch):
     r = client2.get("/admin")
     assert r.status_code == 404
 
+    # No 404.html (build predates pre-rendered routes): legacy SPA fallback with 200
     r = client2.get("/some-client-route")
     assert r.status_code == 200
+    assert "ok" in r.text
 
 
 @pytest.mark.anyio
@@ -258,3 +260,79 @@ async def test_web_router_should_not_fallback_when_path_is_empty_after_strip(tmp
     )
     response = await handler(request, StarletteHTTPException(status_code=404, detail="Not Found"))
     assert response.status_code == 404
+
+
+def test_seo_routes_sitemap_and_redirects(tmp_path, monkeypatch):
+    from xrayradar_server.routers.web import register_web
+    import xrayradar_server.routers.web as webmod
+
+    web_dist = tmp_path / "dist"
+    (web_dist / "privacy").mkdir(parents=True)
+    (web_dist / "index.html").write_text("<html>home</html>")
+    (web_dist / "404.html").write_text("<html>not found</html>")
+    (web_dist / "privacy" / "index.html").write_text("<html>privacy</html>")
+    (web_dist / "sitemap.xml").write_text("<urlset></urlset>")
+    monkeypatch.setenv("XRAYRADAR_WEB_DIST", str(web_dist))
+
+    original_apps = webmod._registered_apps.copy()
+    webmod._registered_apps.clear()
+    try:
+        app = FastAPI()
+        register_web(app, register_catch_all=True)
+        client = TestClient(app)
+
+        r = client.get("/sitemap.xml")
+        assert r.status_code == 200 and "urlset" in r.text
+
+        r = client.get("/privacy")
+        assert r.status_code == 200 and "privacy" in r.text
+
+        r = client.get("/privacy/?a=1", follow_redirects=False)
+        assert r.status_code == 301 and r.headers["location"] == "/privacy?a=1"
+
+        r = client.get("/nope")
+        assert r.status_code == 404 and "not found" in r.text
+
+        r = client.get("/dashboard/projects/1")
+        assert r.status_code == 200 and "home" in r.text
+        assert r.headers["x-robots-tag"] == "noindex"
+
+        (web_dist / "dashboard.html").write_text("<html>dash</html>")
+        r = client.get("/dashboard/projects/1/issues/ab/events/e.1")
+        assert r.status_code == 200 and "dash" in r.text
+
+        # Open-redirect attempts never become redirects
+        for evil in ("/%5Cevil.com/", "/%5C%5Cevil.com/", r"/\evil.com/", "/evil.com/", "/a/%2e%2e/"):
+            r = client.get(evil, follow_redirects=False)
+            assert r.status_code == 404, evil
+            assert "location" not in r.headers
+
+        r = client.get("/index.html", follow_redirects=False)
+        assert r.status_code == 301 and r.headers["location"] == "/"
+
+        r = client.head("/sitemap.xml")
+        assert r.status_code == 200
+        r = client.head("/")
+        assert r.status_code == 200
+        # HEAD to a server path keeps "method not allowed" rather than a 404
+        r = client.head("/health")
+        assert r.status_code == 405
+
+        # Trailing newline (%0A): Starlette's router drops it before the handler; it
+        # must never produce a redirect (header injection) or a non-page response.
+        r = client.get("/privacy%0A", follow_redirects=False)
+        assert r.status_code in (200, 404)
+        assert "location" not in r.headers
+
+        # Legacy section URLs redirect in one hop, even with a trailing slash
+        r = client.get("/pricing/", follow_redirects=False)
+        assert r.status_code == 301 and r.headers["location"] == "/#pricing"
+
+        # Mixed-case page names redirect to lowercase (same result on every OS)
+        r = client.get("/Privacy", follow_redirects=False)
+        assert r.status_code == 301 and r.headers["location"] == "/privacy"
+        r = client.get("/Dashboard/projects/1/issues/ab/events/AbC", follow_redirects=False)
+        assert r.status_code == 301
+        assert r.headers["location"] == "/dashboard/projects/1/issues/ab/events/AbC"
+    finally:
+        webmod._registered_apps = original_apps

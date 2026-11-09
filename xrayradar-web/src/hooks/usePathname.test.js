@@ -85,3 +85,15 @@ describe('usePathname', () => {
     expect(removeEventListenerSpy).toHaveBeenCalledWith('popstate', expect.any(Function))
   })
 })
+
+describe('usePathname trailing slash', () => {
+  it('strips trailing slashes so /privacy/ routes like /privacy', () => {
+    Object.defineProperty(window, 'location', {
+      value: { pathname: '/privacy/' },
+      writable: true,
+      configurable: true,
+    })
+    const { result } = renderHook(() => usePathname())
+    expect(result.current).toBe('/privacy')
+  })
+})

@@ -4,29 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <title>XrayRadar — Error tracking that stays out of your way</title>
-    <meta name="description" content="XrayRadar is a minimal error tracking stack: open-source server and dashboard, lightweight SDKs, optional hosted service. Capture errors, debug faster, ship with confidence." />
-    <meta name="keywords" content="error tracking, exception monitoring, Python SDK, error reporting, debugging, application monitoring" />
-    <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://xrayradar.com/" />
+    <link rel="icon" type="image/svg+xml" href="/logo_square.svg" />
+    <title>XrayRadar — Open-source error tracking that stays out of your way</title>
+    <meta name="description" content="XrayRadar is a minimal error tracking stack: open-source server and dashboard, lightweight Python, JavaScript and Android SDKs, and an optional hosted service. Capture exceptions, debug faster, ship with confidence." />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="%SITE_URL%/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="XrayRadar — Error tracking that stays out of your way" />
+    <meta property="og:title" content="XrayRadar — Open-source error tracking that stays out of your way" />
     <meta property="og:description" content="Open-source server and dashboard, lightweight SDKs, optional hosted service. Capture exceptions, keep context, debug faster — without the bloat." />
-    <meta property="og:url" content="https://xrayradar.com/" />
+    <meta property="og:url" content="%SITE_URL%/" />
     <meta property="og:site_name" content="XrayRadar" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:image" content="https://xrayradar.com/og-image.webp" />
+    <meta property="og:image" content="%OG_IMAGE%" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:secure_url" content="%OG_IMAGE%" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="XrayRadar — Error tracking that stays out of your way" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="XrayRadar — Error tracking that stays out of your way" />
+    <meta name="twitter:title" content="XrayRadar — Open-source error tracking that stays out of your way" />
     <meta name="twitter:description" content="Open-source server and dashboard, lightweight SDKs, optional hosted service. Capture errors, debug faster, ship with confidence." />
-    <meta name="twitter:image" content="https://xrayradar.com/og-image.webp" />
+    <meta name="twitter:image" content="%OG_IMAGE%" />
     <meta name="twitter:image:alt" content="XrayRadar — Error tracking that stays out of your way" />
 
     <meta name="theme-color" content="#0f172a" />
@@ -34,42 +36,56 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "XrayRadar",
-      "url": "https://xrayradar.com",
-      "description": "Minimal error tracking: open-source server and dashboard, lightweight SDKs, optional hosted service. Capture exceptions, keep context, and debug faster."
-    }
-    </script>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "XrayRadar",
-      "applicationCategory": "DeveloperApplication",
-      "operatingSystem": "Web",
-      "description": "Error tracking and exception monitoring. Open-source server and web app, Python and JavaScript SDKs, token-based auth, email alerts, optional hosted service.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "creator": {
-        "@type": "Organization",
-        "name": "Rhyme Solutions",
-        "legalName": "Rhyme Solutions (Private) Limited",
-        "url": "https://rhymesolutions.com/"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "Rhyme Solutions",
-        "legalName": "Rhyme Solutions (Private) Limited",
-        "url": "https://rhymesolutions.com/"
-      }
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://rhymesolutions.com/#organization",
+          "name": "Rhyme Solutions",
+          "legalName": "Rhyme Solutions (Private) Limited",
+          "url": "https://rhymesolutions.com/"
+        },
+        {
+          "@type": "Organization",
+          "@id": "%SITE_URL%/#organization",
+          "name": "XrayRadar",
+          "url": "%SITE_URL%",
+          "logo": "%SITE_URL%/xray-logo.png",
+          "email": "dev@xrayradar.com",
+          "sameAs": ["https://www.linkedin.com/company/xrayradar"],
+          "parentOrganization": { "@id": "https://rhymesolutions.com/#organization" }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "%SITE_URL%/#website",
+          "name": "XrayRadar",
+          "url": "%SITE_URL%",
+          "description": "Minimal error tracking: open-source server and dashboard, lightweight SDKs, optional hosted service. Capture exceptions, keep context, and debug faster.",
+          "publisher": { "@id": "https://rhymesolutions.com/#organization" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "%SITE_URL%/#software",
+          "name": "XrayRadar",
+          "url": "%SITE_URL%",
+          "image": "%OG_IMAGE%",
+          "applicationCategory": "DeveloperApplication",
+          "operatingSystem": "Web",
+          "description": "Error tracking and exception monitoring. Open-source server and web app, Python and JavaScript SDKs, token-based auth, email alerts, optional hosted service.",
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "creator": { "@id": "https://rhymesolutions.com/#organization" },
+          "publisher": { "@id": "https://rhymesolutions.com/#organization" }
+        }
+      ]
     }
     </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>XrayRadar — Open-source error tracking</h1>
+      <p>Open-source server and dashboard, lightweight Python, JavaScript and Android SDKs, and an optional hosted service. Please enable JavaScript to use XrayRadar.</p>
+      <p><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a> · <a href="mailto:dev@xrayradar.com">Contact</a></p>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
