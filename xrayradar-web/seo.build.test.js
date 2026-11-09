@@ -28,6 +28,14 @@ describe('seo build helpers', () => {
     expect(out).toContain('<meta property="og:url" content="https://xrayradar.com/privacy" />')
   })
 
+  it('applies the homepage entry from seo.config', () => {
+    const home = getSeoForPath('/')
+    const out = applySeoToHtml(fillPlaceholders(HTML), home)
+    expect(out).toContain(`<meta property="og:description" content="${home.description}" />`)
+    expect(out).toContain(`<meta name="twitter:description" content="${home.description}" />`)
+    expect(out).toContain('<link rel="canonical" href="https://xrayradar.com/" />')
+  })
+
   it('drops canonical and og:url for noindex pages', () => {
     const out = applySeoToHtml(fillPlaceholders(HTML), getSeoForPath('/dashboard'))
     expect(out).toContain('content="noindex, follow"')

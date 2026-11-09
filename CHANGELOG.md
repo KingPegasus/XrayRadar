@@ -5,7 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.23.0] - 2026-11-09
+
+### Fixed
+
+- The homepage's title, description and share tags now come from `seo.config.js` at build time, like every other page (previously `index.html` kept its hand-written Open Graph/Twitter description).
+- Added `<meta name="author" content="Rhyme Solutions">` (clears LinkedIn Post Inspector's "No author found").
 
 ### Added
 
@@ -16,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Version**
+  - Bumped application version to **0.23.0** in `pyproject.toml`, FastAPI app metadata, and `xrayradar-web/package.json`.
 - Unknown URLs now return HTTP 404 with a "Page not found" page instead of a 200 landing page (fixes soft-404s).
 - Dashboard responses send `X-Robots-Tag: noindex`; trailing-slash and mixed-case page URLs 301 to the canonical form; `/pricing`, `/features`, `/sdks`, `/faq` 301 to landing page sections in one hop.
 - JSON-LD merged into a single `@graph` linking the XrayRadar organization, website and software application to Rhyme Solutions (creator/publisher).
