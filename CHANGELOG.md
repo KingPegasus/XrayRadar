@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **SEO / Google Search Console**
+  - `sitemap.xml` (per-page `lastmod`) and `robots.txt` generated at build time from `xrayradar-web/seo.config.js`; `robots.txt` references the sitemap and disallows `/dashboard`, `/api/`, `/auth/`. Both answer `HEAD` as well as `GET`.
+  - Per-route pre-rendered `<head>` (title, description, canonical, Open Graph, robots) for public pages; auth pages are `noindex`.
+  - `useSeo` hook keeps head tags in sync on client-side navigation; Organization JSON-LD added.
+
+### Changed
+
+- Unknown URLs now return HTTP 404 with a "Page not found" page instead of a 200 landing page (fixes soft-404s).
+- Dashboard responses send `X-Robots-Tag: noindex`; trailing-slash and mixed-case page URLs 301 to the canonical form; `/pricing`, `/features`, `/sdks`, `/faq` 301 to landing page sections in one hop.
+- JSON-LD merged into a single `@graph` linking the XrayRadar organization, website and software application to Rhyme Solutions (creator/publisher).
+- Social share image is now `og-image.png` (WebP isn't supported by LinkedIn and some other platforms); `og-image.webp` is still served.
+- Privacy Policy and Terms of Service show a fixed effective date (February 15, 2026) instead of today's date.
+- **Packages**
+  - Python: fastapi 0.162.2, pydantic 2.14.3, SQLAlchemy 2.1.8, resend 2.52.0, pytest 9.2.0 (+ transitive updates in `uv.lock`).
+  - Web: vite 8.3.7, @vitejs/plugin-react 6.3.0, vitest / @vitest/ui / @vitest/coverage-v8 5.1.0, jsdom 31.0.0.
+
 ## [0.22.0] - 2026-10-27
 
 ### Changed

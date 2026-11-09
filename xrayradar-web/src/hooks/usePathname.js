@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { NAVIGATE_EVENT } from '../utils/navigation'
+import { normalizePath } from '../../seo.config.js'
 
 export function usePathname() {
-  const [path, setPath] = useState(() => window.location.pathname || '/')
+  const [path, setPath] = useState(() => normalizePath(window.location.pathname))
   useEffect(() => {
-    const updatePath = () => setPath(window.location.pathname || '/')
-    const onNavigate = (e) => setPath(e.detail?.path || window.location.pathname || '/')
+    const updatePath = () => setPath(normalizePath(window.location.pathname))
+    const onNavigate = (e) => setPath(normalizePath(e.detail?.path || window.location.pathname))
 
     window.addEventListener('popstate', updatePath)
     window.addEventListener(NAVIGATE_EVENT, onNavigate)

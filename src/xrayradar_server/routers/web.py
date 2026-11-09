@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -35,7 +35,7 @@ def register_web(app: FastAPI, register_catch_all: bool = True) -> None:
 
     # Only register root route once per app instance
     if id(app) not in _registered_apps:
-        @app.get("/", include_in_schema=False)
+        @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
         def web_root():
             if web_index.exists():
                 return FileResponse(str(web_index))
@@ -89,10 +89,28 @@ def register_web(app: FastAPI, register_catch_all: bool = True) -> None:
         # This includes /pricing, /some-client-route, etc.
         return True
 
-    # Root static files (favicon, robots, etc.) - serve from dist if present
-    _root_static = ("favicon.ico", "robots.txt", "manifest.json", "apple-touch-icon.png", "og-image.webp", "logo.svg", "logo_square.svg", "xray-logo.png")
+    # Root static files (favicon, robots, sitemap, etc.) - serve from dist if present
+    _root_static = ("favicon.ico", "robots.txt", "sitemap.xml", "manifest.json", "apple-touch-icon.png", "og-image.webp", "og-image.png", "logo.svg", "logo_square.svg", "xray-logo.png")
 
-    @app.get("/{path:path}", include_in_schema=False)
+    # Legacy URLs that now live as sections of the landing page.
+    _legacy_redirects = {"pricing": "/#pricing", "features": "/#features", "sdks": "/#sdks", "faq": "/#faq"}
+
+    # Pre-rendered route pages emitted by the web build (dist/<route>/index.html).
+    _route_name = re.compile(r"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_.-]+)*$")
+
+    def _is_dashboard(path_name: str) -> bool:
+        return path_name == "dashboard" or path_name.startswith("dashboard/")
+
+    def _not_found() -> FileResponse:
+        """Real 404 status (avoids soft-404s) with the SPA's not-found page."""
+        not_found = web_dist_dir / "404.html"
+        return FileResponse(
+            str(not_found if not_found.is_file() else web_index),
+            status_code=404,
+            headers={"X-Robots-Tag": "noindex"},
+        )
+
+    @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def handle_spa_routes(path: str, request: Request):
         normalized_path = "/" + path if path and not path.startswith("/") else (path or "/")
         path_name = normalized_path.lstrip("/")
@@ -102,8 +120,56 @@ def register_web(app: FastAPI, register_catch_all: bool = True) -> None:
             if static_file.is_file():
                 return FileResponse(str(static_file))
 
-        if _should_spa_fallback(path):
-            if web_index.exists():
-                return FileResponse(str(web_index))
+        if not _should_spa_fallback(path) or not web_index.exists():
+            # HEAD is registered here only for the SPA; for server/API paths keep
+            # the usual "method not allowed" answer instead of a misleading 404.
+            if request.method == "HEAD" and web_index.exists():
+                raise HTTPException(status_code=405, detail="Method Not Allowed", headers={"Allow": "GET"})
+            raise HTTPException(status_code=404, detail="Not Found")
 
-        raise HTTPException(status_code=404, detail="Not Found")
+        route = path_name.strip("/")
+        if not route or route == "index.html":
+            if path_name:
+                return RedirectResponse("/", status_code=301)
+            return FileResponse(str(web_index))
+
+        # Only well-formed route names are considered; anything else (backslashes,
+        # dots, encoded hosts, trailing newlines) is a 404 and is never echoed into a redirect.
+        if not _route_name.fullmatch(route) or any(seg in (".", "..") for seg in route.split("/")):
+            return _not_found()
+
+        # Route names are lowercase; only the first segment is folded so IDs deeper
+        # in dashboard URLs keep their case.
+        first, sep, rest = route.partition("/")
+        canonical = first.lower() + sep + rest
+
+        # Legacy section URLs go straight to their final target (one hop).
+        if canonical in _legacy_redirects:
+            return RedirectResponse(_legacy_redirects[canonical], status_code=301)
+
+        # One canonical URL per page: no trailing slash, lowercase.
+        if canonical != path_name:
+            target = "/" + canonical
+            if request.url.query:
+                target += "?" + request.url.query
+            return RedirectResponse(target, status_code=301)
+
+        # Known public route with pre-rendered SEO head.
+        route_file = web_dist_dir / route / "index.html"
+        if "." not in route and route_file.is_file():
+            return FileResponse(str(route_file))
+
+        # Authenticated app: serve the SPA but keep it out of search results.
+        if _is_dashboard(route):
+            dashboard = web_dist_dir / "dashboard.html"
+            return FileResponse(
+                str(dashboard if dashboard.is_file() else web_index),
+                headers={"X-Robots-Tag": "noindex"},
+            )
+
+        # Builds that predate pre-rendered routes have no 404.html: keep the old
+        # behaviour (SPA with 200) so real pages like /reset-password still work.
+        if not (web_dist_dir / "404.html").is_file():
+            return FileResponse(str(web_index))
+
+        return _not_found()

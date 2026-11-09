@@ -480,7 +480,12 @@ Endpoints:
 - `POST /auth/resend-verification` — Resend verification email (requires session)
 - `GET /api/me` — Current user info when logged in (returns user object); returns `200` with body `null` when unauthenticated (no 401).
 
-The marketing site is served from the backend and includes `robots.txt` (Allow /) for crawler guidance.
+The marketing site is served from the backend. SEO is driven by [`xrayradar-web/seo.config.js`](xrayradar-web/seo.config.js):
+
+- Each route has a title, description and `index` flag. `npm run build` writes a pre-rendered `<head>` per route (`dist/<route>/index.html`), plus `dashboard.html`, `404.html`, `sitemap.xml` and `robots.txt`.
+- **When you change an indexable page's content, update its `lastmod` in `seo.config.js`** (the sitemap uses it as-is, so a stale date tells Google the page hasn't changed).
+- When adding a public page, add it to `PAGES` and to the router in `App.jsx`. Unknown paths return HTTP 404 with the SPA's not-found page.
+- The backend serves pre-rendered routes, sends `X-Robots-Tag: noindex` for `/dashboard*` and 404s, and 301-redirects trailing slashes, mixed-case page names and legacy section URLs (`/pricing` → `/#pricing`).
 
 ## Client dashboard
 

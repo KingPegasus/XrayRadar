@@ -12,6 +12,7 @@ def app_with_web(database_url, monkeypatch, tmp_path):
     assets.mkdir(parents=True)
 
     (dist / "index.html").write_text("<html><body>XRAYRADAR WEB</body></html>", encoding="utf-8")
+    (dist / "404.html").write_text("<html><body>XRAYRADAR WEB not found</body></html>", encoding="utf-8")
     (assets / "hello.txt").write_text("hello", encoding="utf-8")
 
     monkeypatch.setenv("XRAYRADAR_WEB_DIST", str(dist))
@@ -59,11 +60,11 @@ def test_spa_fallback_does_not_hijack_api(app_with_web):
     assert r.status_code == 401
 
 
-def test_spa_fallback_serves_index(app_with_web):
+def test_legacy_section_urls_redirect(app_with_web):
     client = app_with_web
-    r = client.get("/pricing")
-    assert r.status_code == 200
-    assert "XRAYRADAR WEB" in r.text
+    r = client.get("/pricing", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/#pricing"
 
 
 def test_wordpress_paths_are_blocked(app_with_web):
@@ -295,12 +296,11 @@ def test_spa_fallback_client_routes(app_with_web):
     r = client.get("/dashboard")
     assert r.status_code == 200
     assert "XRAYRADAR WEB" in r.text
-    
-    r = client.get("/pricing")
-    assert r.status_code == 200
-    assert "XRAYRADAR WEB" in r.text
-    
+    assert r.headers["x-robots-tag"] == "noindex"
+
+    # Unknown routes return a real 404 (no soft-404s) but still render the SPA
     r = client.get("/some-random-route")
-    assert r.status_code == 200
+    assert r.status_code == 404
     assert "XRAYRADAR WEB" in r.text
+    assert r.headers["x-robots-tag"] == "noindex"
 
