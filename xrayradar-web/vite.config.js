@@ -30,6 +30,8 @@ function seoPlugin() {
       }
       writeFileSync(join(outDir, 'dashboard.html'), applySeoToHtml(indexHtml, { ...DASHBOARD_SEO, canonical: null }))
       writeFileSync(join(outDir, '404.html'), applySeoToHtml(indexHtml, { ...NOT_FOUND_SEO, canonical: null }))
+      // Apply the homepage entry too, so seo.config.js is the source for '/' as well.
+      writeFileSync(join(outDir, 'index.html'), applySeoToHtml(indexHtml, getSeoForPath('/')))
       writeFileSync(join(outDir, 'sitemap.xml'), buildSitemap())
       writeFileSync(join(outDir, 'robots.txt'), buildRobotsTxt())
     },

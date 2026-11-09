@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The homepage's title, description and share tags now come from `seo.config.js` at build time, like every other page (previously `index.html` kept its hand-written Open Graph/Twitter description).
+- Added `<meta name="author" content="Rhyme Solutions">` (clears LinkedIn Post Inspector's "No author found").
+
 ### Added
 
 - **SEO / Google Search Console**
